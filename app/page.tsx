@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import ShowcaseList from '@/app/components/showcase-list'
+import ShowcaseList from '@/components/showcase-list'
 
 export default function Home() {
   return (

@@ -21,7 +21,7 @@ const ExhibitionPage = async ({ params }: Props) => {
   const Exhibit = componentExists.component
 
   return (
-    <div className="flex h-screen w-screen flex-col items-center justify-center">
+    <div className="flex flex-col items-center justify-center">
       <Link href="/" className="absolute top-12 left-12 text-xl">
         Home
       </Link>

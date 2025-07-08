@@ -1,32 +1,57 @@
 'use client'
-import { useRef, useState } from 'react'
+import { LucideArrowDown } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 const KeyBoardButtonComponent = () => {
   const [isPressed, setIsPressed] = useState(false)
   // const [isBroken, setIsBroken] = useState(false)
-
+  const [idle, setIdle] = useState(true)
   const audio = useRef<HTMLAudioElement>(null)
 
-  let pressTimeout: NodeJS.Timeout
+  const pressTimeout = useRef<NodeJS.Timeout>(null)
+  const idleTimeout = useRef<NodeJS.Timeout>(null)
 
-  const handleMouseDown = () => {
-    pressTimeout = setTimeout(() => {
-      // setIsBroken(true)
-    }, 1000) // long press threshold 1s
+  const clearTimeouts = useCallback(() => {
+    if (pressTimeout.current) {
+      clearTimeout(pressTimeout.current)
+      pressTimeout.current = null
+    }
+    if (idleTimeout.current) {
+      clearTimeout(idleTimeout.current)
+      idleTimeout.current = null
+    }
+  }, [])
+
+  const handleMouseDown = useCallback(() => {
+    clearTimeouts()
+
+    // pressTimeout.current = setTimeout(() => {
+    //   // setIsBroken(true)
+    // }, 1000) // long press threshold 1s
+    setIdle(false)
     setIsPressed(true)
     audio.current?.play()
-  }
+    idleTimeout.current = setTimeout(() => setIdle(true), 3000)
+  }, [clearTimeouts])
 
   const handleMouseUp = () => {
-    clearTimeout(pressTimeout)
+    //   clearTimeout(pressTimeout.current)
+    //   pressTimeout.current = null
+    // }
     setIsPressed(false)
   }
+
+  useEffect(() => {
+    return () => {
+      clearTimeouts()
+    }
+  }, [clearTimeouts])
 
   return (
     <AnimatePresence>
       <div
-        className="relative flex h-40 w-40 scale-200 items-center justify-center"
+        className="relative mt-20 flex h-40 w-40 translate-y-25 scale-200 items-center justify-center"
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
@@ -107,6 +132,32 @@ const KeyBoardButtonComponent = () => {
             src="/key_press/click.mp3"
             layoutId="button"
           />
+          <AnimatePresence>
+            {idle && (
+              <motion.div
+                initial={{ opacity: 0, x: 0, y: 0 }}
+                animate={{ opacity: 1, x: -5, y: -110 }}
+                transition={{ duration: 1, ease: 'easeInOut' }}
+                exit={{ opacity: 0, x: 0, y: 0 }}
+                className="absolute top-1/2 left-1/2 z-50 flex h-full w-full -translate-x-1/2 -translate-y-1/2 transform flex-col items-center justify-center text-center text-xl"
+              >
+                Press{' '}
+                <motion.span
+                  initial={{ y: 0 }}
+                  animate={{ y: 10 }}
+                  exit={{ y: 0 }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 80,
+                    damping: 0,
+                    velocity: 8,
+                  }}
+                >
+                  <LucideArrowDown />
+                </motion.span>
+              </motion.div>
+            )}
+          </AnimatePresence>
           {/* 
           {isBroken && (
             <motion.img

@@ -21,7 +21,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${orbitron.className} antialiased`}>{children}</body>
+      <body className={`${orbitron.className} overflow-hidden antialiased`}>
+        {children}
+      </body>
     </html>
   )
 }

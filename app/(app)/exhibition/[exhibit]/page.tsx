@@ -1,5 +1,8 @@
 import React from 'react'
+import Link from 'next/link'
+import Intro from '@/app/components/intro'
 import { registry } from '@/app/utils/registry'
+
 type Props = {
   params: Promise<{ exhibit: string }>
 }
@@ -18,7 +21,12 @@ const ExhibitionPage = async ({ params }: Props) => {
   const Exhibit = componentExists.component
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-neutral-700">
+    <div className="flex h-screen w-screen flex-col items-center justify-center">
+      <Link href="/" className="absolute top-12 left-12 text-xl">
+        Home
+      </Link>
+      <Intro name={componentExists.name} />
+
       <Exhibit />
     </div>
   )

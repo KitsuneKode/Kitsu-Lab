@@ -1,6 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Orbitron } from 'next/font/google'
+import { Provider } from '@/components/provider'
 import { Analytics } from '@vercel/analytics/next'
 
 const orbitron = Orbitron({
@@ -29,9 +30,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${orbitron.className} overflow-hidden antialiased`}>
-        {children}
+        <Provider>{children}</Provider>
         <Analytics />
       </body>
     </html>

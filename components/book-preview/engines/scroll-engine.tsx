@@ -9,6 +9,9 @@ import { useStableHandler } from "../hooks/use-stable-handler"
 import type { BookPreviewEngineProps } from "../types"
 
 const SCROLL_RASTER_WIDTH = 840
+// Keep ~2*radius+1 live rasters instead of the whole document — a 200-page
+// PDF must not hold 200 decoded bitmaps on a phone.
+const SCROLL_WINDOW_RADIUS = 4
 
 export default function ScrollEngine({
   source,
@@ -40,6 +43,7 @@ export default function ScrollEngine({
     pageIndex,
     rasterWidth: SCROLL_RASTER_WIDTH,
     sizing: "per-page",
+    windowRadius: SCROLL_WINDOW_RADIUS,
     onError: reportError,
     errorMessage: "This PDF could not be opened for scrolling.",
   })
@@ -140,6 +144,8 @@ export default function ScrollEngine({
                       src={sheet.src}
                       alt=""
                       draggable={false}
+                      loading="lazy"
+                      decoding="async"
                       className="h-auto w-full bg-background"
                     />
                   ) : (

@@ -1,11 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useId, useRef, useState } from "react"
-import { UploadIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { ZoomInIcon, ZoomOutIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { buttonVariants } from "@/components/ui/button-variants"
 import { Spinner } from "@/components/ui/spinner"
-import { cn } from "@/lib/utils"
 import { DEFAULT_CAPABILITIES } from "../capabilities"
 import { useStableHandler } from "../hooks/use-stable-handler"
 import {
@@ -17,10 +15,21 @@ import {
 } from "../pdf-runtime"
 import type { BookPreviewEngineProps } from "../types"
 
+// A zoom of 0 is the fit-width sentinel: the real scale is derived per page
+// from the live scroller width, so phones and mixed-orientation documents
+// open readable instead of pre-panned.
+const PDF_FIT_ZOOM = 0
+const PDF_MIN_ZOOM = 0.5
+const PDF_MAX_ZOOM = 4
+const PDF_STAGE_PAD = 32
+
+function clampZoom(value: number): number {
+  return Math.min(PDF_MAX_ZOOM, Math.max(PDF_MIN_ZOOM, value))
+}
+
 export default function PdfEngine({
   source,
   pageIndex,
-  onPageChange,
   onReady,
   onError,
 }: BookPreviewEngineProps) {
@@ -29,14 +38,17 @@ export default function PdfEngine({
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const docTaskRef = useRef<PdfLoadResult["task"] | null>(null)
   const [pdf, setPdf] = useState<PdfDocumentProxy | null>(null)
-  const [scale, setScale] = useState(1.2)
-  const [parsing, setParsing] = useState(false)
-  const [fileName, setFileName] = useState(source.pdfFileName ?? "Document")
-  const uploadInputId = useId()
+  const [zoom, setZoom] = useState(PDF_FIT_ZOOM)
+  const [fitted, setFitted] = useState(1)
+  const [fitTick, setFitTick] = useState(0)
+  const fittedRef = useRef(1)
+  const zoomRef = useRef(PDF_FIT_ZOOM)
   const reportReady = useStableHandler(onReady)
   const reportError = useStableHandler(onError)
 
-  const loadFrom = useCallback((src: string | { data: ArrayBuffer }) => loadPdfDocument(src), [])
+  useEffect(() => {
+    zoomRef.current = zoom
+  }, [zoom])
 
   useEffect(() => {
     let cancelled = false
@@ -64,7 +76,7 @@ export default function PdfEngine({
         return
       }
       try {
-        const loaded = await loadFrom(source.pdfUrl)
+        const loaded = await loadPdfDocument(source.pdfUrl)
         if (cancelled) {
           await loaded.task.destroy()
           return
@@ -72,6 +84,8 @@ export default function PdfEngine({
         docTaskRef.current = loaded.task
         doc = loaded.doc
         setPdf(doc)
+        // A new document always opens at fit-width.
+        setZoom(PDF_FIT_ZOOM)
         reportReady({
           totalPages: doc.numPages,
           capabilities: {
@@ -97,14 +111,18 @@ export default function PdfEngine({
       docTaskRef.current = null
       setPdf(null)
     }
-  }, [
-    loadFrom,
-    reportError,
-    reportReady,
-    source.allowPdfUpload,
-    source.downloadUrl,
-    source.pdfUrl,
-  ])
+  }, [reportError, reportReady, source.allowPdfUpload, source.downloadUrl, source.pdfUrl])
+
+  // In fit mode a container resize is a zoom change.
+  useEffect(() => {
+    const node = scrollRef.current
+    if (!node || typeof ResizeObserver === "undefined") return
+    const observer = new ResizeObserver(() => {
+      if (zoomRef.current === PDF_FIT_ZOOM) setFitTick((tick) => tick + 1)
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!pdf || !canvasRef.current) return
@@ -120,7 +138,18 @@ export default function PdfEngine({
         const page = await documentProxy.getPage(pageIndex + 1)
         if (cancelled || !canvasRef.current) return
         const canvas = canvasRef.current
-        renderTask = renderPdfPageToCanvas({ page, canvas, scale })
+        // The fit scale uses this page's own base size, so a landscape figure
+        // inside a portrait document still reads edge to edge.
+        const base = page.getViewport({ scale: 1 })
+        const hostWidth = Math.max(
+          240,
+          (scrollRef.current?.clientWidth ?? base.width) - PDF_STAGE_PAD
+        )
+        const fit = Math.min(3, Math.max(0.4, hostWidth / base.width))
+        fittedRef.current = fit
+        setFitted(fit)
+        const effective = zoom > 0 ? zoom : fit
+        renderTask = renderPdfPageToCanvas({ page, canvas, scale: effective })
         await renderTask.promise
         // Selectable text belongs on the flat reader: the canvas here is
         // static, so real spans can sit exactly over it.
@@ -130,8 +159,8 @@ export default function PdfEngine({
         container.style.width = canvas.style.width
         container.style.height = canvas.style.height
         // PDF.js positions every span against this factor.
-        container.style.setProperty("--total-scale-factor", String(scale))
-        textLayer = await renderPdfTextLayer({ page, container, scale })
+        container.style.setProperty("--total-scale-factor", String(effective))
+        textLayer = await renderPdfTextLayer({ page, container, scale: effective })
       } catch (error) {
         const named = error as { name?: string }
         if (named.name !== "RenderingCancelledException" && !cancelled) {
@@ -147,7 +176,7 @@ export default function PdfEngine({
       textLayer?.cancel()
       textLayerEl?.replaceChildren()
     }
-  }, [pageIndex, pdf, reportError, scale])
+  }, [pageIndex, pdf, reportError, zoom, fitTick])
 
   // Ctrl+wheel (and trackpad pinch, which browsers surface as ctrl+wheel) zooms
   // the document instead of scrolling. Needs a non-passive native listener.
@@ -157,109 +186,78 @@ export default function PdfEngine({
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey) return
       event.preventDefault()
-      setScale((value) => Math.min(2, Math.max(0.7, value - Math.sign(event.deltaY) * 0.1)))
+      const current = zoomRef.current > 0 ? zoomRef.current : fittedRef.current
+      setZoom(clampZoom(current - Math.sign(event.deltaY) * 0.15))
     }
     node.addEventListener("wheel", onWheel, { passive: false })
     return () => node.removeEventListener("wheel", onWheel)
   }, [])
 
-  const onUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const input = event.target
-    const file = input.files?.[0]
-    input.value = ""
-    if (!file || parsing) return
-    if (file.type !== "application/pdf") {
-      reportError({ kind: "upload", message: "Only PDF files can be uploaded." })
-      return
-    }
-    setParsing(true)
-    try {
-      const buffer = await file.arrayBuffer()
-      const loaded = await loadFrom({ data: buffer })
-      // Replace the previous document only after the new one parses, and
-      // release its loading task so PDF.js workers do not linger.
-      const previousTask = docTaskRef.current
-      docTaskRef.current = loaded.task
-      void previousTask?.destroy()
-      setPdf(loaded.doc)
-      setFileName(file.name)
-      onPageChange(0)
-      reportReady({
-        totalPages: loaded.doc.numPages,
-        capabilities: {
-          ...DEFAULT_CAPABILITIES,
-          zoom: true,
-          upload: true,
-          download: false,
-          appearance: false,
-          sound: false,
-        },
-      })
-    } catch {
-      reportError({ kind: "upload", message: "The uploaded PDF could not be parsed." })
-    } finally {
-      setParsing(false)
-    }
-  }
+  const effectiveZoom = zoom > 0 ? zoom : fitted
 
   return (
     <div className="flex h-full w-full flex-col gap-3 p-4">
       <div className="flex flex-wrap items-center justify-center gap-2">
-        {source.allowPdfUpload ? (
-          <label
-            htmlFor={uploadInputId}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              parsing && "pointer-events-none opacity-50"
-            )}
-            aria-disabled={parsing}
-            data-book-preview-press
-          >
-            {parsing ? <Spinner data-icon="inline-start" /> : <UploadIcon data-icon="inline-start" />}
-            {parsing ? "Opening…" : "Upload PDF"}
-            <input id={uploadInputId} type="file" accept="application/pdf" className="sr-only" onChange={onUpload} />
-          </label>
-        ) : null}
-        <p className="text-xs text-muted-foreground">{fileName}</p>
+        <p className="text-xs text-muted-foreground">{source.pdfFileName ?? "Document"}</p>
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
           aria-label="Zoom out"
-          onClick={() => setScale((value) => Math.max(0.7, value - 0.2))}
+          onClick={() => setZoom(clampZoom(effectiveZoom - 0.25))}
           data-book-preview-press
           className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
         >
           <ZoomOutIcon />
         </Button>
-        <span className="font-mono text-xs text-muted-foreground">{Math.round(scale * 100)}%</span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {zoom === PDF_FIT_ZOOM
+            ? `Fit ${Math.round(effectiveZoom * 100)}%`
+            : `${Math.round(zoom * 100)}%`}
+        </span>
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
           aria-label="Zoom in"
-          onClick={() => setScale((value) => Math.min(2, value + 0.2))}
+          onClick={() => setZoom(clampZoom(effectiveZoom + 0.25))}
           data-book-preview-press
           className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
         >
           <ZoomInIcon />
         </Button>
+        <Button
+          type="button"
+          variant={zoom === PDF_FIT_ZOOM ? "secondary" : "ghost"}
+          size="sm"
+          aria-pressed={zoom === PDF_FIT_ZOOM}
+          aria-label="Fit page width"
+          onClick={() => setZoom(PDF_FIT_ZOOM)}
+          data-book-preview-press
+        >
+          Fit
+        </Button>
       </div>
       <div
         ref={scrollRef}
-        className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg border bg-muted/30 p-4"
-        onDoubleClick={() => setScale((value) => (value > 1.2 ? 1.2 : 1.8))}
+        className="flex min-h-0 flex-1 overflow-auto rounded-lg border bg-muted/30 p-4"
+        onDoubleClick={() =>
+          setZoom((current) =>
+            current === PDF_FIT_ZOOM ? clampZoom(fittedRef.current * 1.75) : PDF_FIT_ZOOM
+          )
+        }
       >
         {!pdf ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="m-auto flex items-center gap-2 text-sm text-muted-foreground">
             <Spinner />
-            Waiting for a document
+            {source.allowPdfUpload ? "Upload or drop a PDF to begin" : "Waiting for a document"}
           </div>
         ) : (
-          /* The canvas keeps its exact rendered size so the text layer can sit
-             precisely on top; zooming pans inside the scroller rather than
-             shrinking the page out of alignment. */
-          <div className="relative shrink-0">
+          /* Auto margins center a page that fits and let a zoomed page scroll
+             to every edge — justify-center would clip the start side. The
+             canvas keeps its exact rendered size so the text layer can sit
+             precisely on top. */
+          <div className="relative m-auto shrink-0">
             <canvas ref={canvasRef} className="block rounded bg-background shadow" />
             <div ref={textLayerRef} className="textLayer" data-book-preview-text-layer />
           </div>

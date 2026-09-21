@@ -10,7 +10,9 @@ import {
   type ComponentType,
   type CSSProperties,
   type Dispatch,
+  type DragEvent,
   type KeyboardEvent,
+  type PointerEvent,
   type RefObject,
   type SetStateAction,
 } from "react"
@@ -29,7 +31,7 @@ import {
   resolveEnabledEngines,
   shouldPrefetchEngines,
 } from "./engines"
-import { isReaderKeyboardEvent } from "./keyboard"
+import { isInteractiveTarget, isReaderKeyboardEvent } from "./keyboard"
 import {
   usePrefersMoreContrast,
   usePrefersReducedMotion,
@@ -56,6 +58,14 @@ import "./book-preview.css"
 
 function pickControlled<T>(controlled: T | undefined, fallback: T): T {
   return controlled !== undefined ? controlled : fallback
+}
+
+function isPdfFile(file: File): boolean {
+  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
+}
+
+function eventHasFiles(event: DragEvent<HTMLElement>): boolean {
+  return Array.from(event.dataTransfer.types).includes("Files")
 }
 
 type BookPreviewActiveEngineProps = BookPreviewEngineProps & {
@@ -298,6 +308,55 @@ function usePersistedPageIndex({
   }, [persistPage, pageControlled, status, persistKey, activePage])
 }
 
+// The shell owns uploaded documents: a picked or dropped File becomes an
+// object URL merged into the normalized source, so every engine reads it
+// through the same pdfUrl path — an upload made in pdf mode keeps working in
+// scroll or curl. The URL is revoked on replace, on source change, and on
+// unmount, all through one cleanup path.
+function useUploadedPdf({
+  sourceKey,
+  allowUpload,
+  dispatch,
+}: {
+  sourceKey: string
+  allowUpload: boolean
+  dispatch: Dispatch<BookPreviewAction>
+}) {
+  const [upload, setUpload] = useState<{ url: string; name: string } | null>(null)
+
+  const uploadPdf = useCallback(
+    (file: File) => {
+      if (!allowUpload) return
+      if (!isPdfFile(file)) {
+        dispatch({
+          type: "engine-error",
+          error: { kind: "upload", message: "Only PDF files can be uploaded." },
+        })
+        return
+      }
+      setUpload({ url: URL.createObjectURL(file), name: file.name })
+    },
+    [allowUpload, dispatch]
+  )
+
+  // Revokes the previous upload's URL whenever it is replaced and on unmount.
+  useEffect(() => {
+    return () => {
+      if (upload) URL.revokeObjectURL(upload.url)
+    }
+  }, [upload])
+
+  // A new consumer source drops whatever document the reader opened itself.
+  const sourceKeyRef = useRef(sourceKey)
+  useEffect(() => {
+    if (sourceKeyRef.current === sourceKey) return
+    sourceKeyRef.current = sourceKey
+    setUpload(null)
+  }, [sourceKey])
+
+  return { upload, uploadPdf }
+}
+
 // The public action surface: each callback notifies the controlled listener
 // and only dispatches to internal state when that prop is uncontrolled.
 function useBookPreviewActions({
@@ -455,12 +514,13 @@ export function BookPreview({
   sound,
   onSoundChange,
   prefetchModes,
+  onModeFallback,
   onCapabilitiesChange,
   onError,
   onStatusChange,
 }: BookPreviewProps) {
-  const normalized = useMemo(() => normalizeSource(source), [source])
-  const sourceKey = sourceIdentity(normalized)
+  const propSource = useMemo(() => normalizeSource(source), [source])
+  const propSourceKey = sourceIdentity(propSource)
   const enabledEngines = useMemo(
     () => resolveEnabledEngines(engines, enabledModes),
     [engines, enabledModes]
@@ -473,7 +533,7 @@ export function BookPreview({
   const initialResolution = resolveActiveEngine({
     requestedMode: mode ?? defaultMode,
     engines: enabledEngines,
-    source: normalized,
+    source: propSource,
   })
 
   // State lives in an external store: dispatches fire prop notifications
@@ -494,6 +554,22 @@ export function BookPreview({
   const [navigationBehavior, setNavigationBehavior] =
     useState<BookPreviewNavigationBehavior>("animated")
   const rootRef = useRef<HTMLDivElement | null>(null)
+
+  const { upload, uploadPdf } = useUploadedPdf({
+    sourceKey: propSourceKey,
+    allowUpload: propSource.allowPdfUpload,
+    dispatch,
+  })
+  // The upload's object URL joins the source identity, so a new document
+  // resets position and becomes visible to every compatible engine.
+  const normalized = useMemo<NormalizedBookSource>(
+    () =>
+      upload
+        ? { ...propSource, pdfUrl: upload.url, pdfFileName: upload.name }
+        : propSource,
+    [propSource, upload]
+  )
+  const sourceKey = sourceIdentity(normalized)
 
   const reducedMotion = usePrefersReducedMotion()
   const reducedTransparency = usePrefersReducedTransparency()
@@ -579,6 +655,21 @@ export function BookPreview({
 
   usePrefetchEngines({ prefetchModes, prefetchMode })
 
+  // Tell the consumer when an incompatible request quietly landed on another
+  // engine, so a host can surface "WebGL isn't available for PDFs" instead of
+  // a silent mode switch.
+  const fallbackNotifiedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!activeResolution.fallback || !activeEngine) {
+      fallbackNotifiedRef.current = null
+      return
+    }
+    const key = `${activeMode}:${activeEngine.id}`
+    if (fallbackNotifiedRef.current === key) return
+    fallbackNotifiedRef.current = key
+    onModeFallback?.(activeMode, activeEngine.id)
+  }, [activeResolution.fallback, activeEngine, activeMode, onModeFallback])
+
   // Register the prop listeners on the store and replay the current snapshot —
   // the same emissions the previous mount/dep-driven effects produced. From
   // here on, store.dispatch notifies them inline with each state transition.
@@ -592,13 +683,17 @@ export function BookPreview({
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!isReaderKeyboardEvent(event.nativeEvent, rootRef.current)) return
-      if (event.key === "ArrowRight") {
+      if (event.key === "ArrowRight" || event.key === "PageDown") {
         event.preventDefault()
         goToPage(activePage + 1, "instant")
       }
-      if (event.key === "ArrowLeft") {
+      if (event.key === "ArrowLeft" || event.key === "PageUp") {
         event.preventDefault()
         goToPage(activePage - 1, "instant")
+      }
+      if (event.key === " ") {
+        event.preventDefault()
+        goToPage(activePage + (event.shiftKey ? -1 : 1), "instant")
       }
       if (event.key === "Home") {
         event.preventDefault()
@@ -608,12 +703,67 @@ export function BookPreview({
         event.preventDefault()
         goToPage(Math.max(state.totalPages - 1, 0), "instant")
       }
+      if ((event.key === "f" || event.key === "F") && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault()
+        toggleFullscreen()
+      }
       if (event.key === "Escape" && cssImmersive) {
         event.preventDefault()
         setCssImmersive(false)
       }
     },
-    [activePage, cssImmersive, goToPage, setCssImmersive, state.totalPages]
+    [activePage, cssImmersive, goToPage, setCssImmersive, state.totalPages, toggleFullscreen]
+  )
+
+  // Clicks on dead space should arm keyboard navigation — browsers do not
+  // move focus to a region just because a descendant was clicked.
+  const onPointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    if (isInteractiveTarget(event.nativeEvent.target)) return
+    rootRef.current?.focus({ preventScroll: true })
+  }, [])
+
+  const [dropActive, setDropActive] = useState(false)
+  const dragDepthRef = useRef(0)
+
+  const onDragEnter = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      if (!eventHasFiles(event)) return
+      event.preventDefault()
+      dragDepthRef.current += 1
+      if (propSource.allowPdfUpload) setDropActive(true)
+    },
+    [propSource.allowPdfUpload]
+  )
+  const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
+    if (!eventHasFiles(event)) return
+    event.preventDefault()
+  }, [])
+  const onDragLeave = useCallback(() => {
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+    if (dragDepthRef.current === 0) setDropActive(false)
+  }, [])
+  const onDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      if (!eventHasFiles(event)) return
+      // Always swallow file drops — letting the browser navigate away with
+      // the PDF is the worst outcome for a reader surface.
+      event.preventDefault()
+      dragDepthRef.current = 0
+      setDropActive(false)
+      const file = Array.from(event.dataTransfer.files).find(isPdfFile)
+      if (file) {
+        uploadPdf(file)
+        return
+      }
+      if (propSource.allowPdfUpload && event.dataTransfer.files.length > 0) {
+        dispatch({
+          type: "engine-error",
+          error: { kind: "upload", message: "Only PDF files can be uploaded." },
+        })
+      }
+    },
+    [dispatch, propSource.allowPdfUpload, uploadPdf]
   )
 
   const contextValue = useMemo<BookPreviewContextValue>(
@@ -646,6 +796,7 @@ export function BookPreview({
       setSound,
       retry,
       prefetchMode,
+      uploadPdf,
       toggleFullscreen,
       fullscreen,
     }),
@@ -672,6 +823,7 @@ export function BookPreview({
       setSound,
       state,
       toggleFullscreen,
+      uploadPdf,
     ]
   )
 
@@ -681,19 +833,24 @@ export function BookPreview({
         <div
           ref={rootRef}
           className={cn(
-            "book-preview flex w-full min-w-0 flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "book-preview relative flex w-full min-w-0 flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             className
           )}
           style={bookPreviewMotionStyle as CSSProperties}
           tabIndex={0}
           role="region"
           aria-label={label}
-          aria-keyshortcuts="ArrowLeft ArrowRight Home End"
+          aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f"
           data-reduced-motion={reducedMotion || undefined}
           data-reduced-transparency={reducedTransparency || undefined}
           data-more-contrast={moreContrast || undefined}
           data-book-preview-immersive={fullscreen || undefined}
           onKeyDown={onKeyDown}
+          onPointerDown={onPointerDown}
+          onDragEnter={onDragEnter}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
         >
           <BookPreviewToolbar />
           <BookPreviewViewport>
@@ -714,8 +871,17 @@ export function BookPreview({
           </BookPreviewViewport>
           <BookPreviewNavigation />
           <p className="sr-only">
-            Arrow keys turn pages while this reader is focused. Typing in fields is ignored.
+            Arrow keys, Page Up and Page Down turn pages while this reader is focused.
+            Space moves forward, F toggles fullscreen. Typing in fields is ignored.
           </p>
+          {dropActive ? (
+            <div
+              className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/80 backdrop-blur-sm"
+              data-book-preview-drop
+            >
+              <p className="text-sm font-medium">Drop PDF to open</p>
+            </div>
+          ) : null}
         </div>
       </BookPreviewProvider>
     </TooltipProvider>

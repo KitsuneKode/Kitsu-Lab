@@ -65,7 +65,11 @@ export function DocumentReader() {
 }
 ```
 
-PDF URLs must be same-origin or return suitable CORS headers. Uploaded PDFs stay in the browser. WebGL is progressively enhanced: capability detection runs after hydration so SSR markup stays deterministic.
+PDF URLs must be same-origin or return suitable CORS headers. WebGL is progressively enhanced: capability detection runs after hydration so SSR markup stays deterministic.
+
+With `allowPdfUpload`, the toolbar gains an Open button and the reader surface accepts dropped PDFs. An uploaded file becomes an object URL owned by the shell — it opens in every compatible engine, not just pdf mode, and is revoked when the document or component goes away. Uploaded PDFs stay in the browser.
+
+When the requested mode cannot render a source, the reader falls back by document kind: `pdf` → `scroll` for PDF sources, `page` for page data. Listen to `onModeFallback` if the host wants to announce the switch.
 
 ## Controlled state
 
@@ -77,6 +81,8 @@ When pages use custom `render` functions, pass `source.revision` and change it w
 
 - The page engine is the default and has no PDF, page-flip, or Three.js dependency.
 - Optional engines use dynamic imports and production-only idle prefetching.
+- The pdf engine opens at fit-width, renders only the current page, and keeps a selectable text layer over the canvas.
+- The scroll engine keeps a bounded raster window around the reading position; pages that fall behind are revoked and re-rendered on return, so long documents do not hold every bitmap at once.
 - PDF raster density is capped to avoid high-DPR memory spikes; object URLs and PDF workers are released on teardown.
 - WebGL pauses when the document is hidden or the reader is offscreen and releases renderer, textures, geometry, and context on teardown.
 - Reduced-motion disables travel, shadows, page-corner flourishes, and continuous WebGL animation.

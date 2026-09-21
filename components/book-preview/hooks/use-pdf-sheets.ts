@@ -34,6 +34,14 @@ type UsePdfSheetsOptions = {
   sizing: "uniform" | "per-page"
   /** Pull plain text per page so the reader can search and speak a PDF. */
   extractText?: boolean
+  /**
+   * Bound live rasters to +/- this many pages around the reading position.
+   * Pages that fall outside are revoked and re-render on return, so a long
+   * document holds ~2*windowRadius+1 decoded bitmaps instead of all of them.
+   * Omit for engines that must keep every sheet painted (the curl flip book
+   * owns all leaves at once).
+   */
+  windowRadius?: number
   onError: (error: BookPreviewError) => void
   errorMessage: string
 }
@@ -62,6 +70,7 @@ export function usePdfSheets({
   rasterWidth,
   sizing,
   extractText = false,
+  windowRadius,
   onError,
   errorMessage,
 }: UsePdfSheetsOptions): UsePdfSheetsResult {
@@ -74,6 +83,7 @@ export function usePdfSheets({
     sheets: PdfSheet[] | null
   } | null>(null)
   const priorityRef = useRef(pageIndex + 1)
+  const wakeRef = useRef<(() => void) | null>(null)
   const reportError = useRef(onError)
   const message = useRef(errorMessage)
 
@@ -81,6 +91,9 @@ export function usePdfSheets({
     priorityRef.current = pageIndex + 1
     reportError.current = onError
     message.current = errorMessage
+    // Resume a parked windowed drain — the new reading position may need
+    // pages the loop skipped.
+    wakeRef.current?.()
   })
 
   useEffect(() => {
@@ -89,14 +102,21 @@ export function usePdfSheets({
     let loaded: Awaited<ReturnType<typeof loadPdfDocument>> | null = null
     let uniformHeight = 0
     let pixelRatio = 1
-    const minted: string[] = []
-    const queue = new Set<number>()
+    // Live rasters by page number; doubles as the teardown revocation list.
+    const rendered = new Map<number, string>()
+    // Pages already tried — attempted failures stay blank rather than
+    // re-failing on every pass, matching the old once-only queue.
+    const attempted = new Set<number>()
+
+    const inWindow = (pageNumber: number, priority: number): boolean =>
+      windowRadius === undefined || Math.abs(pageNumber - priority) <= windowRadius
 
     // Pages commit through this guarded writer. It stays a flat async
     // function — not a loop body — so each post-await state write is provably
     // dominated by a cancellation check.
     async function renderSheet(url: string, pageNumber: number): Promise<void> {
       if (cancelled || !loaded) return
+      attempted.add(pageNumber)
       try {
         const page = await loaded.doc.getPage(pageNumber)
         // Text first: it is cheap, and it makes the page findable before
@@ -117,7 +137,9 @@ export function usePdfSheets({
           releaseRasterUrl(raster.src)
           return
         }
-        minted.push(raster.src)
+        const previous = rendered.get(pageNumber)
+        if (previous) releaseRasterUrl(previous)
+        rendered.set(pageNumber, raster.src)
         const id = `pdf-${pageNumber}`
         setDoc(
           (current) =>
@@ -143,21 +165,68 @@ export function usePdfSheets({
       }
     }
 
-    // Sequential, priority-aware drain — recursive so no setter sits in a
-    // loop body after an await.
-    async function drain(url: string): Promise<void> {
-      if (cancelled) return
-      const priority = priorityRef.current
-      let pageNumber: number | undefined
-      if (queue.delete(priority)) {
-        pageNumber = priority
-      } else {
-        pageNumber = queue.values().next().value
-        if (pageNumber !== undefined) queue.delete(pageNumber)
+    // Revokes rasters that fell behind the reading position. The extracted
+    // text stays — it is small — so a pruned page re-renders its bitmap only.
+    function prune(url: string, priority: number): void {
+      if (windowRadius === undefined) return
+      for (const [pageNumber, src] of rendered) {
+        if (inWindow(pageNumber, priority)) continue
+        rendered.delete(pageNumber)
+        attempted.delete(pageNumber)
+        releaseRasterUrl(src)
+        const id = `pdf-${pageNumber}`
+        setDoc((current) =>
+          current && current.url === url && current.sheets
+            ? {
+                ...current,
+                sheets: current.sheets.map((sheet) =>
+                  sheet.id === id ? { ...sheet, src: "" } : sheet
+                ),
+              }
+            : current
+        )
       }
-      if (pageNumber === undefined) return
-      await renderSheet(url, pageNumber)
-      return drain(url)
+    }
+
+    // Nearest unrendered page to the reading position, expanding outward —
+    // a reader at page 50 gets 50, 51, 49, 52, 48… instead of waiting for
+    // everything before it.
+    function pickNext(priority: number, count: number): number | undefined {
+      if (!attempted.has(priority) && priority <= count) return priority
+      for (let distance = 1; distance < count; distance += 1) {
+        if (windowRadius !== undefined && distance > windowRadius) break
+        const before = priority - distance
+        const after = priority + distance
+        if (before >= 1 && inWindow(before, priority) && !attempted.has(before)) {
+          return before
+        }
+        if (after <= count && inWindow(after, priority) && !attempted.has(after)) {
+          return after
+        }
+        if (before < 1 && after > count) break
+      }
+      return undefined
+    }
+
+    // One sequential worker per document. Without a window it ends when every
+    // page is painted; with a window it parks when the visible range is done
+    // and the priority effect above wakes it on the next page turn.
+    async function drain(url: string): Promise<void> {
+      const count = loaded?.doc.numPages ?? 0
+      while (!cancelled && loaded) {
+        const priority = Math.min(Math.max(1, priorityRef.current), count)
+        prune(url, priority)
+        const next = pickNext(priority, count)
+        if (next === undefined) {
+          if (windowRadius === undefined) return
+          await new Promise<void>((resolve) => {
+            wakeRef.current = resolve
+          })
+          wakeRef.current = null
+          continue
+        }
+        await renderSheet(url, next)
+      }
     }
 
     async function open(url: string) {
@@ -191,7 +260,6 @@ export function usePdfSheets({
           })),
         })
 
-        for (let index = 1; index <= count; index++) queue.add(index)
         await drain(url)
       } catch {
         if (!cancelled) {
@@ -203,19 +271,31 @@ export function usePdfSheets({
     void open(pdfUrl)
     return () => {
       cancelled = true
+      // Unpark the drain so it sees `cancelled` and exits.
+      wakeRef.current?.()
+      wakeRef.current = null
       if (loaded) void loaded.task.destroy()
-      for (const src of minted) releaseRasterUrl(src)
-      minted.length = 0
+      for (const src of rendered.values()) releaseRasterUrl(src)
+      rendered.clear()
     }
-  }, [enabled, pdfUrl, rasterWidth, sizing, extractText])
+  }, [enabled, pdfUrl, rasterWidth, sizing, extractText, windowRadius])
 
   const active = enabled && pdfUrl && doc?.url === pdfUrl ? doc : null
   const activeSheets = active?.sheets ?? null
   const prepared = activeSheets?.filter((sheet) => sheet.src).length ?? 0
+  // With a window, "preparing" means the visible range still has gaps — far
+  // pages staying blank is the intended steady state, not ongoing work.
+  const pendingInWindow =
+    activeSheets?.some(
+      (sheet, index) =>
+        !sheet.src &&
+        (windowRadius === undefined ||
+          Math.abs(index + 1 - (pageIndex + 1)) <= windowRadius)
+    ) ?? false
   return {
     sheets: activeSheets,
     ratio: active?.ratio ?? null,
     prepared,
-    preparing: enabled && activeSheets !== null && prepared < activeSheets.length,
+    preparing: enabled && activeSheets !== null && pendingInWindow,
   }
 }

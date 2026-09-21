@@ -1,11 +1,13 @@
 "use client"
 
+import { useRef } from "react"
 import {
   ChevronDownIcon,
   DownloadIcon,
   ListIcon,
   Maximize2Icon,
   Minimize2Icon,
+  UploadIcon,
   Volume2Icon,
   VolumeXIcon,
 } from "lucide-react"
@@ -42,6 +44,7 @@ export function BookPreviewToolbar() {
     toggleFullscreen,
     fullscreen,
     goToPage,
+    uploadPdf,
   } = useBookPreview()
   const narrow = useNarrowLayout()
   const coarse = useCoarsePointer()
@@ -79,6 +82,8 @@ export function BookPreviewToolbar() {
           downloadCapable={state.capabilities.download}
           downloadUrl={source.downloadUrl}
           downloadFileName={source.downloadFileName}
+          uploadCapable={source.allowPdfUpload}
+          onUploadPdf={uploadPdf}
           onSetSound={setSound}
           onToggleFullscreen={toggleFullscreen}
         />
@@ -159,6 +164,8 @@ function ToolbarActions({
   downloadCapable,
   downloadUrl,
   downloadFileName,
+  uploadCapable,
+  onUploadPdf,
   onSetSound,
   onToggleFullscreen,
 }: {
@@ -169,11 +176,38 @@ function ToolbarActions({
   downloadCapable: boolean
   downloadUrl?: string
   downloadFileName?: string
+  uploadCapable: boolean
+  onUploadPdf: (file: File) => void
   onSetSound: (sound: boolean) => void
   onToggleFullscreen: () => void
 }) {
+  const uploadInputRef = useRef<HTMLInputElement | null>(null)
+
   return (
     <>
+      {uploadCapable ? (
+        <>
+          <input
+            ref={uploadInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              event.target.value = ""
+              if (file) onUploadPdf(file)
+            }}
+          />
+          <BookPreviewIconButton
+            label="Open a PDF"
+            onClick={() => uploadInputRef.current?.click()}
+          >
+            <UploadIcon />
+          </BookPreviewIconButton>
+        </>
+      ) : null}
       {soundCapable ? (
         <BookPreviewIconButton
           label={sound ? "Mute page sounds" : "Enable page sounds"}

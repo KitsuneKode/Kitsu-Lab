@@ -40,11 +40,14 @@ type DemoDocument = (typeof DEMO_DOCUMENTS)[number]["value"]
 
 export function BookPreviewDemo() {
   const [mode, setMode] = useState<BookPreviewMode>("page")
+  const [fallbackNote, setFallbackNote] = useState<string | null>(null)
   const [pdfUrl, setPdfUrl] = useState<(typeof PDF_SPECIMENS)[number]["url"]>(
     "/specimens/research_paper.pdf"
   )
   const [docKind, setDocKind] = useState<DemoDocument>("bird")
   const pdfFile = PDF_SPECIMENS.find((item) => item.url === pdfUrl) ?? PDF_SPECIMENS[0]
+  const engineLabel = (id: BookPreviewMode) =>
+    optionalBookPreviewEngines.find((engine) => engine.id === id)?.label ?? id
 
   // The source depends on which document you picked, never on which view is
   // open. Deriving it from `mode` handed the reader a different document on
@@ -82,10 +85,10 @@ export function BookPreviewDemo() {
         <Badge variant="secondary">Book preview laboratory</Badge>
         <h1 className="text-3xl font-semibold tracking-tight">Tactile book and PDF readers</h1>
         <p className="max-w-xl text-sm text-muted-foreground">
-          The reusable component defaults to a lightweight slide engine. Curl, scroll, WebGL, and PDF
-          adapters load only after you select them. Pick a document, then switch views freely &mdash;
-          curl uses a tactile corner peel, PDFs keep their own page ratio instead of being
-          letterboxed, and your place in the document is kept as you move between views.
+          The reusable component picks the right reader for the document &mdash; a paged,
+          selectable-text view for PDFs and a lightweight slide for book pages. Curl, scroll,
+          WebGL, and PDF adapters load only after you select them. Drop a PDF anywhere on the
+          reader to open it, and your place in the document is kept as you move between views.
         </p>
       </div>
       <ToggleGroup
@@ -136,12 +139,23 @@ export function BookPreviewDemo() {
         engines={optionalBookPreviewEngines}
         enabledModes={DEMO_MODES}
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={(next) => {
+          setMode(next)
+          setFallbackNote(null)
+        }}
+        onModeFallback={(requested, actual) =>
+          setFallbackNote(
+            `${engineLabel(requested)} can't open this document — showing ${engineLabel(actual)} instead.`
+          )
+        }
         persistPage
         prefetchModes={["scroll", "spread", "curl"]}
         defaultAppearance="system"
         defaultSound={false}
       />
+      {fallbackNote ? (
+        <p className="text-center text-xs text-muted-foreground">{fallbackNote}</p>
+      ) : null}
       <BookPreviewComparison />
     </div>
   )

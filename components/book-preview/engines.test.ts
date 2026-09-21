@@ -105,6 +105,90 @@ describe("engine resolution", () => {
     expect(resolved.engine?.id).toBe("scroll")
   })
 
+  test("prefers the document reader over showcase modes for a PDF source", () => {
+    const curlEngine: BookPreviewEngine = {
+      ...pageEngine,
+      id: "curl",
+      label: "Curl",
+      requiresPages: false,
+      load: pageEngine.load,
+    }
+    const scrollEngine: BookPreviewEngine = {
+      ...pageEngine,
+      id: "scroll",
+      label: "Scroll",
+      requiresPages: false,
+      load: pageEngine.load,
+    }
+    const source = normalizeSource({ pdfUrl: "/sample-book.pdf" })
+    const resolved = resolveActiveEngine({
+      // "page" cannot render a document, so the source-aware preference picks.
+      requestedMode: "page",
+      engines: [pageEngine, curlEngine, scrollEngine, pdfEngine],
+      source,
+    })
+    expect(resolved.engine?.id).toBe("pdf")
+    expect(resolved.fallback).toBe(true)
+  })
+
+  test("falls back to scroll for a PDF source without the pdf engine", () => {
+    const curlEngine: BookPreviewEngine = {
+      ...pageEngine,
+      id: "curl",
+      label: "Curl",
+      requiresPages: false,
+      load: pageEngine.load,
+    }
+    const scrollEngine: BookPreviewEngine = {
+      ...pageEngine,
+      id: "scroll",
+      label: "Scroll",
+      requiresPages: false,
+      load: pageEngine.load,
+    }
+    const source = normalizeSource({ pdfUrl: "/sample-book.pdf" })
+    const resolved = resolveActiveEngine({
+      requestedMode: "page",
+      engines: [pageEngine, curlEngine, scrollEngine],
+      source,
+    })
+    expect(resolved.engine?.id).toBe("scroll")
+    expect(resolved.fallback).toBe(true)
+  })
+
+  test("lands on the pdf engine for an upload-only source", () => {
+    const curlEngine: BookPreviewEngine = {
+      ...pageEngine,
+      id: "curl",
+      label: "Curl",
+      requiresPages: false,
+      load: pageEngine.load,
+    }
+    const source = normalizeSource({ allowPdfUpload: true })
+    const resolved = resolveActiveEngine({
+      requestedMode: "curl",
+      engines: [pageEngine, curlEngine, pdfEngine],
+      source,
+    })
+    expect(resolved.engine?.id).toBe("pdf")
+  })
+
+  test("document modes stay hidden until an upload exists", () => {
+    const curlEngine: BookPreviewEngine = {
+      ...pageEngine,
+      id: "curl",
+      label: "Curl",
+      requiresPages: false,
+      load: pageEngine.load,
+    }
+    const source = normalizeSource({ allowPdfUpload: true })
+    expect(
+      resolveCompatibleEngines([pageEngine, curlEngine, pdfEngine], source).map(
+        (engine) => engine.id
+      )
+    ).toEqual(["pdf"])
+  })
+
   test("filters mode choices to engines that can render the current source", () => {
     const source = normalizeSource({
       pages: [{ id: "1", pageNumber: 1, title: "Cover" }],

@@ -29,6 +29,9 @@ export type BookPreviewContextValue = {
   setSound: (sound: boolean) => void
   retry: () => void
   prefetchMode: (mode: BookPreviewMode) => void
+  /** Accept a PDF file (toolbar button or drag-and-drop). The shell owns the
+      object URL so every engine can read the document. */
+  uploadPdf: (file: File) => void
   toggleFullscreen: () => void
   fullscreen: boolean
 }

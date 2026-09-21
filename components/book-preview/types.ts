@@ -165,6 +165,9 @@ export type BookPreviewProps = {
   sound?: boolean
   onSoundChange?: (sound: boolean) => void
   prefetchModes?: BookPreviewMode[]
+  /** Called when the requested mode cannot render this source and another
+      compatible engine takes over (e.g. "webgl" requested for a PDF). */
+  onModeFallback?: (requested: BookPreviewMode, actual: BookPreviewMode) => void
   onCapabilitiesChange?: (capabilities: BookPreviewCapabilities) => void
   onError?: (error: BookPreviewError) => void
   onStatusChange?: (status: BookPreviewStatus) => void

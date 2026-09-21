@@ -1,0 +1,431 @@
+"use client"
+
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+} from "react"
+import { BookOpenIcon, Columns2Icon, GridIcon, SearchIcon, ZoomInIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { BookPreviewPageView } from "../book-preview-page"
+import { playPageTurnSound } from "../audio"
+import { DEFAULT_CAPABILITIES } from "../capabilities"
+import { usePageArrival } from "../hooks/use-page-arrival"
+import { usePageGesture } from "../hooks/use-page-gesture"
+import { useStableHandler } from "../hooks/use-stable-handler"
+import { pageSearchText } from "../normalize"
+import { useFinePointer } from "../media"
+import type { BookPreviewEngineProps, BookPreviewPage } from "../types"
+
+type ViewMode = "spread" | "page" | "thumbs"
+
+const LOUPE_SIZE = 160
+const LOUPE_ZOOM = 2
+
+// The lens follows the pointer through direct transform writes — a moving
+// magnifier must not re-render the page tree every frame.
+function useSpreadLoupe(
+  available: boolean,
+  stageRef: RefObject<HTMLDivElement | null>
+) {
+  const [enabled, setEnabled] = useState(false)
+  const [visible, setVisible] = useState(false)
+  const stageRectRef = useRef<DOMRect | null>(null)
+  const lensRef = useRef<HTMLDivElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
+
+  if (!available && (enabled || visible)) {
+    setEnabled(false)
+    setVisible(false)
+  }
+
+  const move = (clientX: number, clientY: number) => {
+    const rect = stageRectRef.current
+    const lens = lensRef.current
+    const content = contentRef.current
+    if (!rect || !lens || !content) return
+    const x = clientX - rect.left
+    const y = clientY - rect.top
+    lens.style.transform = `translate3d(${x - LOUPE_SIZE / 2}px, ${y - LOUPE_SIZE / 2}px, 0)`
+    content.style.transform = `translate(${-x * LOUPE_ZOOM + LOUPE_SIZE / 2}px, ${-y * LOUPE_ZOOM + LOUPE_SIZE / 2}px) scale(${LOUPE_ZOOM})`
+  }
+
+  const onPointerEnter = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!enabled || !stageRef.current) return
+    stageRectRef.current = stageRef.current.getBoundingClientRect()
+    const content = contentRef.current
+    if (content) {
+      content.style.width = `${stageRectRef.current.width}px`
+      content.style.height = `${stageRectRef.current.height}px`
+    }
+    move(event.clientX, event.clientY)
+    setVisible(true)
+  }
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!enabled) return
+    move(event.clientX, event.clientY)
+  }
+
+  const onPointerLeave = () => setVisible(false)
+
+  const toggle = () => {
+    setEnabled((value) => !value)
+    setVisible(false)
+  }
+
+  return {
+    enabled,
+    visible,
+    lensRef,
+    contentRef,
+    toggle,
+    onPointerEnter,
+    onPointerMove,
+    onPointerLeave,
+  }
+}
+
+function SpreadControls({
+  viewMode,
+  loupeAvailable,
+  loupeEnabled,
+  query,
+  onViewModeChange,
+  onToggleLoupe,
+  onQueryChange,
+}: {
+  viewMode: ViewMode
+  loupeAvailable: boolean
+  loupeEnabled: boolean
+  query: string
+  onViewModeChange: (mode: ViewMode) => void
+  onToggleLoupe: () => void
+  onQueryChange: (query: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <ToggleGroup
+          value={[viewMode]}
+          onValueChange={(value) => {
+            if (value[0]) onViewModeChange(value[0] as ViewMode)
+          }}
+          variant="outline"
+          size="sm"
+          spacing={0}
+          aria-label="Spread layout"
+        >
+          <ToggleGroupItem value="spread" aria-label="Two-page spread">
+            <Columns2Icon />
+            Spread
+          </ToggleGroupItem>
+          <ToggleGroupItem value="page" aria-label="Single page">
+            <BookOpenIcon />
+            Page
+          </ToggleGroupItem>
+          <ToggleGroupItem value="thumbs" aria-label="Thumbnails">
+            <GridIcon />
+            Thumbnails
+          </ToggleGroupItem>
+        </ToggleGroup>
+        {loupeAvailable ? (
+          <Button
+            type="button"
+            variant={loupeEnabled ? "secondary" : "outline"}
+            size="sm"
+            aria-pressed={loupeEnabled}
+            aria-label="Toggle magnifying loupe"
+            onClick={onToggleLoupe}
+            data-book-preview-press
+          >
+            <ZoomInIcon data-icon="inline-start" />
+            Loupe
+          </Button>
+        ) : null}
+      </div>
+      <div className="relative min-w-[12rem] flex-1">
+        <SearchIcon className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Search pages"
+          className="pl-8"
+          aria-label="Search pages"
+        />
+      </div>
+    </div>
+  )
+}
+
+function ThumbsGrid({
+  items,
+  pages,
+  appearance,
+  onOpen,
+}: {
+  items: BookPreviewPage[]
+  pages: BookPreviewPage[]
+  appearance: BookPreviewEngineProps["appearance"]
+  onOpen: (index: number) => void
+}) {
+  return (
+    <div className="grid max-h-[32rem] grid-cols-2 gap-3 overflow-auto sm:grid-cols-3 md:grid-cols-4">
+      {items.map((page, index) => (
+        <button
+          key={page.id}
+          type="button"
+          data-book-preview-thumb
+          // Stagger is decorative, so it is capped: past ~12 thumbnails the
+          // delay would outlast the grid being useful, and it must never
+          // gate interaction.
+          style={{ "--book-preview-thumb-delay": `${Math.min(index, 12) * 40}ms` } as CSSProperties}
+          className="overflow-hidden rounded-md border text-left transition-colors duration-150 ease-out hover:border-foreground/40"
+          onClick={() => onOpen(pages.findIndex((item) => item.id === page.id))}
+          data-book-preview-press
+        >
+          <div className="h-40">
+            <BookPreviewPageView page={page} appearance={appearance} />
+          </div>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function SpreadPages({
+  viewMode,
+  pageIndex,
+  pages,
+  left,
+  right,
+  appearance,
+}: {
+  viewMode: ViewMode
+  pageIndex: number
+  pages: BookPreviewPage[]
+  left: BookPreviewPage | undefined
+  right: BookPreviewPage | undefined
+  appearance: BookPreviewEngineProps["appearance"]
+}) {
+  if (viewMode === "page") {
+    return (
+      <div className="h-[min(22rem,66svh)] w-[min(14rem,86cqw)] sm:h-[min(32rem,72svh)] sm:w-[22rem] lg:h-[min(40rem,76svh)] lg:w-[26rem]">
+        {pages[pageIndex] ? (
+          <BookPreviewPageView page={pages[pageIndex]} appearance={appearance} />
+        ) : null}
+      </div>
+    )
+  }
+  return (
+    <>
+      <div className="hidden h-[22rem] w-[14rem] border-r sm:block sm:h-[min(32rem,72svh)] sm:w-[20rem] lg:h-[min(40rem,76svh)] lg:w-[25rem]">
+        {left ? (
+          <BookPreviewPageView page={left} appearance={appearance} isLeftPage />
+        ) : null}
+      </div>
+      <div className="h-[min(22rem,66svh)] w-[min(14rem,86cqw)] sm:h-[min(32rem,72svh)] sm:w-[20rem] lg:h-[min(40rem,76svh)] lg:w-[25rem]">
+        {right ? (
+          <BookPreviewPageView page={right} appearance={appearance} />
+        ) : left ? (
+          <BookPreviewPageView page={left} appearance={appearance} />
+        ) : null}
+      </div>
+    </>
+  )
+}
+
+function LoupeOverlay({
+  visible,
+  lensRef,
+  contentRef,
+  left,
+  right,
+  appearance,
+}: {
+  visible: boolean
+  lensRef: RefObject<HTMLDivElement | null>
+  contentRef: RefObject<HTMLDivElement | null>
+  left: BookPreviewPage | undefined
+  right: BookPreviewPage | undefined
+  appearance: BookPreviewEngineProps["appearance"]
+}) {
+  return (
+    <div
+      ref={lensRef}
+      className={cn(
+        "pointer-events-none absolute top-0 left-0 overflow-hidden rounded-full border-2 border-foreground shadow-xl transition-opacity duration-150 ease-out",
+        visible ? "opacity-100" : "opacity-0"
+      )}
+      style={{ width: LOUPE_SIZE, height: LOUPE_SIZE }}
+      aria-hidden
+    >
+      <div
+        ref={contentRef}
+        className="absolute top-0 left-0"
+        style={{ transformOrigin: "top left" }}
+      >
+        <div className="flex">
+          {left ? (
+            <div className="h-[32rem] w-[20rem] shrink-0">
+              <BookPreviewPageView page={left} appearance={appearance} isLeftPage />
+            </div>
+          ) : null}
+          {right ? (
+            <div className="h-[32rem] w-[20rem] shrink-0">
+              <BookPreviewPageView page={right} appearance={appearance} />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function SpreadEngine({
+  source,
+  pageIndex,
+  appearance,
+  soundEnabled,
+  reducedMotion,
+  navigationBehavior,
+  onPageChange,
+  onReady,
+  onError,
+}: BookPreviewEngineProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>("spread")
+  const [query, setQuery] = useState("")
+  const stageRef = useRef<HTMLDivElement | null>(null)
+  const finePointer = useFinePointer()
+  const pages = source.pages
+  const evenIndex = pageIndex - (pageIndex % 2)
+  const left = pages[evenIndex]
+  const right = pages[evenIndex + 1]
+  const reportReady = useStableHandler(onReady)
+  const reportError = useStableHandler(onError)
+
+  // Direction of travel for the enter animation.
+  const arrival = usePageArrival(
+    pageIndex,
+    reducedMotion || navigationBehavior === "instant"
+  )
+
+  const matches = useMemo(() => {
+    const value = query.trim().toLowerCase()
+    if (!value) return []
+    return pages.filter((page) => pageSearchText(page).toLowerCase().includes(value))
+  }, [pages, query])
+
+  const loupeAvailable = Boolean(finePointer) && viewMode !== "thumbs"
+  const loupe = useSpreadLoupe(loupeAvailable, stageRef)
+
+  useEffect(() => {
+    if (pages.length === 0) {
+      reportError({ kind: "empty", message: "The spread reader needs page data." })
+      return
+    }
+    reportReady({
+      totalPages: pages.length,
+      capabilities: {
+        ...DEFAULT_CAPABILITIES,
+        spreads: true,
+        search: true,
+        loupe: finePointer,
+        thumbnails: true,
+        download: Boolean(source.downloadUrl),
+      },
+    })
+  }, [finePointer, pages.length, reportError, reportReady, source.downloadUrl])
+
+  const { surfaceRef } = usePageGesture({
+    enabled: viewMode !== "thumbs",
+    reducedMotion,
+    canGoPrev: pageIndex > 0,
+    canGoNext: pageIndex < pages.length - 1,
+    onCommitPrev: () => {
+      if (soundEnabled) playPageTurnSound()
+      onPageChange(Math.max(0, pageIndex - 1))
+    },
+    onCommitNext: () => {
+      if (soundEnabled) playPageTurnSound()
+      onPageChange(Math.min(pages.length - 1, pageIndex + 1))
+    },
+  })
+
+  const stageKey =
+    viewMode === "page" ? `p-${pageIndex}` : `s-${evenIndex}-${viewMode}`
+
+  return (
+    <div className="flex h-full w-full flex-col gap-3 p-4">
+      <SpreadControls
+        viewMode={viewMode}
+        loupeAvailable={loupeAvailable}
+        loupeEnabled={loupe.enabled}
+        query={query}
+        onViewModeChange={setViewMode}
+        onToggleLoupe={loupe.toggle}
+        onQueryChange={setQuery}
+      />
+      {query ? (
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          {matches.length} matching pages
+        </p>
+      ) : null}
+      {viewMode === "thumbs" ? (
+        <ThumbsGrid
+          items={query ? matches : pages}
+          pages={pages}
+          appearance={appearance}
+          onOpen={(index) => {
+            onPageChange(index)
+            setViewMode("spread")
+          }}
+        />
+      ) : (
+        <div
+          ref={(node) => {
+            stageRef.current = node
+            surfaceRef.current = node
+          }}
+          className="relative flex min-h-[min(22rem,66svh)] items-center justify-center touch-pan-y select-none sm:min-h-[min(28rem,72svh)] lg:min-h-[min(36rem,78svh)]"
+          style={{ touchAction: "pan-y" }}
+          onPointerEnter={loupe.onPointerEnter}
+          onPointerMove={loupe.onPointerMove}
+          onPointerLeave={loupe.onPointerLeave}
+        >
+          <div
+            key={stageKey}
+            {...arrival}
+            className="flex overflow-hidden rounded-md border shadow-lg"
+          >
+            <SpreadPages
+              viewMode={viewMode}
+              pageIndex={pageIndex}
+              pages={pages}
+              left={left}
+              right={right}
+              appearance={appearance}
+            />
+          </div>
+          {loupe.enabled ? (
+            <LoupeOverlay
+              visible={loupe.visible}
+              lensRef={loupe.lensRef}
+              contentRef={loupe.contentRef}
+              left={left}
+              right={right}
+              appearance={appearance}
+            />
+          ) : null}
+        </div>
+      )}
+    </div>
+  )
+}

@@ -1,0 +1,151 @@
+%PDF-1.3
+%‚„œ”
+1 0 obj
+<<
+/Producer (pypdf)
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Count 3
+/Kids [ 4 0 R 7 0 R 10 0 R ]
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+4 0 obj
+<<
+/Type /Page
+/Resources <<
+/Font <<
+/F1 5 0 R
+>>
+>>
+/MediaBox [ 0.0 0.0 612 792 ]
+/Parent 2 0 R
+/Contents 6 0 R
+>>
+endobj
+5 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+>>
+endobj
+6 0 obj
+<<
+/Length 278
+>>
+stream
+BT
+/F1 18 Tf
+72 720 Td (Quality check - specimen A) Tj
+/F1 12 Tf
+0 -28 Td (Vector text in Helvetica. No raster images in this file.) Tj
+0 -18 Td (Use this file to confirm PDF.js draws original page vectors.) Tj
+0 -18 Td (Zoom in: edges should stay sharp, not JPEG-blocky.) Tj
+ET
+endstream
+endobj
+7 0 obj
+<<
+/Type /Page
+/Resources <<
+/Font <<
+/F1 8 0 R
+>>
+>>
+/MediaBox [ 0.0 0.0 612 792 ]
+/Parent 2 0 R
+/Contents 9 0 R
+>>
+endobj
+8 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+>>
+endobj
+9 0 obj
+<<
+/Length 230
+>>
+stream
+BT
+/F1 18 Tf
+72 720 Td (Quality check - page 2) Tj
+/F1 12 Tf
+0 -28 Td (Second page. Page count should read 3.) Tj
+0 -18 Td (0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ) Tj
+0 -18 Td (abcdefghijklmnopqrstuvwxyz punctuation: ,.;:!?-) Tj
+ET
+endstream
+endobj
+10 0 obj
+<<
+/Type /Page
+/Resources <<
+/Font <<
+/F1 11 0 R
+>>
+>>
+/MediaBox [ 0.0 0.0 612 792 ]
+/Parent 2 0 R
+/Contents 12 0 R
+>>
+endobj
+11 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+>>
+endobj
+12 0 obj
+<<
+/Length 204
+>>
+stream
+BT
+/F1 18 Tf
+72 720 Td (Quality check - page 3) Tj
+/F1 12 Tf
+0 -28 Td (Last page. Download should still be this original PDF.) Tj
+0 -18 Td (CDN copies must keep the uploaded bytes, not a JPEG bake.) Tj
+ET
+endstream
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000015 00000 n 
+0000000054 00000 n 
+0000000126 00000 n 
+0000000175 00000 n 
+0000000307 00000 n 
+0000000404 00000 n 
+0000000733 00000 n 
+0000000865 00000 n 
+0000000962 00000 n 
+0000001243 00000 n 
+0000001378 00000 n 
+0000001476 00000 n 
+trailer
+<<
+/Size 13
+/Root 3 0 R
+/Info 1 0 R
+>>
+startxref
+1732
+%%EOF

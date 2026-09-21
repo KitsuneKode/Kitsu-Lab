@@ -23,7 +23,7 @@ export function EmailDomainInputDemo() {
         required
       />
       <button type="submit" className="btn btn-primary">
-        Continue
+        Sign in
       </button>
     </form>
   )

@@ -1,0 +1,321 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "kitsu-lab",
+  "homepage": "https://kitsulab.vercel.app",
+  "items": [
+    {
+      "name": "book-preview",
+      "type": "registry:block",
+      "title": "Book Preview",
+      "description": "Accessible shadcn-compatible book preview with a lightweight default page engine. Optional scroll, curl, spread, archival-curl, WebGL, and PDF adapters are separate.",
+      "registryDependencies": [
+        "button",
+        "toggle-group",
+        "tooltip",
+        "dropdown-menu",
+        "sheet",
+        "slider",
+        "alert",
+        "empty",
+        "skeleton",
+        "separator",
+        "spinner",
+        "input"
+      ],
+      "dependencies": [
+        "lucide-react"
+      ],
+      "docs": "The default installation includes the lightweight page engine only. Optional engines (scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require page-flip, pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, scalar Slider values, and array-valued ToggleGroup state. Do not treat qualitative capability labels as measured performance guarantees.",
+      "files": [
+        {
+          "path": "components/book-preview/index.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/types.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/reducer.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/preview-store.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/normalize.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/capabilities.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/keyboard.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/media.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/motion.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/audio.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview.css",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-provider.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-toolbar.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-viewport.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-navigation.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-mode-picker.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-status.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-engine-boundary.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-icon-button.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-page.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-page-gesture.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-page-arrival.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-stable-handler.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/page-engine.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "book-preview-pdf",
+      "type": "registry:component",
+      "title": "Book preview - PDF",
+      "description": "PDF.js runtime, page rasterizer, and the flat paged PDF reader. Install this for any engine that opens a document.",
+      "files": [
+        {
+          "path": "components/book-preview/pdf-runtime.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-pdf-sheets.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/pdf-preparing-badge.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/pdf-engine.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/pdf-engine.meta.ts",
+          "type": "registry:component"
+        }
+      ],
+      "dependencies": [
+        "pdfjs-dist"
+      ],
+      "registryDependencies": [
+        "https://kitsulab.vercel.app/r/book-preview.json",
+        "badge",
+        "spinner",
+        "button"
+      ]
+    },
+    {
+      "name": "book-preview-curl",
+      "type": "registry:component",
+      "title": "Book preview - Curl",
+      "description": "Tactile page-curl reader built on page-flip. Opens page data or a PDF.",
+      "files": [
+        {
+          "path": "components/book-preview/engines/curl-geometry.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/curl-stage.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/flip-sheet.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/curl-pdf-sheet.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/curl-engine.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/curl-engine.meta.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/page-flip.d.ts",
+          "type": "registry:component"
+        }
+      ],
+      "dependencies": [
+        "page-flip"
+      ],
+      "registryDependencies": [
+        "https://kitsulab.vercel.app/r/book-preview-pdf.json"
+      ]
+    },
+    {
+      "name": "book-preview-archival-curl",
+      "type": "registry:component",
+      "title": "Book preview - Archival curl",
+      "description": "Facsimile curl reader adding search and read-aloud. Requires the curl engine.",
+      "files": [
+        {
+          "path": "components/book-preview/engines/archival-curl-engine.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/archival-curl-engine.meta.ts",
+          "type": "registry:component"
+        }
+      ],
+      "registryDependencies": [
+        "https://kitsulab.vercel.app/r/book-preview-curl.json",
+        "input"
+      ]
+    },
+    {
+      "name": "book-preview-scroll",
+      "type": "registry:component",
+      "title": "Book preview - Scroll",
+      "description": "Continuous vertical reader for page data or a PDF.",
+      "files": [
+        {
+          "path": "components/book-preview/engines/scroll-engine.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/scroll-engine.meta.ts",
+          "type": "registry:component"
+        }
+      ],
+      "registryDependencies": [
+        "https://kitsulab.vercel.app/r/book-preview-pdf.json"
+      ]
+    },
+    {
+      "name": "book-preview-spread",
+      "type": "registry:component",
+      "title": "Book preview - Spread",
+      "description": "Facing-page reader with search, thumbnails, and a magnifying loupe. No extra packages.",
+      "files": [
+        {
+          "path": "components/book-preview/engines/spread-engine.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/spread-engine.meta.ts",
+          "type": "registry:component"
+        }
+      ],
+      "registryDependencies": [
+        "https://kitsulab.vercel.app/r/book-preview.json",
+        "input",
+        "toggle-group"
+      ]
+    },
+    {
+      "name": "book-preview-webgl",
+      "type": "registry:component",
+      "title": "Book preview - WebGL",
+      "description": "Skinned 3D book mesh. Pulls the Three.js stack, so install it only if you want the 3D showcase.",
+      "files": [
+        {
+          "path": "components/book-preview/engines/webgl-engine.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/webgl-engine.meta.ts",
+          "type": "registry:component"
+        }
+      ],
+      "dependencies": [
+        "three",
+        "@react-three/fiber",
+        "@react-three/drei",
+        "maath"
+      ],
+      "registryDependencies": [
+        "https://kitsulab.vercel.app/r/book-preview.json"
+      ]
+    },
+    {
+      "name": "book-preview-engines",
+      "type": "registry:component",
+      "title": "Book preview - all engines",
+      "description": "Convenience bundle installing every optional engine. Prefer the individual engines unless you genuinely want all of them.",
+      "files": [
+        {
+          "path": "components/book-preview/optional-engines.ts",
+          "type": "registry:component"
+        }
+      ],
+      "registryDependencies": [
+        "https://kitsulab.vercel.app/r/book-preview-pdf.json",
+        "https://kitsulab.vercel.app/r/book-preview-curl.json",
+        "https://kitsulab.vercel.app/r/book-preview-archival-curl.json",
+        "https://kitsulab.vercel.app/r/book-preview-scroll.json",
+        "https://kitsulab.vercel.app/r/book-preview-spread.json",
+        "https://kitsulab.vercel.app/r/book-preview-webgl.json"
+      ]
+    }
+  ]
+}

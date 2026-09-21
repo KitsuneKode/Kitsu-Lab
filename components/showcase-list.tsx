@@ -1,22 +1,13 @@
 import React from 'react'
-import Link from 'next/link'
-import { ArrowRightIcon } from 'lucide-react'
 import { registry } from '@/app/utils/registry'
+import { ExhibitLink } from '@/components/exhibit-link'
 
 const ShowCaseList = () => {
   return (
     <div className="flex flex-col gap-4">
-      {registry.list.map((component, idx) => (
-        <div key={idx} className="flex items-center gap-2">
-          <Link
-            href={`/exhibition/${component.path}`}
-            className="flex items-center gap-2 text-xl"
-          >
-            {component.name}
-            <span className="ml-2">
-              <ArrowRightIcon />
-            </span>
-          </Link>
+      {registry.list.map((component) => (
+        <div key={component.path} className="flex items-center gap-2">
+          <ExhibitLink path={component.path} name={component.name} />
         </div>
       ))}
     </div>

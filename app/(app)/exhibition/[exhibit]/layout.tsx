@@ -46,7 +46,7 @@ export default function ExhibitionLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex h-screen w-screen items-center justify-center">
+    <div className="flex min-h-dvh w-full justify-center overflow-x-clip [align-items:safe_center]">
       {children}
     </div>
   )

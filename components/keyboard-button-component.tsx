@@ -1,6 +1,7 @@
 'use client'
 import { LucideArrowDown } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, LazyMotion, domMax } from 'motion/react'
+import * as m from 'motion/react-m'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 const KeyBoardButtonComponent = () => {
@@ -23,7 +24,7 @@ const KeyBoardButtonComponent = () => {
     }
   }, [])
 
-  const handleMouseDown = useCallback(() => {
+  const handlePress = useCallback(() => {
     clearTimeouts()
 
     // pressTimeout.current = setTimeout(() => {
@@ -31,11 +32,11 @@ const KeyBoardButtonComponent = () => {
     // }, 1000) // long press threshold 1s
     setIdle(false)
     setIsPressed(true)
-    audio.current?.play()
+    void audio.current?.play().catch(() => {})
     idleTimeout.current = setTimeout(() => setIdle(true), 3000)
   }, [clearTimeouts])
 
-  const handleMouseUp = () => {
+  const handleRelease = () => {
     //   clearTimeout(pressTimeout.current)
     //   pressTimeout.current = null
     // }
@@ -49,18 +50,29 @@ const KeyBoardButtonComponent = () => {
   }, [clearTimeouts])
 
   return (
-    <AnimatePresence>
-      <div
-        className="relative mt-20 flex h-40 w-40 translate-y-25 scale-200 items-center justify-center"
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onTouchStart={handleMouseDown}
-        onTouchEnd={handleMouseUp}
+    <LazyMotion features={domMax}>
+      <AnimatePresence>
+      <button
+        type="button"
+        className="relative mt-20 flex size-40 translate-y-25 scale-200 items-center justify-center outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        aria-label="Press the ALT key"
+        onPointerDown={handlePress}
+        onPointerUp={handleRelease}
+        onPointerCancel={handleRelease}
+        onPointerLeave={handleRelease}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault()
+            if (!event.repeat) handlePress()
+          }
+        }}
+        onKeyUp={(event) => {
+          if (event.key === "Enter" || event.key === " ") handleRelease()
+        }}
       >
-        <motion.img
+        <m.img
           src="/key_press/base.svg"
-          alt="key base"
+          alt=""
           initial={{ y: '100vh' }}
           animate={{ y: 0 }}
           exit={{ y: '100vh' }}
@@ -73,9 +85,9 @@ const KeyBoardButtonComponent = () => {
         />
 
         <>
-          <motion.img
+          <m.img
             src="/key_press/cover.svg"
-            alt="key cover"
+            alt=""
             initial={{ x: '-100vw' }}
             animate={{ x: 0 }}
             exit={{ x: '-100vw' }}
@@ -87,9 +99,9 @@ const KeyBoardButtonComponent = () => {
             className="absolute z-50 h-full w-full"
           />
 
-          <motion.img
+          <m.img
             src="/key_press/button.svg"
-            alt="key"
+            alt=""
             initial={{ y: '-100vh' }}
             animate={{ y: isPressed ? 14 : 0 }}
             exit={{ y: '-100vh' }}
@@ -99,8 +111,8 @@ const KeyBoardButtonComponent = () => {
               damping: isPressed ? 10 : 20,
             }}
             className="absolute h-full w-full"
-          ></motion.img>
-          <motion.p
+          ></m.img>
+          <m.p
             initial={{
               y: '-100vh',
               rotateX: 0,
@@ -126,15 +138,15 @@ const KeyBoardButtonComponent = () => {
             className="absolute top-1/2 left-1/2 z-50 flex h-full w-full -translate-x-1/2 -translate-y-1/2 transform items-center justify-center text-center text-xl"
           >
             ALT
-          </motion.p>
-          <motion.audio
+          </m.p>
+          <m.audio
             ref={audio}
             src="/key_press/click.mp3"
             layoutId="button"
           />
           <AnimatePresence>
             {idle && (
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, x: 0, y: 0 }}
                 animate={{ opacity: 1, x: -5, y: -110 }}
                 transition={{ duration: 1, ease: 'easeInOut' }}
@@ -142,7 +154,7 @@ const KeyBoardButtonComponent = () => {
                 className="absolute top-1/2 left-1/2 z-50 flex h-full w-full -translate-x-1/2 -translate-y-1/2 transform flex-col items-center justify-center text-center text-xl"
               >
                 Press{' '}
-                <motion.span
+                <m.span
                   initial={{ y: 0 }}
                   animate={{ y: 10 }}
                   exit={{ y: 0 }}
@@ -154,13 +166,13 @@ const KeyBoardButtonComponent = () => {
                   }}
                 >
                   <LucideArrowDown />
-                </motion.span>
-              </motion.div>
+                </m.span>
+              </m.div>
             )}
           </AnimatePresence>
           {/* 
           {isBroken && (
-            <motion.img
+            <m.img
               src="/key_press/broken.svg"
               alt="broken key"
               initial={{ scale: 0.8, opacity: 0 }}
@@ -171,8 +183,9 @@ const KeyBoardButtonComponent = () => {
             />
           )} */}
         </>
-      </div>
-    </AnimatePresence>
+      </button>
+      </AnimatePresence>
+    </LazyMotion>
   )
 }
 

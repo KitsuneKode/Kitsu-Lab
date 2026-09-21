@@ -11,6 +11,7 @@ const orbitron = Orbitron({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://kitsulab.vercel.app'),
   title: 'Kitsu Lab',
   description:
     'The destination for all your component. This website shows all the trial components by kitsunekode',
@@ -31,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${orbitron.className} overflow-hidden antialiased`}>
+      <body className={`${orbitron.className} min-h-screen antialiased`}>
         <Provider>{children}</Provider>
         <Analytics />
       </body>

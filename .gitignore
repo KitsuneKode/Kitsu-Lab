@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# Local-only reader specimens (not part of the published lab)
+/public/specimens/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

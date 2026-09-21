@@ -1,0 +1,299 @@
+.book-preview {
+  --book-preview-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --book-preview-press-ms: 160ms;
+  --book-preview-press-scale: 0.97;
+  --book-preview-ui-ms: 220ms;
+  --book-preview-crossfade-ms: 180ms;
+  --book-preview-surface: var(--card);
+  --book-preview-surface-foreground: var(--card-foreground);
+  /* The reader may be embedded in a sidebar or split view — container
+     awareness lets future container queries size it by its own box rather
+     than the viewport. */
+  container-type: inline-size;
+}
+
+.book-preview [data-book-preview-press]:not(:disabled):active {
+  transform: scale(var(--book-preview-press-scale));
+}
+
+.book-preview [data-book-preview-press] {
+  transition: transform var(--book-preview-press-ms) var(--book-preview-ease-out);
+}
+
+.book-preview [data-book-preview-fade] {
+  transition:
+    opacity var(--book-preview-crossfade-ms) var(--book-preview-ease-out),
+    transform var(--book-preview-crossfade-ms) var(--book-preview-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .book-preview [data-book-preview-hover]:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-press],
+  .book-preview [data-book-preview-fade],
+  .book-preview [data-book-preview-hover] {
+    transition: opacity 160ms linear, color 160ms linear, background-color 160ms linear,
+      border-color 160ms linear;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .book-preview [data-book-preview-surface] {
+    background-color: var(--card);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .book-preview [data-book-preview-surface] {
+    border-width: 2px;
+    background-color: var(--card);
+  }
+}
+
+.book-preview [data-book-preview-curl],
+.book-preview [data-book-preview-curl] .stf__parent,
+.book-preview [data-book-preview-curl] .stf__item {
+  overflow: visible;
+}
+
+.book-preview [data-book-preview-curl] .stf__parent,
+.book-preview [data-book-preview-curl] .stf__block,
+.book-preview [data-book-preview-curl] .stf__item {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.book-preview [data-book-preview-curl] .stf__block {
+  cursor: grab;
+}
+
+.book-preview [data-book-preview-curl] .stf__block:active {
+  cursor: grabbing;
+}
+
+.book-preview [data-book-preview-curl] .stf__item {
+  background-color: var(--background);
+  box-shadow:
+    0 8px 24px hsl(0 0% 0% / 0.12),
+    0 1px 0 hsl(0 0% 0% / 0.06);
+}
+
+.book-preview[data-book-preview-immersive] {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  flex-direction: column;
+  gap: 0;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  overflow: hidden;
+  border-radius: 0;
+  background: var(--background);
+}
+
+.book-preview[data-book-preview-immersive] [data-book-preview-chrome] {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+
+.book-preview[data-book-preview-immersive] [data-book-preview-viewport] {
+  min-height: 0;
+  flex: 1 1 auto;
+  border: none;
+  border-radius: 0;
+}
+
+.book-preview[data-book-preview-immersive] [data-book-preview-scroll] {
+  max-height: none;
+  height: 100%;
+}
+
+.book-preview[data-book-preview-immersive] [data-book-preview-slide] {
+  max-width: none;
+}
+
+.book-preview[data-book-preview-immersive] [data-book-preview-slide] > div > div {
+  height: min(82svh, 48rem);
+  width: min(28rem, 46vw);
+}
+
+.book-preview:fullscreen {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  background: var(--background);
+}
+
+/* Page-turn arrival: the incoming spread drifts in from the direction the
+   leaf was pushed toward, so button, keyboard, and gesture navigation all
+   land the same way.
+
+   Paging is a high-frequency action. When turns arrive faster than this
+   animation can finish -- a held arrow key, a dragged slider -- the engine
+   sets data-instant and the page simply appears. Replaying a 220ms entrance
+   ten times a second reads as flicker, not motion. */
+.book-preview [data-book-preview-page] {
+  opacity: 0;
+  transform: translateX(var(--book-preview-enter-x, 0.75rem));
+  transition:
+    opacity var(--book-preview-ui-ms) var(--book-preview-ease-out),
+    transform var(--book-preview-ui-ms) var(--book-preview-ease-out);
+}
+
+.book-preview [data-book-preview-page][data-enter-dir="prev"] {
+  --book-preview-enter-x: -0.75rem;
+}
+
+.book-preview [data-book-preview-page][data-mounted] {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.book-preview [data-book-preview-page][data-instant] {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the fade for comprehension, drop the travel. */
+  .book-preview [data-book-preview-page] {
+    transform: none;
+    transition: opacity 160ms linear;
+  }
+  .book-preview [data-book-preview-page][data-mounted] {
+    transform: none;
+  }
+}
+
+/* A rasterized PDF leaf fades up as its bitmap lands, instead of snapping
+   from skeleton to page. Driven by the src attribute so it works on the
+   clones the flip book makes, which React never re-renders. */
+.book-preview [data-book-preview-sheet-img] {
+  opacity: 0;
+  transition: opacity var(--book-preview-crossfade-ms) var(--book-preview-ease-out);
+}
+
+.book-preview [data-book-preview-sheet-img][src] {
+  opacity: 1;
+}
+
+.book-preview
+  :has(> [data-book-preview-sheet-img][src])
+  > [data-book-preview-sheet-skeleton] {
+  opacity: 0;
+  transition: opacity var(--book-preview-crossfade-ms) var(--book-preview-ease-out);
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-sheet-img] {
+    transition-duration: 120ms;
+  }
+  .book-preview [data-book-preview-sheet-skeleton] {
+    animation: none;
+  }
+}
+
+/* Thumbnail grid entrance. Purely decorative, so it is opacity-and-lift only,
+   never blocks pointer input, and is capped in the engine at ~12 steps. */
+@keyframes book-preview-thumb-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.book-preview [data-book-preview-thumb] {
+  animation: book-preview-thumb-in var(--book-preview-ui-ms) var(--book-preview-ease-out)
+    var(--book-preview-thumb-delay, 0ms) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-thumb] {
+    animation: none;
+  }
+}
+
+/* Printing keeps only the page — chrome is UI, not content. */
+@media print {
+  .book-preview [data-book-preview-chrome],
+  .book-preview [data-book-preview-progress] {
+    display: none !important;
+  }
+
+  .book-preview [data-book-preview-viewport] {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 0 !important;
+  }
+}
+
+/* PDF.js text layer, scoped to this component.
+   A faithful subset of pdfjs-dist/web/pdf_viewer.css -- importing the full
+   viewer stylesheet would drag in thousands of lines of unrelated chrome.
+   The spans are transparent and sit exactly over the canvas, so the page can
+   be selected, copied, and found with the browser's own find. */
+.book-preview .textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  text-align: initial;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 1;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+.book-preview .textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.book-preview .textLayer > :not(.markedContent),
+.book-preview .textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.book-preview .textLayer .markedContent {
+  display: contents;
+}
+
+.book-preview .textLayer ::selection {
+  background: color-mix(in oklab, var(--primary) 35%, transparent);
+}

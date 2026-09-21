@@ -1,8 +1,20 @@
 import KeyComponent from '@/components/keyboard-button-component'
 import { EmailDomainInputDemo } from '@/components/email-domain-input-demo'
+import { BookPreviewDemo } from '@/components/book-preview-demo/book-preview-demo'
 
 export const registry = {
   list: [
+    {
+      name: 'Interactive Book & PDF Reader',
+      path: 'book-reader',
+      description:
+        'Shadcn-compatible book preview with a lightweight default reader and optional curl, spread, WebGL, and PDF engines.',
+      component: BookPreviewDemo,
+      image: {
+        url: '',
+        alt: 'Interactive Book & PDF Reader',
+      },
+    },
     {
       name: 'Keyboard Button Component',
       path: 'keyboard',

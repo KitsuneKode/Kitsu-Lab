@@ -50,9 +50,20 @@ export function BookPreviewToolbar() {
   const coarse = useCoarsePointer()
   const appearanceLabel =
     appearances.find((item) => item.value === state.appearance)?.label ?? "Paper"
-  const contents = source.pages
-    .map((page, index) => ({ title: page.title ?? page.kicker, index }))
-    .filter((entry): entry is { title: string; index: number } => Boolean(entry.title))
+  // A document-provided outline (PDF bookmarks) wins over titles synthesized
+  // from page data — it is the author's own table of contents.
+  const contents =
+    state.contents.length > 0
+      ? state.contents.map((entry) => ({
+          title: entry.title,
+          index: entry.pageIndex,
+          depth: entry.depth,
+        }))
+      : source.pages
+          .map((page, index) => ({ title: page.title ?? page.kicker, index, depth: 0 }))
+          .filter((entry): entry is { title: string; index: number; depth: number } =>
+            Boolean(entry.title)
+          )
 
   return (
     <div
@@ -252,7 +263,7 @@ function ContentsMenu({
   contents,
   goToPage,
 }: {
-  contents: { title: string; index: number }[]
+  contents: { title: string; index: number; depth: number }[]
   goToPage: (index: number) => void
 }) {
   return (
@@ -273,13 +284,18 @@ function ContentsMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="max-h-80">
         <DropdownMenuGroup>
-          {contents.map((entry) => (
+          {contents.map((entry, position) => (
             <DropdownMenuItem
-              key={entry.index}
+              key={`${entry.index}-${position}`}
               onClick={() => goToPage(entry.index)}
               className="justify-between gap-4"
             >
-              <span className="truncate">{entry.title}</span>
+              <span
+                className="truncate"
+                style={{ paddingLeft: `${Math.min(entry.depth, 4) * 0.75}rem` }}
+              >
+                {entry.title}
+              </span>
               <span className="font-mono text-xs text-muted-foreground">
                 {entry.index + 1}
               </span>

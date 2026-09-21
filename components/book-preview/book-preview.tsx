@@ -21,7 +21,11 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { stopPageTurnSounds } from "./audio"
 import { BookPreviewEngineBoundary } from "./book-preview-engine-boundary"
 import { BookPreviewNavigation } from "./book-preview-navigation"
-import { BookPreviewProvider, type BookPreviewContextValue } from "./book-preview-provider"
+import {
+  BookPreviewProvider,
+  type BookPreviewContextValue,
+  type BookPreviewEngineShortcuts,
+} from "./book-preview-provider"
 import { BookPreviewToolbar } from "./book-preview-toolbar"
 import { BookPreviewViewport } from "./book-preview-viewport"
 import {
@@ -40,6 +44,7 @@ import {
 } from "./media"
 import { bookPreviewMotionStyle } from "./motion"
 import { clampPageIndex, isEmptySource, normalizeSource, sourceIdentity } from "./normalize"
+import { readBookPreviewPrefs, writeBookPreviewPrefs } from "./prefs"
 import { createPreviewStore } from "./preview-store"
 import { createInitialState, type BookPreviewAction } from "./reducer"
 import type {
@@ -238,6 +243,7 @@ function useEngineLoader({
 function usePersistedPageIndex({
   sourceKey,
   persistPage,
+  pageParam,
   pageControlled,
   pageIndex,
   defaultPageIndex,
@@ -249,6 +255,7 @@ function usePersistedPageIndex({
 }: {
   sourceKey: string
   persistPage: boolean
+  pageParam: string | undefined
   pageControlled: boolean
   pageIndex: number | undefined
   defaultPageIndex: number
@@ -281,22 +288,33 @@ function usePersistedPageIndex({
   const restoredKeyRef = useRef<string | null>(null)
   const persistKey = `book-preview:page:${sourceKey}`
 
-  // Restore the remembered page once the source reports ready. Runs once per
-  // source; skipped entirely while the consumer controls pageIndex.
+  // Restore the position once the source reports ready. A deep-linked
+  // ?page=N wins over the remembered position — a shared link should land on
+  // the page it was shared from. Runs once per source; skipped entirely
+  // while the consumer controls pageIndex.
   useEffect(() => {
-    if (!persistPage || pageControlled) return
+    if (pageControlled || (!persistPage && !pageParam)) return
     if (status !== "ready" || restoredKeyRef.current === sourceKey) return
     restoredKeyRef.current = sourceKey
     try {
-      const raw = window.localStorage.getItem(persistKey)
-      const stored = raw === null ? Number.NaN : Number.parseInt(raw, 10)
-      if (stored > 0 && stored < Math.max(totalPages, 1)) {
-        queueMicrotask(() => goToPage(stored, "instant"))
+      let target: number | null = null
+      if (pageParam) {
+        const raw = new URLSearchParams(window.location.search).get(pageParam)
+        const parsed = raw === null ? Number.NaN : Number.parseInt(raw, 10)
+        if (parsed > 0) target = parsed - 1
+      }
+      if (target === null && persistPage) {
+        const raw = window.localStorage.getItem(persistKey)
+        const stored = raw === null ? Number.NaN : Number.parseInt(raw, 10)
+        if (stored > 0) target = stored
+      }
+      if (target !== null && target < Math.max(totalPages, 1)) {
+        queueMicrotask(() => goToPage(target, "instant"))
       }
     } catch {
-      // localStorage may be unavailable (private mode, sandboxed iframe).
+      // localStorage or location may be unavailable (private mode, sandbox).
     }
-  }, [persistPage, pageControlled, sourceKey, persistKey, status, totalPages, goToPage])
+  }, [persistPage, pageParam, pageControlled, sourceKey, persistKey, status, totalPages, goToPage])
 
   useEffect(() => {
     if (!persistPage || pageControlled || status !== "ready") return
@@ -306,6 +324,58 @@ function usePersistedPageIndex({
       // localStorage may be unavailable.
     }
   }, [persistPage, pageControlled, status, persistKey, activePage])
+
+  // Keep the deep link current as the reader moves. replaceState only —
+  // turning pages must never spam the back stack.
+  useEffect(() => {
+    if (!pageParam || status !== "ready") return
+    try {
+      const url = new URL(window.location.href)
+      const next = String(activePage + 1)
+      if (url.searchParams.get(pageParam) === next) return
+      url.searchParams.set(pageParam, next)
+      window.history.replaceState(null, "", url)
+    } catch {
+      // history may be unavailable (sandboxed iframe).
+    }
+  }, [pageParam, status, activePage])
+}
+
+// Appearance and mode are "how I like my reader" settings — they belong to
+// the person, not the document, so they persist globally rather than per
+// source. Controlled props always win over the remembered value.
+function usePersistedPreferences({
+  enabled,
+  appearanceControlled,
+  modeControlled,
+  activeAppearance,
+  activeMode,
+  dispatch,
+}: {
+  enabled: boolean
+  appearanceControlled: boolean
+  modeControlled: boolean
+  activeAppearance: BookPreviewAppearance
+  activeMode: BookPreviewMode
+  dispatch: Dispatch<BookPreviewAction>
+}) {
+  const hydratedRef = useRef(false)
+  useEffect(() => {
+    if (!enabled || hydratedRef.current) return
+    hydratedRef.current = true
+    const prefs = readBookPreviewPrefs()
+    if (prefs.appearance && !appearanceControlled) {
+      dispatch({ type: "set-appearance", appearance: prefs.appearance })
+    }
+    if (prefs.mode && !modeControlled) {
+      dispatch({ type: "set-mode", mode: prefs.mode })
+    }
+  }, [enabled, appearanceControlled, modeControlled, dispatch])
+
+  useEffect(() => {
+    if (!enabled) return
+    writeBookPreviewPrefs({ appearance: activeAppearance, mode: activeMode })
+  }, [enabled, activeAppearance, activeMode])
 }
 
 // The shell owns uploaded documents: a picked or dropped File becomes an
@@ -433,6 +503,7 @@ function useBookPreviewActions({
         type: "engine-ready",
         totalPages: info.totalPages,
         capabilities: info.capabilities,
+        contents: info.contents,
       })
       onCapabilitiesChange?.(info.capabilities)
     },
@@ -507,6 +578,8 @@ export function BookPreview({
   pageIndex,
   onPageChange,
   persistPage = false,
+  persistPreferences = false,
+  pageParam,
   defaultAppearance = "system",
   appearance,
   onAppearanceChange,
@@ -635,6 +708,7 @@ export function BookPreview({
   usePersistedPageIndex({
     sourceKey,
     persistPage,
+    pageParam,
     pageControlled,
     pageIndex,
     defaultPageIndex,
@@ -654,6 +728,15 @@ export function BookPreview({
   })
 
   usePrefetchEngines({ prefetchModes, prefetchMode })
+
+  usePersistedPreferences({
+    enabled: persistPreferences,
+    appearanceControlled,
+    modeControlled,
+    activeAppearance,
+    activeMode,
+    dispatch,
+  })
 
   // Tell the consumer when an incompatible request quietly landed on another
   // engine, so a host can surface "WebGL isn't available for PDFs" instead of
@@ -680,9 +763,12 @@ export function BookPreview({
 
   useEffect(() => () => stopPageTurnSounds(), [])
 
+  const engineShortcutsRef = useRef<BookPreviewEngineShortcuts>({})
+
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!isReaderKeyboardEvent(event.nativeEvent, rootRef.current)) return
+      const shortcuts = engineShortcutsRef.current
       if (event.key === "ArrowRight" || event.key === "PageDown") {
         event.preventDefault()
         goToPage(activePage + 1, "instant")
@@ -706,6 +792,36 @@ export function BookPreview({
       if ((event.key === "f" || event.key === "F") && !event.metaKey && !event.ctrlKey && !event.altKey) {
         event.preventDefault()
         toggleFullscreen()
+      }
+      if ((event.metaKey || event.ctrlKey) && (event.key === "f" || event.key === "F")) {
+        if (shortcuts.search) {
+          event.preventDefault()
+          shortcuts.search()
+        }
+      }
+      if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (shortcuts.search) {
+          event.preventDefault()
+          shortcuts.search()
+        }
+      }
+      if ((event.key === "+" || event.key === "=") && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (shortcuts.zoomIn) {
+          event.preventDefault()
+          shortcuts.zoomIn()
+        }
+      }
+      if ((event.key === "-" || event.key === "_") && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (shortcuts.zoomOut) {
+          event.preventDefault()
+          shortcuts.zoomOut()
+        }
+      }
+      if (event.key === "0" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (shortcuts.zoomReset) {
+          event.preventDefault()
+          shortcuts.zoomReset()
+        }
       }
       if (event.key === "Escape" && cssImmersive) {
         event.preventDefault()
@@ -797,6 +913,7 @@ export function BookPreview({
       retry,
       prefetchMode,
       uploadPdf,
+      engineShortcutsRef,
       toggleFullscreen,
       fullscreen,
     }),
@@ -840,7 +957,7 @@ export function BookPreview({
           tabIndex={0}
           role="region"
           aria-label={label}
-          aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f"
+          aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f / + - 0"
           data-reduced-motion={reducedMotion || undefined}
           data-reduced-transparency={reducedTransparency || undefined}
           data-more-contrast={moreContrast || undefined}
@@ -864,6 +981,7 @@ export function BookPreview({
               soundEnabled={activeSound}
               reducedMotion={reducedMotion}
               navigationBehavior={navigationBehavior}
+              persistPreferences={persistPreferences}
               onPageChange={goToPage}
               onReady={handleEngineReady}
               onError={handleEngineError}
@@ -872,7 +990,9 @@ export function BookPreview({
           <BookPreviewNavigation />
           <p className="sr-only">
             Arrow keys, Page Up and Page Down turn pages while this reader is focused.
-            Space moves forward, F toggles fullscreen. Typing in fields is ignored.
+            Space moves forward, F toggles fullscreen, slash or Control F opens search
+            when the active reader supports it, and plus, minus and zero control zoom.
+            Typing in fields is ignored.
           </p>
           {dropActive ? (
             <div

@@ -297,3 +297,16 @@
 .book-preview .textLayer ::selection {
   background: color-mix(in oklab, var(--primary) 35%, transparent);
 }
+
+/* In-document search marks. Amber rather than the theme accent so hits are
+   visibly distinct from a user's own text selection. */
+.book-preview .textLayer span[data-pdf-search-hit] {
+  background: hsl(48 96% 62% / 0.42);
+  border-radius: 2px;
+}
+
+@media (prefers-contrast: more) {
+  .book-preview .textLayer span[data-pdf-search-hit] {
+    background: hsl(48 96% 62% / 0.7);
+  }
+}

@@ -9,6 +9,12 @@ export const CURL_CLICK_SLOP_PX = 24
 export const CURL_SPREAD_MIN_PAGE_WIDTH = 260
 export const CURL_STAGE_PAD_X = 24
 export const CURL_FLIP_MS = 640
+/**
+ * A flip book owns every leaf at once: all pages rasterize up front and all
+ * stay mounted. Past this count the "delight" mode is a memory and startup
+ * liability — the reader should be told to use Scroll or PDF instead.
+ */
+export const CURL_MAX_PAGES = 160
 
 export type CurlPageSize = {
   width: number

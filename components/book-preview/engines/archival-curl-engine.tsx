@@ -10,7 +10,7 @@ import { usePdfSheets, type PdfSheet } from "../hooks/use-pdf-sheets"
 import { pageSearchText } from "../normalize"
 import { useStableHandler } from "../hooks/use-stable-handler"
 import type { BookPreviewEngineProps, BookPreviewPage } from "../types"
-import { CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from "./curl-geometry"
+import { CURL_MAX_PAGES, CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from "./curl-geometry"
 import { CurlStage } from "./curl-stage"
 import { CurlPdfSheet } from "./curl-pdf-sheet"
 import { PdfPreparingBadge } from "./pdf-preparing-badge"
@@ -199,6 +199,8 @@ export default function ArchivalCurlEngine({
     sizing: "uniform",
     // An archival reader that cannot find a word in the document is a viewer.
     extractText: true,
+    maxPages: CURL_MAX_PAGES,
+    maxPagesMessage: `This document is longer than ${CURL_MAX_PAGES} pages — too heavy for the archival reader, which paints every page up front. Scroll or PDF mode handles it instead.`,
     onError: reportError,
     errorMessage: "This PDF could not be opened for the archival reader.",
   })

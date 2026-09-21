@@ -14,8 +14,10 @@ export { playPageTurnSound, stopPageTurnSounds } from "./audio"
 export type {
   BookPreviewAppearance,
   BookPreviewCapabilities,
+  BookPreviewContentsEntry,
   BookPreviewEngine,
   BookPreviewEngineProps,
+  BookPreviewEngineReadyInfo,
   BookPreviewError,
   BookPreviewErrorKind,
   BookPreviewMode,

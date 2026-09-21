@@ -113,9 +113,19 @@ export type NormalizedBookSource = {
   downloadFileName?: string
 }
 
+export type BookPreviewContentsEntry = {
+  title: string
+  pageIndex: number
+  /** Nesting level from the document outline; 0 is a top-level chapter. */
+  depth: number
+}
+
 export type BookPreviewEngineReadyInfo = {
   totalPages: number
   capabilities: BookPreviewCapabilities
+  /** Document-provided table of contents (e.g. a PDF outline). Overrides the
+      page-title menu the toolbar builds from source pages. */
+  contents?: BookPreviewContentsEntry[]
 }
 
 export type BookPreviewNavigationBehavior = "animated" | "instant"
@@ -127,6 +137,9 @@ export type BookPreviewEngineProps = {
   soundEnabled: boolean
   reducedMotion: boolean
   navigationBehavior: BookPreviewNavigationBehavior
+  /** Mirror of the shell's persistPreferences prop, so engines can remember
+      their own view settings (e.g. the PDF reader's zoom level). */
+  persistPreferences?: boolean
   onPageChange: (pageIndex: number, behavior?: BookPreviewNavigationBehavior) => void
   onReady: (info: BookPreviewEngineReadyInfo) => void
   onError: (error: BookPreviewError) => void
@@ -158,6 +171,13 @@ export type BookPreviewProps = {
   /** Remember the reading position per source in localStorage and restore it
       on the next visit. Ignored while `pageIndex` is controlled. */
   persistPage?: boolean
+  /** Remember appearance and reader mode (and engine-level settings like PDF
+      zoom) across visits. Ignored for props the consumer controls. */
+  persistPreferences?: boolean
+  /** Sync the reading position with a URL query parameter, e.g.
+      `pageParam="page"` produces `?page=12`. Applied once per source on open,
+      then kept current with history.replaceState — no history spam. */
+  pageParam?: string
   defaultAppearance?: BookPreviewAppearance
   appearance?: BookPreviewAppearance
   onAppearanceChange?: (appearance: BookPreviewAppearance) => void

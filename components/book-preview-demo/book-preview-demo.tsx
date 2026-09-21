@@ -88,7 +88,8 @@ export function BookPreviewDemo() {
           The reusable component picks the right reader for the document &mdash; a paged,
           selectable-text view for PDFs and a lightweight slide for book pages. Curl, scroll,
           WebGL, and PDF adapters load only after you select them. Drop a PDF anywhere on the
-          reader to open it, and your place in the document is kept as you move between views.
+          reader to open it, search the whole document, browse its outline or thumbnails, and
+          pick up where you left off &mdash; even across visits.
         </p>
       </div>
       <ToggleGroup
@@ -149,6 +150,8 @@ export function BookPreviewDemo() {
           )
         }
         persistPage
+        persistPreferences
+        pageParam="page"
         prefetchModes={["scroll", "spread", "curl"]}
         defaultAppearance="system"
         defaultSound={false}

@@ -6,7 +6,7 @@ import { DEFAULT_CAPABILITIES } from "../capabilities"
 import { usePdfSheets } from "../hooks/use-pdf-sheets"
 import { useStableHandler } from "../hooks/use-stable-handler"
 import type { BookPreviewEngineProps } from "../types"
-import { CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from "./curl-geometry"
+import { CURL_MAX_PAGES, CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from "./curl-geometry"
 import { CurlStage } from "./curl-stage"
 import { CurlPdfSheet } from "./curl-pdf-sheet"
 import { PdfPreparingBadge } from "./pdf-preparing-badge"
@@ -34,6 +34,8 @@ export default function CurlEngine({
     pageIndex,
     rasterWidth: CURL_RASTER_WIDTH,
     sizing: "uniform",
+    maxPages: CURL_MAX_PAGES,
+    maxPagesMessage: `This document is longer than ${CURL_MAX_PAGES} pages — too heavy for the page-flip reader, which paints every page up front. Scroll or PDF mode handles it instead.`,
     onError: reportError,
     errorMessage: "This PDF could not be opened for curl.",
   })

@@ -8,6 +8,8 @@ export const pdfEngine: BookPreviewEngine = {
   capabilities: {
     ...DEFAULT_CAPABILITIES,
     zoom: true,
+    search: true,
+    thumbnails: true,
     upload: true,
     appearance: false,
     sound: false,

@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, type ReactNode } from "react"
+import { createContext, useContext, type ReactNode, type RefObject } from "react"
 import type { BookPreviewState } from "./reducer"
 import type {
   BookPreviewAppearance,
@@ -9,6 +9,16 @@ import type {
   BookPreviewNavigationBehavior,
   NormalizedBookSource,
 } from "./types"
+
+/** An engine registers the shortcuts it owns (zoom, search focus) here while
+    mounted; the shell's keydown handler invokes them so keys like +, -, 0 and
+    / work for whichever reader is active. Mutable — no re-renders on write. */
+export type BookPreviewEngineShortcuts = {
+  zoomIn?: () => void
+  zoomOut?: () => void
+  zoomReset?: () => void
+  search?: () => void
+}
 
 export type BookPreviewContextValue = {
   state: BookPreviewState
@@ -32,6 +42,7 @@ export type BookPreviewContextValue = {
   /** Accept a PDF file (toolbar button or drag-and-drop). The shell owns the
       object URL so every engine can read the document. */
   uploadPdf: (file: File) => void
+  engineShortcutsRef: RefObject<BookPreviewEngineShortcuts>
   toggleFullscreen: () => void
   fullscreen: boolean
 }

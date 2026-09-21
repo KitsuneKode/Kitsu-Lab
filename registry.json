@@ -48,6 +48,10 @@
           "type": "registry:component"
         },
         {
+          "path": "components/book-preview/prefs.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "components/book-preview/capabilities.ts",
           "type": "registry:component"
         },
@@ -149,6 +153,14 @@
         },
         {
           "path": "components/book-preview/engines/pdf-preparing-badge.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/pdf-thumb-rail.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/pdf-search.ts",
           "type": "registry:component"
         },
         {

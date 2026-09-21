@@ -1,5 +1,7 @@
 "use client"
 
+import type { BookPreviewContentsEntry } from "./types"
+
 export type PdfTextItem = { str?: string }
 export type PdfTextContent = { items: PdfTextItem[] }
 
@@ -13,9 +15,20 @@ export type PdfPageProxy = {
   }) => { promise: Promise<void>; cancel: () => void }
 }
 
+export type PdfDestinationRef = { num: number; gen: number }
+
+export type PdfOutlineNode = {
+  title?: string
+  dest?: string | unknown[] | null
+  items?: PdfOutlineNode[] | null
+}
+
 export type PdfDocumentProxy = {
   numPages: number
   getPage: (pageNumber: number) => Promise<PdfPageProxy>
+  getOutline?: () => Promise<PdfOutlineNode[] | null>
+  getDestination?: (id: string) => Promise<unknown[] | null>
+  getPageIndex?: (ref: PdfDestinationRef) => Promise<number>
 }
 
 export type PdfLoadResult = {
@@ -39,13 +52,22 @@ export async function loadPdfDocument(src: PdfSource): Promise<PdfLoadResult> {
   return { task, doc }
 }
 
+// Uncapped devicePixelRatio turns a page into a ~30MP canvas on 3x phones;
+// past 2x the extra pixels are invisible while reading.
+const PDF_MAX_RENDER_DPR = 2
+
+function defaultPixelRatio(): number {
+  if (typeof window === "undefined") return 1
+  return Math.min(PDF_MAX_RENDER_DPR, Math.max(1, window.devicePixelRatio || 1))
+}
+
 export function renderPdfPageToCanvas(input: {
   page: PdfPageProxy
   canvas: HTMLCanvasElement
   scale: number
   pixelRatio?: number
 }): { promise: Promise<void>; cancel: () => void } {
-  const pixelRatio = input.pixelRatio ?? (typeof window === "undefined" ? 1 : Math.max(1, window.devicePixelRatio || 1))
+  const pixelRatio = input.pixelRatio ?? defaultPixelRatio()
   const viewport = input.page.getViewport({ scale: input.scale })
   const context = input.canvas.getContext("2d")
   if (!context) {
@@ -139,13 +161,80 @@ export function releaseRasterUrl(src: string | undefined | null): void {
   }
 }
 
+// A document outline can nest arbitrarily deep; the contents menu only needs
+// a few levels of indentation, and a malformed file should never grow the
+// menu without bound.
+const OUTLINE_MAX_ENTRIES = 300
+const OUTLINE_MAX_DEPTH = 4
+
+function outlineDestinationRef(dest: PdfOutlineNode["dest"]): PdfDestinationRef | string | null {
+  if (typeof dest === "string") return dest
+  if (Array.isArray(dest)) {
+    const first = dest[0] as Partial<PdfDestinationRef> | null | undefined
+    if (first && typeof first.num === "number") return first as PdfDestinationRef
+  }
+  return null
+}
+
+/**
+ * Reads the document outline ("bookmarks") into flat contents entries for the
+ * toolbar menu. Entries without a resolvable page destination are dropped —
+ * external links and action bookmarks have nowhere in the reader to go.
+ */
+export async function resolvePdfOutline(
+  doc: PdfDocumentProxy
+): Promise<BookPreviewContentsEntry[]> {
+  if (typeof doc.getOutline !== "function" || typeof doc.getPageIndex !== "function") {
+    return []
+  }
+  let outline: PdfOutlineNode[] | null
+  try {
+    outline = await doc.getOutline()
+  } catch {
+    return []
+  }
+  if (!outline || outline.length === 0) return []
+
+  const flat: { title: string; depth: number; ref: PdfDestinationRef | string | null }[] = []
+  const walk = (nodes: PdfOutlineNode[], depth: number) => {
+    for (const node of nodes) {
+      if (flat.length >= OUTLINE_MAX_ENTRIES) return
+      const title = node.title?.trim()
+      if (title) {
+        flat.push({ title, depth: Math.min(depth, OUTLINE_MAX_DEPTH), ref: outlineDestinationRef(node.dest) })
+      }
+      if (node.items && node.items.length > 0) walk(node.items, depth + 1)
+    }
+  }
+  walk(outline, 0)
+
+  const entries = await Promise.all(
+    flat.map(async (item) => {
+      if (!item.ref) return null
+      try {
+        const ref =
+          typeof item.ref === "string"
+            ? outlineDestinationRef(((await doc.getDestination?.(item.ref)) ?? null) as PdfOutlineNode["dest"])
+            : item.ref
+        if (!ref || typeof ref === "string") return null
+        const pageIndex = await doc.getPageIndex!(ref)
+        if (!Number.isFinite(pageIndex) || pageIndex < 0 || pageIndex >= doc.numPages) return null
+        return { title: item.title, pageIndex, depth: item.depth }
+      } catch {
+        return null
+      }
+    })
+  )
+  return entries.filter((entry): entry is BookPreviewContentsEntry => entry !== null)
+}
+
 export async function rasterizePdfPage(input: {
   page: PdfPageProxy
   cssWidth: number
   cssHeight: number
   pixelRatio?: number
 }): Promise<{ src: string; width: number; height: number }> {
-  const pixelRatio = input.pixelRatio ?? (typeof window === "undefined" ? 1 : Math.max(1, window.devicePixelRatio || 1))
+  const pixelRatio = input.pixelRatio ?? defaultPixelRatio()
   const base = input.page.getViewport({ scale: 1 })
   const fit = Math.min(input.cssWidth / base.width, input.cssHeight / base.height)
   const viewport = input.page.getViewport({ scale: fit })

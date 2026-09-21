@@ -42,6 +42,14 @@ type UsePdfSheetsOptions = {
    * owns all leaves at once).
    */
   windowRadius?: number
+  /**
+   * Fail with `maxPagesMessage` when the document exceeds this page count.
+   * For engines that hold every raster at once, a page-flip of a 400-page
+   * file is a hang, not a feature — they should point the reader at a
+   * bounded mode instead of starting work.
+   */
+  maxPages?: number
+  maxPagesMessage?: string
   onError: (error: BookPreviewError) => void
   errorMessage: string
 }
@@ -71,6 +79,8 @@ export function usePdfSheets({
   sizing,
   extractText = false,
   windowRadius,
+  maxPages,
+  maxPagesMessage,
   onError,
   errorMessage,
 }: UsePdfSheetsOptions): UsePdfSheetsResult {
@@ -238,6 +248,17 @@ export function usePdfSheets({
           return
         }
         const count = result.doc.numPages
+        if (maxPages !== undefined && count > maxPages) {
+          loaded = null
+          await result.task.destroy()
+          if (!cancelled) {
+            reportError.current({
+              kind: "pdf-render",
+              message: maxPagesMessage ?? message.current,
+            })
+          }
+          return
+        }
         // A 960px sheet at 2x is already roughly a 4MP bitmap. Capping DPR
         // avoids turning high-density phones into a large memory multiplier.
         pixelRatio =
@@ -278,7 +299,7 @@ export function usePdfSheets({
       for (const src of rendered.values()) releaseRasterUrl(src)
       rendered.clear()
     }
-  }, [enabled, pdfUrl, rasterWidth, sizing, extractText, windowRadius])
+  }, [enabled, pdfUrl, rasterWidth, sizing, extractText, windowRadius, maxPages, maxPagesMessage])
 
   const active = enabled && pdfUrl && doc?.url === pdfUrl ? doc : null
   const activeSheets = active?.sheets ?? null

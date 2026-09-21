@@ -38,9 +38,11 @@ const source = {
 }
 
 export function Reader() {
-  return <BookPreview source={source} persistPage />
+  return <BookPreview source={source} persistPage persistPreferences pageParam="page" />
 }
 ```
+
+`persistPage` remembers the reading position per source, `persistPreferences` remembers appearance, reader mode, and engine-level settings like PDF zoom, and `pageParam="page"` deep-links `?page=12` — applied once per source on open, then kept current with `history.replaceState`. All three are opt-in and inert while the matching prop is controlled.
 
 ## Compose optional engines
 
@@ -81,8 +83,9 @@ When pages use custom `render` functions, pass `source.revision` and change it w
 
 - The page engine is the default and has no PDF, page-flip, or Three.js dependency.
 - Optional engines use dynamic imports and production-only idle prefetching.
-- The pdf engine opens at fit-width, renders only the current page, and keeps a selectable text layer over the canvas.
+- The pdf engine opens at fit-width, renders only the current page, and keeps a selectable text layer over the canvas. It adds whole-document search (`/` or `mod+F`, matches highlighted in the text layer), the document outline as the contents menu, a lazy thumbnail rail, pinch zoom, and `+`/`-`/`0` zoom keys.
 - The scroll engine keeps a bounded raster window around the reading position; pages that fall behind are revoked and re-rendered on return, so long documents do not hold every bitmap at once.
+- Curl engines paint every leaf up front, so PDFs over `CURL_MAX_PAGES` (160) fail with a message pointing at the bounded modes instead of hanging the tab.
 - PDF raster density is capped to avoid high-DPR memory spikes; object URLs and PDF workers are released on teardown.
 - WebGL pauses when the document is hidden or the reader is offscreen and releases renderer, textures, geometry, and context on teardown.
 - Reduced-motion disables travel, shadows, page-corner flourishes, and continuous WebGL animation.

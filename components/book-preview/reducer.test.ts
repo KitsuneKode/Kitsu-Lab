@@ -76,4 +76,44 @@ describe("bookPreviewReducer", () => {
     expect(next.status).toBe("loading")
     expect(next.engineEpoch).toBe(start.engineEpoch + 1)
   })
+
+  test("stores engine-supplied contents and clears them on source reset", () => {
+    const contents = [
+      { title: "Chapter 1", pageIndex: 0, depth: 0 },
+      { title: "Section 1.1", pageIndex: 3, depth: 1 },
+    ]
+    const ready = bookPreviewReducer(start, {
+      type: "engine-ready",
+      totalPages: 9,
+      capabilities: start.capabilities,
+      contents,
+    })
+    expect(ready.contents).toHaveLength(2)
+    // A repeated ready report with equal contents reuses the same array so
+    // subscribers do not re-render.
+    const again = bookPreviewReducer(ready, {
+      type: "engine-ready",
+      totalPages: 9,
+      capabilities: start.capabilities,
+      contents: contents.map((entry) => ({ ...entry })),
+    })
+    expect(again).toBe(ready)
+    const reset = bookPreviewReducer(ready, { type: "reset-source" })
+    expect(reset.contents).toHaveLength(0)
+  })
+
+  test("ready without contents empties a previous outline", () => {
+    const withOutline = bookPreviewReducer(start, {
+      type: "engine-ready",
+      totalPages: 4,
+      capabilities: start.capabilities,
+      contents: [{ title: "A", pageIndex: 1, depth: 0 }],
+    })
+    const without = bookPreviewReducer(withOutline, {
+      type: "engine-ready",
+      totalPages: 4,
+      capabilities: start.capabilities,
+    })
+    expect(without.contents).toHaveLength(0)
+  })
 })

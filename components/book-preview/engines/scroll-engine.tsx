@@ -146,10 +146,12 @@ export default function ScrollEngine({
                       draggable={false}
                       loading="lazy"
                       decoding="async"
+                      data-book-preview-sheet-img
                       className="h-auto w-full bg-background"
                     />
                   ) : (
                     <div
+                      data-book-preview-sheet-skeleton
                       className="w-full animate-pulse bg-muted/50"
                       style={{ aspectRatio: `${sheet.width} / ${sheet.height}` }}
                     />

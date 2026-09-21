@@ -3,6 +3,7 @@ import { capabilitiesEqual, DEFAULT_CAPABILITIES } from "./capabilities"
 import type {
   BookPreviewAppearance,
   BookPreviewCapabilities,
+  BookPreviewContentsEntry,
   BookPreviewError,
   BookPreviewMode,
   BookPreviewStatus,
@@ -17,6 +18,9 @@ export type BookPreviewState = {
   status: BookPreviewStatus
   error: BookPreviewError | null
   capabilities: BookPreviewCapabilities
+  /** Engine-supplied table of contents (e.g. a PDF outline); empty when the
+      document does not provide one. */
+  contents: BookPreviewContentsEntry[]
   engineEpoch: number
 }
 
@@ -33,6 +37,7 @@ export type BookPreviewAction =
       type: "engine-ready"
       totalPages: number
       capabilities: BookPreviewCapabilities
+      contents?: BookPreviewContentsEntry[]
     }
   | { type: "engine-error"; error: BookPreviewError }
   | { type: "engine-unsupported"; message: string }
@@ -55,8 +60,23 @@ export function createInitialState(input: {
     status: "idle",
     error: null,
     capabilities: DEFAULT_CAPABILITIES,
+    contents: [],
     engineEpoch: 0,
   }
+}
+
+function contentsEqual(
+  left: BookPreviewContentsEntry[],
+  right: BookPreviewContentsEntry[]
+): boolean {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+  return left.every(
+    (entry, index) =>
+      entry.title === right[index]?.title &&
+      entry.pageIndex === right[index]?.pageIndex &&
+      entry.depth === right[index]?.depth
+  )
 }
 
 export function bookPreviewReducer(
@@ -105,11 +125,13 @@ export function bookPreviewReducer(
       const totalPages = Math.max(0, action.totalPages)
       const status = "ready"
       const pageIndex = clampPageIndex(state.pageIndex, totalPages)
+      const contents = action.contents ?? []
       if (
         state.status === status &&
         state.error === null &&
         state.totalPages === totalPages &&
         state.pageIndex === pageIndex &&
+        contentsEqual(state.contents, contents) &&
         capabilitiesEqual(state.capabilities, action.capabilities)
       ) {
         return state
@@ -121,6 +143,9 @@ export function bookPreviewReducer(
         totalPages,
         pageIndex,
         capabilities: action.capabilities,
+        // Reuse the previous array when nothing changed so subscribers are
+        // not re-rendered by repeated ready reports.
+        contents: contentsEqual(state.contents, contents) ? state.contents : contents,
       }
     }
     case "engine-error":
@@ -145,6 +170,7 @@ export function bookPreviewReducer(
         },
         totalPages: 0,
         pageIndex: 0,
+        contents: [],
       }
     case "retry":
       return {
@@ -160,6 +186,7 @@ export function bookPreviewReducer(
         totalPages: 0,
         status: "loading",
         error: null,
+        contents: [],
       }
     default:
       return state

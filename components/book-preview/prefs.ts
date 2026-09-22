@@ -1,5 +1,6 @@
 import { BOOK_PREVIEW_APPEARANCES, BOOK_PREVIEW_MODES } from './types'
 import type { BookPreviewAppearance, BookPreviewMode } from './types'
+import { sanitizeTypography, type BookPreviewTypography } from './typography'
 
 export const PREMIER_VIEWS = [
   'book',
@@ -18,6 +19,8 @@ export type BookPreviewPrefs = {
   /** The premier reader's layout — book flip, one page, a spread, or a
       continuous strip. */
   premierView?: PremierView
+  /** The "Aa" reading settings — type size, face, spacing, measure. */
+  typography?: BookPreviewTypography
 }
 
 const PREFS_KEY = 'book-preview:prefs'
@@ -53,6 +56,9 @@ export function readBookPreviewPrefs(): BookPreviewPrefs {
       (PREMIER_VIEWS as readonly string[]).includes(parsed.premierView)
     ) {
       prefs.premierView = parsed.premierView as PremierView
+    }
+    if (parsed.typography !== undefined) {
+      prefs.typography = sanitizeTypography(parsed.typography)
     }
     return prefs
   } catch {

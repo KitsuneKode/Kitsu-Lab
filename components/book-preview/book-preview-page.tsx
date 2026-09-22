@@ -163,8 +163,9 @@ function BookPreviewTextPage({
   return (
     <article
       ref={ref}
+      data-bp-prose
       className={cn(
-        'relative flex h-full w-full flex-col justify-between overflow-hidden p-6 font-serif transition-colors duration-200 sm:p-8',
+        'relative flex h-full w-full flex-col justify-between overflow-hidden p-6 transition-colors duration-200 sm:p-8',
         theme.bg,
         theme.text,
         className,

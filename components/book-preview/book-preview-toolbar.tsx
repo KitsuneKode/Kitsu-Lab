@@ -2,7 +2,6 @@
 
 import { useRef } from 'react'
 import {
-  IconChevronDown,
   IconDownload,
   IconList,
   IconMaximize,
@@ -19,27 +18,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Separator } from '@/components/ui/separator'
 import { BookPreviewIconButton } from './book-preview-icon-button'
 import { BookPreviewModePicker } from './book-preview-mode-picker'
+import { BookPreviewReadingSettings } from './book-preview-reading-settings'
 import { useBookPreview } from './book-preview-provider'
-import { useCoarsePointer, useNarrowLayout } from './media'
-import type { BookPreviewAppearance } from './types'
-
-const appearances: { value: BookPreviewAppearance; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'sepia', label: 'Sepia' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'oled', label: 'OLED' },
-]
 
 export function BookPreviewToolbar() {
   const {
     state,
     source,
-    setAppearance,
     setSound,
     toggleFullscreen,
     fullscreen,
@@ -47,11 +35,6 @@ export function BookPreviewToolbar() {
     uploadPdf,
     setChromeHost,
   } = useBookPreview()
-  const narrow = useNarrowLayout()
-  const coarse = useCoarsePointer()
-  const appearanceLabel =
-    appearances.find((item) => item.value === state.appearance)?.label ??
-    'Paper'
   // A document-provided outline (PDF bookmarks) wins over titles synthesized
   // from page data — it is the author's own table of contents.
   const contents =
@@ -75,7 +58,7 @@ export function BookPreviewToolbar() {
   return (
     <div
       data-book-preview-surface
-      data-book-preview-chrome
+      data-book-preview-chrome="top"
       className="bg-card flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border p-2 sm:gap-3 sm:p-3"
     >
       <BookPreviewModePicker />
@@ -83,14 +66,7 @@ export function BookPreviewToolbar() {
           single chrome bar instead of a second row floating above the stage. */}
       <div ref={setChromeHost} className="contents" />
       <div className="flex flex-wrap items-center gap-2">
-        {state.capabilities.appearance ? (
-          <AppearanceControl
-            appearance={state.appearance}
-            appearanceLabel={appearanceLabel}
-            compact={narrow || coarse}
-            onSelect={setAppearance}
-          />
-        ) : null}
+        <BookPreviewReadingSettings />
         <Separator orientation="vertical" className="hidden h-6 sm:block" />
         {contents.length > 1 ? (
           <ContentsMenu contents={contents} goToPage={goToPage} />
@@ -110,74 +86,6 @@ export function BookPreviewToolbar() {
         />
       </div>
     </div>
-  )
-}
-
-function AppearanceControl({
-  appearance,
-  appearanceLabel,
-  compact,
-  onSelect,
-}: {
-  appearance: BookPreviewAppearance
-  appearanceLabel: string
-  compact: boolean
-  onSelect: (value: BookPreviewAppearance) => void
-}) {
-  if (compact) {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label="Paper appearance"
-              data-book-preview-press
-            />
-          }
-        >
-          {appearanceLabel}
-          <IconChevronDown data-icon="inline-end" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuGroup>
-            {appearances.map((item) => (
-              <DropdownMenuItem
-                key={item.value}
-                onClick={() => onSelect(item.value)}
-              >
-                {item.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )
-  }
-
-  return (
-    <ToggleGroup
-      value={[appearance]}
-      onValueChange={(value) => {
-        if (value[0]) onSelect(value[0] as BookPreviewAppearance)
-      }}
-      variant="outline"
-      size="sm"
-      spacing={0}
-      aria-label="Paper appearance"
-    >
-      {appearances.map((item) => (
-        <ToggleGroupItem
-          key={item.value}
-          value={item.value}
-          aria-label={item.label}
-        >
-          {item.label}
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
   )
 }
 

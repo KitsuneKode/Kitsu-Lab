@@ -1,3 +1,5 @@
+import type { BookPreviewUrlKeys } from './url-state'
+import type { BookPreviewTypography } from './typography'
 import type { ComponentType, ReactNode } from 'react'
 
 export const BOOK_PREVIEW_MODES = [
@@ -129,6 +131,8 @@ export type BookPreviewEngineReadyInfo = {
   contents?: BookPreviewContentsEntry[]
 }
 
+export type BookPreviewLayout = 'inline' | 'fill'
+
 export type BookPreviewNavigationBehavior = 'animated' | 'instant'
 
 export type BookPreviewEngineProps = {
@@ -141,6 +145,10 @@ export type BookPreviewEngineProps = {
   /** Mirror of the shell's persistPreferences prop, so engines can remember
       their own view settings (e.g. the PDF reader's zoom level). */
   persistPreferences?: boolean
+  /** Query key the engine may mirror its own layout into (the premier
+      reader's view), so shared links reopen the same layout. Undefined when
+      the host has not opted into URL state. */
+  viewParam?: string
   onPageChange: (
     pageIndex: number,
     behavior?: BookPreviewNavigationBehavior,
@@ -164,6 +172,10 @@ export type BookPreviewProps = {
   source: BookPreviewSource
   className?: string
   label?: string
+  /** `inline` sizes the stage to comfortable breakpoints inside a page;
+      `fill` stretches to the parent's height (give the parent one) — for
+      app shells, split views, and dedicated reader routes. */
+  layout?: BookPreviewLayout
   engines?: BookPreviewEngine[]
   enabledModes?: BookPreviewMode[]
   defaultMode?: BookPreviewMode
@@ -182,6 +194,10 @@ export type BookPreviewProps = {
       `pageParam="page"` produces `?page=12`. Applied once per source on open,
       then kept current with history.replaceState — no history spam. */
   pageParam?: string
+  /** Mirror reader state into the query string so links and refreshes keep
+      it: `true` syncs `?page=`, `?mode=`, `?theme=` and the premier `?view=`;
+      an object renames or picks individual keys. Uses replaceState only. */
+  urlState?: boolean | BookPreviewUrlKeys
   defaultAppearance?: BookPreviewAppearance
   appearance?: BookPreviewAppearance
   onAppearanceChange?: (appearance: BookPreviewAppearance) => void
@@ -189,6 +205,10 @@ export type BookPreviewProps = {
   sound?: boolean
   onSoundChange?: (sound: boolean) => void
   prefetchModes?: BookPreviewMode[]
+  /** Starting "Aa" settings (type size, face, spacing, measure). Remembered
+      across visits with `persistPreferences`. */
+  defaultTypography?: Partial<BookPreviewTypography>
+  onTypographyChange?: (typography: BookPreviewTypography) => void
   /** Called when the requested mode cannot render this source and another
       compatible engine takes over (e.g. "webgl" requested for a PDF). */
   onModeFallback?: (requested: BookPreviewMode, actual: BookPreviewMode) => void

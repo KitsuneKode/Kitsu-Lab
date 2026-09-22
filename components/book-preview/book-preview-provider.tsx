@@ -7,6 +7,7 @@ import {
   type RefObject,
 } from 'react'
 import type { BookPreviewState } from './reducer'
+import type { BookPreviewTypography } from './typography'
 import type {
   BookPreviewAppearance,
   BookPreviewEngine,
@@ -48,6 +49,8 @@ export type BookPreviewContextValue = {
   prevPage: () => void
   setAppearance: (appearance: BookPreviewAppearance) => void
   setSound: (sound: boolean) => void
+  typography: BookPreviewTypography
+  setTypography: (typography: BookPreviewTypography) => void
   retry: () => void
   prefetchMode: (mode: BookPreviewMode) => void
   /** Accept a PDF file (toolbar button or drag-and-drop). The shell owns the

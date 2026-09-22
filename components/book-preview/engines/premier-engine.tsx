@@ -28,10 +28,12 @@ import {
   CURL_RASTER_WIDTH,
 } from './curl-geometry'
 import {
+  PREMIER_VIEWS,
   readBookPreviewPrefs,
   writeBookPreviewPrefs,
   type PremierView,
 } from '../prefs'
+import { pickAllowed, readUrlParam, writeUrlParams } from '../url-state'
 import {
   PremierScrollView,
   PremierSingleView,
@@ -249,6 +251,7 @@ export default function PremierEngine({
   appearance,
   soundEnabled,
   reducedMotion,
+  viewParam,
   onPageChange,
   onReady,
   onError,
@@ -270,9 +273,17 @@ export default function PremierEngine({
 
   // The layout is the reader's setting — a remembered choice wins, then a
   // one-page view on narrow screens, and the flip book everywhere else.
+  // A shared link's ?view= is the most specific intent, so it wins over the
+  // remembered layout.
   const [view, setView] = useState<PremierView>(
-    () => readBookPreviewPrefs().premierView ?? (narrow ? 'single' : 'book'),
+    () =>
+      pickAllowed(readUrlParam(viewParam), PREMIER_VIEWS) ??
+      readBookPreviewPrefs().premierView ??
+      (narrow ? 'single' : 'book'),
   )
+  useEffect(() => {
+    if (viewParam) writeUrlParams({ [viewParam]: view })
+  }, [view, viewParam])
   const [zoom, setZoom] = useState(1)
   const zoomIn = useCallback(
     () => setZoom((z) => Math.min(2.4, Math.round((z + 0.2) * 10) / 10)),
@@ -714,9 +725,15 @@ export default function PremierEngine({
   )
 
   return (
-    <div className="flex h-full w-full flex-col gap-3 p-4">
+    <div
+      data-book-preview-engine-frame
+      className="flex h-full w-full flex-col gap-3 p-4"
+    >
       {chromeHost ? createPortal(controls, chromeHost) : controls}
-      <div className="bg-muted/30 flex min-h-0 flex-1 overflow-hidden rounded-lg border">
+      <div
+        data-book-preview-engine-stage
+        className="bg-muted/30 flex min-h-0 flex-1 overflow-hidden rounded-lg border"
+      >
         {usePdf && doc ? (
           narrow ? (
             <PdfThumbSheet

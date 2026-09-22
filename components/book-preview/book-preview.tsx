@@ -10,9 +10,22 @@ import { BookPreviewToolbar } from './book-preview-toolbar'
 import { BookPreviewViewport } from './book-preview-viewport'
 import { BookPreviewNavigation } from './book-preview-navigation'
 import { readBookPreviewPrefs, writeBookPreviewPrefs } from './prefs'
+import {
+  parsePageParam,
+  pickAllowed,
+  readUrlParam,
+  resolveUrlKeys,
+  writeUrlParams,
+} from './url-state'
 import { createInitialState, type BookPreviewAction } from './reducer'
 import { isInteractiveTarget, isReaderKeyboardEvent } from './keyboard'
 import { BookPreviewEngineBoundary } from './book-preview-engine-boundary'
+import { useImmersiveChrome } from './hooks/use-immersive-chrome'
+import {
+  DEFAULT_TYPOGRAPHY,
+  typographyVariables,
+  type BookPreviewTypography,
+} from './typography'
 import {
   clampPageIndex,
   isEmptySource,
@@ -37,6 +50,7 @@ import {
   resolveEnabledEngines,
   shouldPrefetchEngines,
 } from './engines'
+import { BOOK_PREVIEW_APPEARANCES } from './types'
 import type {
   BookPreviewAppearance,
   BookPreviewEngine,
@@ -66,6 +80,8 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react'
+
+const noopSubscribe = () => () => {}
 
 function pickControlled<T>(controlled: T | undefined, fallback: T): T {
   return controlled !== undefined ? controlled : fallback
@@ -114,9 +130,15 @@ function BookPreviewActiveEngine({
   )
 }
 
+// Native fullscreen is requested on the document, not the reader: popups
+// (menus, sheets, tooltips) portal to <body>, and only the fullscreen
+// element's subtree is painted — fullscreening the reader itself would make
+// every one of them invisible. The reader then covers the screen with its
+// own immersive layout, the same one the CSS fallback uses on iOS.
 function useFullscreen(rootRef: RefObject<HTMLDivElement | null>) {
   const [nativeFullscreen, setNativeFullscreen] = useState(false)
   const [cssImmersive, setCssImmersive] = useState(false)
+  const ownsFullscreenRef = useRef(false)
 
   const toggleFullscreen = useCallback(() => {
     const node = rootRef.current
@@ -129,42 +151,66 @@ function useFullscreen(rootRef: RefObject<HTMLDivElement | null>) {
       setCssImmersive(false)
       return
     }
+    const target = document.documentElement
     if (
-      typeof node.requestFullscreen === 'function' &&
+      typeof target.requestFullscreen === 'function' &&
       document.fullscreenEnabled
     ) {
-      void node.requestFullscreen().catch(() => setCssImmersive(true))
+      ownsFullscreenRef.current = true
+      void target.requestFullscreen().catch(() => {
+        ownsFullscreenRef.current = false
+        setCssImmersive(true)
+      })
       return
     }
     setCssImmersive(true)
   }, [cssImmersive, rootRef])
 
   useEffect(() => {
-    const onChange = () =>
-      setNativeFullscreen(
-        Boolean(document.fullscreenElement === rootRef.current),
-      )
+    const onChange = () => {
+      const active =
+        ownsFullscreenRef.current &&
+        document.fullscreenElement === document.documentElement
+      if (!document.fullscreenElement) ownsFullscreenRef.current = false
+      setNativeFullscreen(active)
+    }
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
-  }, [rootRef])
+  }, [])
 
+  // Leaving the page (or unmounting the reader) while it owns fullscreen
+  // hands the screen back.
+  useEffect(
+    () => () => {
+      if (ownsFullscreenRef.current && document.fullscreenElement) {
+        void document.exitFullscreen?.().catch(() => {})
+      }
+    },
+    [],
+  )
+
+  const immersive = nativeFullscreen || cssImmersive
   useEffect(() => {
-    if (!cssImmersive) return
+    if (!immersive) return
     const root = document.documentElement
     const previous = root.style.overflow
     root.style.overflow = 'hidden'
+    root.setAttribute('data-book-preview-immersive', '')
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') setCssImmersive(false)
+      if (event.key === 'Escape' && !document.fullscreenElement) {
+        setCssImmersive(false)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => {
       root.style.overflow = previous
+      root.removeAttribute('data-book-preview-immersive')
       window.removeEventListener('keydown', onKey)
     }
-  }, [cssImmersive])
+  }, [immersive])
 
   return {
-    fullscreen: nativeFullscreen || cssImmersive,
+    fullscreen: immersive,
     cssImmersive,
     setCssImmersive,
     toggleFullscreen,
@@ -325,12 +371,9 @@ function usePersistedPageIndex({
       return
     restoredKeyRef.current = sourceKey
     try {
-      let target: number | null = null
-      if (pageParam) {
-        const raw = new URLSearchParams(window.location.search).get(pageParam)
-        const parsed = raw === null ? Number.NaN : Number.parseInt(raw, 10)
-        if (parsed > 0) target = parsed - 1
-      }
+      let target: number | null = pageParam
+        ? parsePageParam(readUrlParam(pageParam))
+        : null
       if (target === null && persistPage) {
         const raw = window.localStorage.getItem(persistKey)
         const stored = raw === null ? Number.NaN : Number.parseInt(raw, 10)
@@ -372,15 +415,7 @@ function usePersistedPageIndex({
   // turning pages must never spam the back stack.
   useEffect(() => {
     if (!pageParam || status !== 'ready' || totalPages === 0) return
-    try {
-      const url = new URL(window.location.href)
-      const next = String(activePage + 1)
-      if (url.searchParams.get(pageParam) === next) return
-      url.searchParams.set(pageParam, next)
-      window.history.replaceState(null, '', url)
-    } catch {
-      // history may be unavailable (sandboxed iframe).
-    }
+    writeUrlParams({ [pageParam]: String(activePage + 1) })
   }, [pageParam, status, totalPages, activePage])
 }
 
@@ -419,6 +454,114 @@ function usePersistedPreferences({
     if (!enabled) return
     writeBookPreviewPrefs({ appearance: activeAppearance, mode: activeMode })
   }, [enabled, activeAppearance, activeMode])
+}
+
+// Mode and paper live in the query string when the host opts in, so a shared
+// link or a refresh opens the reader exactly as it was left. The URL wins over
+// remembered preferences (it is the more specific intent) and is applied
+// through the public actions, so controlled hosts hear about it too.
+function useUrlReaderState({
+  modeKey,
+  appearanceKey,
+  activeMode,
+  activeAppearance,
+  enabledModes,
+  setMode,
+  setAppearance,
+}: {
+  modeKey: string | undefined
+  appearanceKey: string | undefined
+  activeMode: BookPreviewMode
+  activeAppearance: BookPreviewAppearance
+  enabledModes: readonly BookPreviewMode[]
+  setMode: (mode: BookPreviewMode) => void
+  setAppearance: (appearance: BookPreviewAppearance) => void
+}) {
+  const hydratedRef = useRef(false)
+  // Values read from the URL that have not landed in state yet — the write
+  // effect holds off until they do, or it would clobber the link it just read.
+  const pendingRef = useRef<{
+    mode?: BookPreviewMode
+    appearance?: BookPreviewAppearance
+  }>({})
+
+  useEffect(() => {
+    if (hydratedRef.current) return
+    hydratedRef.current = true
+    const mode = pickAllowed(readUrlParam(modeKey), enabledModes)
+    const appearance = pickAllowed(
+      readUrlParam(appearanceKey),
+      BOOK_PREVIEW_APPEARANCES,
+    )
+    if (mode && mode !== activeMode) {
+      pendingRef.current.mode = mode
+      setMode(mode)
+    }
+    if (appearance && appearance !== activeAppearance) {
+      pendingRef.current.appearance = appearance
+      setAppearance(appearance)
+    }
+  }, [
+    activeAppearance,
+    activeMode,
+    appearanceKey,
+    enabledModes,
+    modeKey,
+    setAppearance,
+    setMode,
+  ])
+
+  useEffect(() => {
+    const pending = pendingRef.current
+    if (pending.mode && pending.mode !== activeMode) return
+    if (pending.appearance && pending.appearance !== activeAppearance) return
+    pendingRef.current = {}
+    writeUrlParams({
+      ...(modeKey ? { [modeKey]: activeMode } : {}),
+      ...(appearanceKey ? { [appearanceKey]: activeAppearance } : {}),
+    })
+  }, [activeAppearance, activeMode, appearanceKey, modeKey])
+}
+
+// Reading typography is the reader's own taste, like appearance: remembered
+// globally when preferences persist, applied as CSS variables on the root so
+// every text surface (page leaves, the premier text view) picks it up without
+// prop drilling or re-rendering engines.
+function useTypography({
+  persist,
+  defaultTypography,
+  onTypographyChange,
+}: {
+  persist: boolean
+  defaultTypography: Partial<BookPreviewTypography> | undefined
+  onTypographyChange: BookPreviewProps['onTypographyChange']
+}) {
+  // The remembered settings are read during render once hydrated (the server
+  // snapshot is false, so SSR markup stays deterministic); a choice made in
+  // this session overrides them.
+  const hydrated = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  )
+  const stored = useMemo(
+    () => (persist && hydrated ? readBookPreviewPrefs().typography : undefined),
+    [hydrated, persist],
+  )
+  const [chosen, setChosen] = useState<BookPreviewTypography | null>(null)
+  const typography = useMemo<BookPreviewTypography>(
+    () => chosen ?? stored ?? { ...DEFAULT_TYPOGRAPHY, ...defaultTypography },
+    [chosen, defaultTypography, stored],
+  )
+  const setTypography = useCallback(
+    (next: BookPreviewTypography) => {
+      setChosen(next)
+      if (persist) writeBookPreviewPrefs({ typography: next })
+      onTypographyChange?.(next)
+    },
+    [onTypographyChange, persist],
+  )
+  return { typography, setTypography }
 }
 
 // The shell owns uploaded documents: a picked or dropped File becomes an
@@ -627,6 +770,7 @@ export function BookPreview({
   source,
   className,
   label = 'Book preview',
+  layout = 'inline',
   engines,
   enabledModes,
   defaultMode = 'page',
@@ -637,7 +781,8 @@ export function BookPreview({
   onPageChange,
   persistPage = false,
   persistPreferences = false,
-  pageParam,
+  pageParam: pageParamProp,
+  urlState,
   defaultAppearance = 'system',
   appearance,
   onAppearanceChange,
@@ -645,12 +790,16 @@ export function BookPreview({
   sound,
   onSoundChange,
   prefetchModes,
+  defaultTypography,
+  onTypographyChange,
   onModeFallback,
   onCapabilitiesChange,
   onError,
   onStatusChange,
 }: BookPreviewProps) {
   const propSource = useMemo(() => normalizeSource(source), [source])
+  const urlKeys = resolveUrlKeys(urlState, pageParamProp)
+  const pageParam = urlKeys.page
   const propSourceKey = sourceIdentity(propSource)
   const enabledEngines = useMemo(
     () => resolveEnabledEngines(engines, enabledModes),
@@ -712,6 +861,23 @@ export function BookPreview({
   const finePointer = useFinePointer()
   const { fullscreen, cssImmersive, setCssImmersive, toggleFullscreen } =
     useFullscreen(rootRef)
+  const { typography, setTypography } = useTypography({
+    persist: persistPreferences,
+    defaultTypography,
+    onTypographyChange,
+  })
+  const rootStyle = useMemo(
+    () =>
+      ({
+        ...bookPreviewMotionStyle,
+        ...typographyVariables(typography),
+      }) as CSSProperties,
+    [typography],
+  )
+  const { chromeHidden, showChrome, chromeHandlers } = useImmersiveChrome({
+    enabled: fullscreen,
+    rootRef,
+  })
 
   const activeMode = pickControlled(mode, state.mode)
   const activePage = pickControlled(pageIndex, state.pageIndex)
@@ -798,6 +964,20 @@ export function BookPreview({
     activeAppearance,
     activeMode,
     dispatch,
+  })
+
+  const enabledModeIds = useMemo(
+    () => enabledEngines.map((engine) => engine.id),
+    [enabledEngines],
+  )
+  useUrlReaderState({
+    modeKey: urlKeys.mode,
+    appearanceKey: urlKeys.appearance,
+    activeMode,
+    activeAppearance,
+    enabledModes: enabledModeIds,
+    setMode,
+    setAppearance,
   })
 
   // Tell the consumer when an incompatible request quietly landed on another
@@ -1050,6 +1230,8 @@ export function BookPreview({
       prevPage,
       setAppearance,
       setSound,
+      typography,
+      setTypography,
       retry,
       prefetchMode,
       uploadPdf,
@@ -1081,8 +1263,10 @@ export function BookPreview({
       setAppearance,
       setMode,
       setSound,
+      setTypography,
       state,
       toggleFullscreen,
+      typography,
       uploadPdf,
     ],
   )
@@ -1096,7 +1280,7 @@ export function BookPreview({
             'book-preview focus-visible:ring-ring/60 focus-visible:ring-offset-background relative flex w-full min-w-0 flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
             className,
           )}
-          style={bookPreviewMotionStyle as CSSProperties}
+          style={rootStyle}
           tabIndex={0}
           aria-label={label}
           aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f / + - 0 Escape"
@@ -1104,8 +1288,26 @@ export function BookPreview({
           data-reduced-transparency={reducedTransparency || undefined}
           data-more-contrast={moreContrast || undefined}
           data-book-preview-immersive={fullscreen || undefined}
+          data-chrome-hidden={chromeHidden || undefined}
+          data-layout={layout}
           onKeyDown={onKeyDown}
           onPointerDown={onPointerDown}
+          onPointerMove={chromeHandlers.onPointerMove}
+          onPointerLeave={chromeHandlers.onPointerLeave}
+          onPointerDownCapture={chromeHandlers.onPointerDownCapture}
+          onPointerUpCapture={chromeHandlers.onPointerUpCapture}
+          onFocusCapture={(event) => {
+            // Tabbing into hidden chrome brings it back — keyboard users
+            // must never land focus on something they cannot see.
+            if (
+              chromeHidden &&
+              (event.target as HTMLElement).closest?.(
+                '[data-book-preview-chrome]',
+              )
+            ) {
+              showChrome()
+            }
+          }}
           onClick={onClick}
           onDragEnter={onDragEnter}
           onDragOver={onDragOver}
@@ -1125,6 +1327,7 @@ export function BookPreview({
               reducedMotion={reducedMotion}
               navigationBehavior={navigationBehavior}
               persistPreferences={persistPreferences}
+              viewParam={urlKeys.view}
               onPageChange={goToPage}
               onReady={handleEngineReady}
               onError={handleEngineError}

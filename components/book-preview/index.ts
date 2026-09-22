@@ -19,6 +19,7 @@ export type {
   BookPreviewEngineProps,
   BookPreviewEngineReadyInfo,
   BookPreviewError,
+  BookPreviewLayout,
   BookPreviewErrorKind,
   BookPreviewMode,
   BookPreviewPage,

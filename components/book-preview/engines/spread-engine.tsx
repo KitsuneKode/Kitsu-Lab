@@ -385,7 +385,10 @@ export default function SpreadEngine({
     viewMode === 'page' ? `p-${pageIndex}` : `s-${evenIndex}-${viewMode}`
 
   return (
-    <div className="flex h-full w-full flex-col gap-3 p-4">
+    <div
+      data-book-preview-engine-frame
+      className="flex h-full w-full flex-col gap-3 p-4"
+    >
       <SpreadControls
         viewMode={viewMode}
         loupeAvailable={loupeAvailable}

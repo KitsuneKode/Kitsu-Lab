@@ -27,7 +27,10 @@ export function BookPreviewNavigation() {
   if (state.capabilities.pagination === false) return null
 
   return (
-    <div className="flex w-full flex-col gap-3" data-book-preview-chrome>
+    <div
+      className="flex w-full flex-col gap-3"
+      data-book-preview-chrome="bottom"
+    >
       <div className="flex items-center justify-between gap-3">
         <Button
           type="button"

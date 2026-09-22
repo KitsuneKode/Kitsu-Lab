@@ -169,6 +169,12 @@ function PdfFaceOverlay({
   )
 }
 
+/** The height that fits a box of `aspect` (width / height) inside the
+    nearest size container on both axes. */
+function fitHeight(aspect: number): string {
+  return `min(100cqh, calc(100cqw / ${Math.max(aspect, 0.05)}))`
+}
+
 /** A face sized by its own aspect — height-bounded so it never outgrows the
     stage, width-bounded so a tall page never overflows narrow screens. */
 function FaceBox({
@@ -510,11 +516,19 @@ export function PremierSingleView({
     >
       {/* m-auto centers the face but top-aligns it the moment it overflows,
           so a zoomed page scrolls instead of clipping its head. */}
-      <div ref={scrollerRef} className="flex h-full overflow-auto p-4">
+      {/* A size container, so the face fits both axes: as tall as the stage
+          allows, unless the stage is too narrow for that page's aspect. */}
+      <div
+        ref={scrollerRef}
+        className="[container-type:size] flex h-full overflow-auto p-4"
+      >
         <div
           ref={faceRef}
-          style={{ zoom }}
-          className="m-auto h-[min(62svh,100%)]"
+          style={{
+            zoom,
+            height: fitHeight(face?.aspect ?? FALLBACK_ASPECT),
+          }}
+          className="m-auto"
         >
           {face ? (
             <FaceBox face={face} arrival={arrival} key={face.key}>
@@ -589,11 +603,18 @@ export function PremierSpreadView({
           : 'h-full w-full touch-pan-x touch-pan-y'
       }
     >
-      <div ref={scrollerRef} className="flex h-full overflow-auto p-4">
+      <div
+        ref={scrollerRef}
+        className="[container-type:size] flex h-full overflow-auto p-4"
+      >
         <div
           ref={faceRef}
-          style={{ zoom }}
-          className="m-auto flex h-[min(56svh,100%)] items-stretch gap-0.5"
+          style={{
+            zoom,
+            // Two faces side by side: the pair is twice as wide as one page.
+            height: fitHeight(2 * (leftFace?.aspect ?? FALLBACK_ASPECT)),
+          }}
+          className="m-auto flex items-stretch gap-0.5"
         >
           {leftFace ? (
             <FaceBox face={leftFace} arrival={arrival} key={leftFace.key}>
@@ -832,7 +853,8 @@ export function PremierTextView({
     >
       <div
         ref={columnRef}
-        className="mx-auto flex w-[88%] max-w-[40rem] flex-col gap-8 py-8"
+        data-bp-prose
+        className="mx-auto flex w-[88%] max-w-(--bp-type-measure) flex-col gap-10 py-10"
         style={{ zoom }}
       >
         {faces.map((face, index) => (
@@ -847,7 +869,10 @@ export function PremierTextView({
               Page {index + 1}
             </p>
             {face.text ? (
-              <p className="text-foreground/90 text-[15px] leading-7 whitespace-pre-wrap">
+              <p
+                data-bp-reflow
+                className="text-foreground/90 whitespace-pre-wrap"
+              >
                 {face.text}
               </p>
             ) : (

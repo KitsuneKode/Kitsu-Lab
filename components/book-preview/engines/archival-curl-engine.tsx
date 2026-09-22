@@ -390,7 +390,10 @@ export default function ArchivalCurlEngine({
   )
 
   return (
-    <div className="flex h-full w-full flex-col gap-3 p-4">
+    <div
+      data-book-preview-engine-frame
+      className="flex h-full w-full flex-col gap-3 p-4"
+    >
       {chromeHost ? createPortal(controls, chromeHost) : controls}
       <ArchivalMatchList
         query={query}

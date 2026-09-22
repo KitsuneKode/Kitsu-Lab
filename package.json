@@ -12,8 +12,8 @@
     "lint": "oxlint",
     "test": "bun test components/book-preview components/book-preview-demo",
     "typecheck": "tsc --noEmit",
-    "registry:build": "shadcn build",
-    "registry:check": "shadcn build && git diff --exit-code --stat public/r registry.json",
+    "registry:build": "npx -y shadcn@4.21.0 build",
+    "registry:check": "npx -y shadcn@4.21.0 build && git diff --exit-code --stat public/r registry.json",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run test"
   },
   "dependencies": {

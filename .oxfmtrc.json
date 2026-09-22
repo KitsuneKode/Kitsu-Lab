@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": false,
+  "singleQuote": true,
+  "sortingMethod": "lineLength",
+  "sortingOrder": "ascending",
+  "printWidth": 80,
+  "sortPackageJson": false,
+  "sortTailwindcss": {},
+  "ignorePatterns": [
+    "node_modules/",
+    ".vscode/",
+    ".git/",
+    "build/",
+    "dist/",
+    "logs/"
+  ]
+}

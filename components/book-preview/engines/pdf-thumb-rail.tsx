@@ -1,24 +1,24 @@
-"use client"
+'use client'
 
-import { useEffect, useRef, useState, type RefObject } from "react"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet"
+} from '@/components/ui/sheet'
 import {
   pdfPageAspectRatio,
   rasterizePdfPage,
   releaseRasterUrl,
   type PdfDocumentProxy,
-} from "../pdf-runtime"
+} from '../pdf-runtime'
 
 const THUMB_WIDTH = 96
 // Render a thumb only when it nears the rail viewport — a 300-page document
 // must not queue 300 rasters just because the rail opened once.
-const THUMB_ROOT_MARGIN = "240px"
+const THUMB_ROOT_MARGIN = '240px'
 
 /**
  * Lazily rasterizes page thumbnails for the rail. Work is requested by an
@@ -90,7 +90,7 @@ function usePdfThumbnails({
 
     const rail = railRef.current
     let observer: IntersectionObserver | null = null
-    if (rail && typeof IntersectionObserver !== "undefined") {
+    if (rail && typeof IntersectionObserver !== 'undefined') {
       observer = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
@@ -100,14 +100,15 @@ function usePdfThumbnails({
             observer?.unobserve(entry.target)
           }
         },
-        { root: rail, rootMargin: THUMB_ROOT_MARGIN }
+        { root: rail, rootMargin: THUMB_ROOT_MARGIN },
       )
-      for (const node of rail.querySelectorAll("[data-thumb-page]")) {
+      for (const node of rail.querySelectorAll('[data-thumb-page]')) {
         observer.observe(node)
       }
     } else if (rail) {
       // No observer support — fall back to rendering the first screenful.
-      for (let page = 1; page <= Math.min(doc.numPages, 12); page += 1) request(page)
+      for (let page = 1; page <= Math.min(doc.numPages, 12); page += 1)
+        request(page)
     }
 
     return () => {
@@ -205,11 +206,11 @@ function ThumbList({
   useEffect(() => {
     railRef.current
       ?.querySelector(`[data-thumb-page="${pageIndex + 1}"]`)
-      ?.scrollIntoView({ block: "nearest" })
+      ?.scrollIntoView({ block: 'nearest' })
   }, [pageIndex])
 
   return (
-    <div ref={railRef} className={className} role="navigation" aria-label="Page thumbnails">
+    <nav ref={railRef} className={className} aria-label="Page thumbnails">
       {Array.from({ length: doc.numPages }, (_, index) => {
         const page = index + 1
         const src = thumbs.get(page)
@@ -220,18 +221,18 @@ function ThumbList({
             type="button"
             data-thumb-page={page}
             data-book-preview-press
-            aria-current={current ? "page" : undefined}
+            aria-current={current ? 'page' : undefined}
             aria-label={`Page ${page}`}
             onClick={() => onSelect(index)}
             className={cn(
-              "flex flex-col items-center gap-1 rounded-md p-1 outline-none transition-colors",
-              grid && "min-h-11",
+              'flex flex-col items-center gap-1 rounded-md p-1 transition-colors outline-none',
+              grid && 'min-h-11',
               current
-                ? "bg-accent ring-1 ring-foreground/30"
-                : "hover:bg-muted/60 focus-visible:bg-muted/60"
+                ? 'bg-accent ring-foreground/30 ring-1'
+                : 'hover:bg-muted/60 focus-visible:bg-muted/60',
             )}
           >
-            <span className="block w-full overflow-hidden rounded-sm border bg-background">
+            <span className="bg-background block w-full overflow-hidden rounded-sm border">
               {src ? (
                 // Locally generated object URL — next/image cannot help here.
                 // eslint-disable-next-line @next/next/no-img-element
@@ -244,13 +245,13 @@ function ThumbList({
                   className="block h-auto w-full"
                 />
               ) : (
-                <span className="block aspect-[3/4] w-full animate-pulse bg-muted/60" />
+                <span className="bg-muted/60 block aspect-[3/4] w-full animate-pulse" />
               )}
             </span>
             <span
               className={cn(
-                "font-mono text-[10px]",
-                current ? "text-foreground" : "text-muted-foreground"
+                'font-mono text-[10px]',
+                current ? 'text-foreground' : 'text-muted-foreground',
               )}
             >
               {page}
@@ -258,6 +259,6 @@ function ThumbList({
           </button>
         )
       })}
-    </div>
+    </nav>
   )
 }

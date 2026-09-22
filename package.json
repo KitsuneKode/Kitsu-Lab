@@ -7,9 +7,17 @@
     "build": "next build",
     "start": "next start",
     "format": "prettier --write \"./**/*.{js,ts,jsx,tsx,json,md,mdx,html,css}\" --ignore-path .prettierignore",
+    "format:check": "prettier --check \"./**/*.{js,ts,jsx,tsx,json,md,mdx,html,css}\" --ignore-path .prettierignore",
+    "fmt:ox": "oxfmt",
+    "fmt:ox:check": "oxfmt --check",
     "lint": "eslint .",
+    "lint:ox": "oxlint",
+    "lint:all": "oxlint && eslint .",
     "test": "bun test components/book-preview components/book-preview-demo",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "registry:build": "shadcn build",
+    "registry:check": "shadcn build && git diff --exit-code --stat public/r registry.json",
+    "check": "npm run typecheck && npm run lint:all && npm run test"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -41,6 +49,8 @@
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.5",
     "eslint-config-prettier": "^10.1.5",
+    "oxfmt": "^0.70.0",
+    "oxlint": "^1.85.0",
     "prettier": "^3.6.2",
     "prettier-plugin-sort-imports": "^1.8.8",
     "prettier-plugin-tailwindcss": "^0.6.13",

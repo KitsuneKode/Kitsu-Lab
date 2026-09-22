@@ -1,5 +1,54 @@
-"use client"
+'use client'
 
+import './book-preview.css'
+import { cn } from '@/lib/utils'
+import { stopPageTurnSounds } from './audio'
+import { bookPreviewMotionStyle } from './motion'
+import { createPreviewStore } from './preview-store'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { BookPreviewToolbar } from './book-preview-toolbar'
+import { BookPreviewViewport } from './book-preview-viewport'
+import { BookPreviewNavigation } from './book-preview-navigation'
+import { readBookPreviewPrefs, writeBookPreviewPrefs } from './prefs'
+import { createInitialState, type BookPreviewAction } from './reducer'
+import { isInteractiveTarget, isReaderKeyboardEvent } from './keyboard'
+import { BookPreviewEngineBoundary } from './book-preview-engine-boundary'
+import {
+  clampPageIndex,
+  isEmptySource,
+  normalizeSource,
+  sourceIdentity,
+} from './normalize'
+import {
+  usePrefersMoreContrast,
+  usePrefersReducedMotion,
+  usePrefersReducedTransparency,
+  useFinePointer,
+} from './media'
+import {
+  BookPreviewProvider,
+  type BookPreviewContextValue,
+  type BookPreviewEngineShortcuts,
+} from './book-preview-provider'
+import {
+  describeEngineLoadFailure,
+  resolveActiveEngine,
+  resolveCompatibleEngines,
+  resolveEnabledEngines,
+  shouldPrefetchEngines,
+} from './engines'
+import type {
+  BookPreviewAppearance,
+  BookPreviewEngine,
+  BookPreviewEngineProps,
+  BookPreviewEngineReadyInfo,
+  BookPreviewError,
+  BookPreviewMode,
+  BookPreviewNavigationBehavior,
+  BookPreviewProps,
+  BookPreviewStatus,
+  NormalizedBookSource,
+} from './types'
 import {
   useCallback,
   useEffect,
@@ -16,62 +65,20 @@ import {
   type PointerEvent,
   type RefObject,
   type SetStateAction,
-} from "react"
-import { cn } from "@/lib/utils"
-import { TooltipProvider } from "@/components/ui/tooltip"
-import { stopPageTurnSounds } from "./audio"
-import { BookPreviewEngineBoundary } from "./book-preview-engine-boundary"
-import { BookPreviewNavigation } from "./book-preview-navigation"
-import {
-  BookPreviewProvider,
-  type BookPreviewContextValue,
-  type BookPreviewEngineShortcuts,
-} from "./book-preview-provider"
-import { BookPreviewToolbar } from "./book-preview-toolbar"
-import { BookPreviewViewport } from "./book-preview-viewport"
-import {
-  describeEngineLoadFailure,
-  resolveActiveEngine,
-  resolveCompatibleEngines,
-  resolveEnabledEngines,
-  shouldPrefetchEngines,
-} from "./engines"
-import { isInteractiveTarget, isReaderKeyboardEvent } from "./keyboard"
-import {
-  usePrefersMoreContrast,
-  usePrefersReducedMotion,
-  usePrefersReducedTransparency,
-  useFinePointer,
-} from "./media"
-import { bookPreviewMotionStyle } from "./motion"
-import { clampPageIndex, isEmptySource, normalizeSource, sourceIdentity } from "./normalize"
-import { readBookPreviewPrefs, writeBookPreviewPrefs } from "./prefs"
-import { createPreviewStore } from "./preview-store"
-import { createInitialState, type BookPreviewAction } from "./reducer"
-import type {
-  BookPreviewAppearance,
-  BookPreviewEngine,
-  BookPreviewEngineProps,
-  BookPreviewEngineReadyInfo,
-  BookPreviewError,
-  BookPreviewMode,
-  BookPreviewNavigationBehavior,
-  BookPreviewProps,
-  BookPreviewStatus,
-  NormalizedBookSource,
-} from "./types"
-import "./book-preview.css"
+} from 'react'
 
 function pickControlled<T>(controlled: T | undefined, fallback: T): T {
   return controlled !== undefined ? controlled : fallback
 }
 
 function isPdfFile(file: File): boolean {
-  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
+  return (
+    file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+  )
 }
 
 function eventHasFiles(event: DragEvent<HTMLElement>): boolean {
-  return Array.from(event.dataTransfer.types).includes("Files")
+  return Array.from(event.dataTransfer.types).includes('Files')
 }
 
 type BookPreviewActiveEngineProps = BookPreviewEngineProps & {
@@ -98,7 +105,7 @@ function BookPreviewActiveEngine({
     // starts over instead of sitting inert under the loading surface.
     <BookPreviewEngineBoundary
       key={resetKey}
-      engineId={activeEngineId ?? "none"}
+      engineId={activeEngineId ?? 'none'}
       resetKey={resetKey}
       onError={onError}
     >
@@ -122,7 +129,10 @@ function useFullscreen(rootRef: RefObject<HTMLDivElement | null>) {
       setCssImmersive(false)
       return
     }
-    if (typeof node.requestFullscreen === "function" && document.fullscreenEnabled) {
+    if (
+      typeof node.requestFullscreen === 'function' &&
+      document.fullscreenEnabled
+    ) {
       void node.requestFullscreen().catch(() => setCssImmersive(true))
       return
     }
@@ -130,23 +140,26 @@ function useFullscreen(rootRef: RefObject<HTMLDivElement | null>) {
   }, [cssImmersive, rootRef])
 
   useEffect(() => {
-    const onChange = () => setNativeFullscreen(Boolean(document.fullscreenElement === rootRef.current))
-    document.addEventListener("fullscreenchange", onChange)
-    return () => document.removeEventListener("fullscreenchange", onChange)
+    const onChange = () =>
+      setNativeFullscreen(
+        Boolean(document.fullscreenElement === rootRef.current),
+      )
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
   }, [rootRef])
 
   useEffect(() => {
     if (!cssImmersive) return
     const root = document.documentElement
     const previous = root.style.overflow
-    root.style.overflow = "hidden"
+    root.style.overflow = 'hidden'
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") setCssImmersive(false)
+      if (event.key === 'Escape') setCssImmersive(false)
     }
-    window.addEventListener("keydown", onKey)
+    window.addEventListener('keydown', onKey)
     return () => {
       root.style.overflow = previous
-      window.removeEventListener("keydown", onKey)
+      window.removeEventListener('keydown', onKey)
     }
   }, [cssImmersive])
 
@@ -186,19 +199,19 @@ function useEngineLoader({
   useEffect(() => {
     const currentSource = normalizedRef.current
     if (isEmptySource(currentSource)) {
-      dispatch({ type: "empty" })
+      dispatch({ type: 'empty' })
       return
     }
     if (!activeEngine) {
       dispatch({
-        type: "engine-unsupported",
-        message: "No compatible reader is available for this source.",
+        type: 'engine-unsupported',
+        message: 'No compatible reader is available for this source.',
       })
       return
     }
     if (activeEngine.isSupported && !activeEngine.isSupported()) {
       dispatch({
-        type: "engine-unsupported",
+        type: 'engine-unsupported',
         message: `${activeEngine.label} is not supported in this browser.`,
       })
       return
@@ -206,7 +219,7 @@ function useEngineLoader({
 
     let cancelled = false
     const engineId = activeEngine.id
-    dispatch({ type: "engine-loading" })
+    dispatch({ type: 'engine-loading' })
     loadedRef.current = engineId
     activeEngine
       .load()
@@ -215,9 +228,9 @@ function useEngineLoader({
         const EngineComponent = mod.default
         if (!EngineComponent) {
           dispatch({
-            type: "engine-error",
+            type: 'engine-error',
             error: {
-              kind: "engine-load",
+              kind: 'engine-load',
               message: describeEngineLoadFailure(activeEngine.label),
             },
           })
@@ -229,9 +242,9 @@ function useEngineLoader({
         if (cancelled || loadedRef.current !== engineId) return
         console.error(error)
         dispatch({
-          type: "engine-error",
+          type: 'engine-error',
           error: {
-            kind: "engine-load",
+            kind: 'engine-load',
             message: describeEngineLoadFailure(activeEngine.label),
           },
         })
@@ -285,8 +298,10 @@ function usePersistedPageIndex({
     }
     const reset = resetPageRef.current
     dispatch({
-      type: "reset-source",
-      pageIndex: reset.pageControlled ? reset.pageIndex : reset.defaultPageIndex,
+      type: 'reset-source',
+      pageIndex: reset.pageControlled
+        ? reset.pageIndex
+        : reset.defaultPageIndex,
     })
   }, [sourceKey, dispatch])
 
@@ -302,7 +317,12 @@ function usePersistedPageIndex({
     // totalPages===0 gates this too: a password prompt reports a zero-page
     // ready state that must not consume the deep link before the document
     // is actually open.
-    if (status !== "ready" || totalPages === 0 || restoredKeyRef.current === sourceKey) return
+    if (
+      status !== 'ready' ||
+      totalPages === 0 ||
+      restoredKeyRef.current === sourceKey
+    )
+      return
     restoredKeyRef.current = sourceKey
     try {
       let target: number | null = null
@@ -317,15 +337,30 @@ function usePersistedPageIndex({
         if (stored > 0) target = stored
       }
       if (target !== null && target < Math.max(totalPages, 1)) {
-        queueMicrotask(() => goToPage(target, "instant"))
+        queueMicrotask(() => goToPage(target, 'instant'))
       }
     } catch {
       // localStorage or location may be unavailable (private mode, sandbox).
     }
-  }, [persistPage, pageParam, pageControlled, sourceKey, persistKey, status, totalPages, goToPage])
+  }, [
+    persistPage,
+    pageParam,
+    pageControlled,
+    sourceKey,
+    persistKey,
+    status,
+    totalPages,
+    goToPage,
+  ])
 
   useEffect(() => {
-    if (!persistPage || pageControlled || status !== "ready" || totalPages === 0) return
+    if (
+      !persistPage ||
+      pageControlled ||
+      status !== 'ready' ||
+      totalPages === 0
+    )
+      return
     try {
       window.localStorage.setItem(persistKey, String(activePage))
     } catch {
@@ -336,13 +371,13 @@ function usePersistedPageIndex({
   // Keep the deep link current as the reader moves. replaceState only —
   // turning pages must never spam the back stack.
   useEffect(() => {
-    if (!pageParam || status !== "ready" || totalPages === 0) return
+    if (!pageParam || status !== 'ready' || totalPages === 0) return
     try {
       const url = new URL(window.location.href)
       const next = String(activePage + 1)
       if (url.searchParams.get(pageParam) === next) return
       url.searchParams.set(pageParam, next)
-      window.history.replaceState(null, "", url)
+      window.history.replaceState(null, '', url)
     } catch {
       // history may be unavailable (sandboxed iframe).
     }
@@ -373,10 +408,10 @@ function usePersistedPreferences({
     hydratedRef.current = true
     const prefs = readBookPreviewPrefs()
     if (prefs.appearance && !appearanceControlled) {
-      dispatch({ type: "set-appearance", appearance: prefs.appearance })
+      dispatch({ type: 'set-appearance', appearance: prefs.appearance })
     }
     if (prefs.mode && !modeControlled) {
-      dispatch({ type: "set-mode", mode: prefs.mode })
+      dispatch({ type: 'set-mode', mode: prefs.mode })
     }
   }, [enabled, appearanceControlled, modeControlled, dispatch])
 
@@ -400,21 +435,23 @@ function useUploadedPdf({
   allowUpload: boolean
   dispatch: Dispatch<BookPreviewAction>
 }) {
-  const [upload, setUpload] = useState<{ url: string; name: string } | null>(null)
+  const [upload, setUpload] = useState<{ url: string; name: string } | null>(
+    null,
+  )
 
   const uploadPdf = useCallback(
     (file: File) => {
       if (!allowUpload) return
       if (!isPdfFile(file)) {
         dispatch({
-          type: "engine-error",
-          error: { kind: "upload", message: "Only PDF files can be uploaded." },
+          type: 'engine-error',
+          error: { kind: 'upload', message: 'Only PDF files can be uploaded.' },
         })
         return
       }
       setUpload({ url: URL.createObjectURL(file), name: file.name })
     },
-    [allowUpload, dispatch]
+    [allowUpload, dispatch],
   )
 
   // Revokes the previous upload's URL whenever it is replaced and on unmount.
@@ -424,13 +461,13 @@ function useUploadedPdf({
     }
   }, [upload])
 
-  // A new consumer source drops whatever document the reader opened itself.
-  const sourceKeyRef = useRef(sourceKey)
-  useEffect(() => {
-    if (sourceKeyRef.current === sourceKey) return
-    sourceKeyRef.current = sourceKey
+  // A new consumer source drops whatever document the reader opened itself —
+  // adjusted during render (the React-recommended alternative to an effect).
+  const [lastSourceKey, setLastSourceKey] = useState(sourceKey)
+  if (lastSourceKey !== sourceKey) {
+    setLastSourceKey(sourceKey)
     setUpload(null)
-  }, [sourceKey])
+  }
 
   return { upload, uploadPdf }
 }
@@ -460,69 +497,76 @@ function useBookPreviewActions({
   totalPages: number
   dispatch: Dispatch<BookPreviewAction>
   setNavigationBehavior: Dispatch<SetStateAction<BookPreviewNavigationBehavior>>
-  onModeChange: BookPreviewProps["onModeChange"]
-  onPageChange: BookPreviewProps["onPageChange"]
-  onAppearanceChange: BookPreviewProps["onAppearanceChange"]
-  onSoundChange: BookPreviewProps["onSoundChange"]
-  onCapabilitiesChange: BookPreviewProps["onCapabilitiesChange"]
+  onModeChange: BookPreviewProps['onModeChange']
+  onPageChange: BookPreviewProps['onPageChange']
+  onAppearanceChange: BookPreviewProps['onAppearanceChange']
+  onSoundChange: BookPreviewProps['onSoundChange']
+  onCapabilitiesChange: BookPreviewProps['onCapabilitiesChange']
 }) {
   const setMode = useCallback(
     (next: BookPreviewMode) => {
-      if (!modeControlled) dispatch({ type: "set-mode", mode: next })
+      if (!modeControlled) dispatch({ type: 'set-mode', mode: next })
       onModeChange?.(next)
     },
-    [modeControlled, onModeChange, dispatch]
+    [modeControlled, onModeChange, dispatch],
   )
 
   const goToPage = useCallback(
-    (next: number, behavior: BookPreviewNavigationBehavior = "animated") => {
+    (next: number, behavior: BookPreviewNavigationBehavior = 'animated') => {
       const clamped = clampPageIndex(next, Math.max(totalPages, 1))
       setNavigationBehavior(behavior)
-      if (!pageControlled) dispatch({ type: "set-page", pageIndex: clamped })
+      if (!pageControlled) dispatch({ type: 'set-page', pageIndex: clamped })
       onPageChange?.(clamped)
     },
-    [onPageChange, pageControlled, totalPages, setNavigationBehavior, dispatch]
+    [onPageChange, pageControlled, totalPages, setNavigationBehavior, dispatch],
   )
 
-  const nextPage = useCallback(() => goToPage(activePage + 1), [activePage, goToPage])
-  const prevPage = useCallback(() => goToPage(activePage - 1), [activePage, goToPage])
+  const nextPage = useCallback(
+    () => goToPage(activePage + 1),
+    [activePage, goToPage],
+  )
+  const prevPage = useCallback(
+    () => goToPage(activePage - 1),
+    [activePage, goToPage],
+  )
 
   const setAppearance = useCallback(
     (next: BookPreviewAppearance) => {
-      if (!appearanceControlled) dispatch({ type: "set-appearance", appearance: next })
+      if (!appearanceControlled)
+        dispatch({ type: 'set-appearance', appearance: next })
       onAppearanceChange?.(next)
     },
-    [appearanceControlled, onAppearanceChange, dispatch]
+    [appearanceControlled, onAppearanceChange, dispatch],
   )
 
   const setSound = useCallback(
     (next: boolean) => {
-      if (!soundControlled) dispatch({ type: "set-sound", sound: next })
+      if (!soundControlled) dispatch({ type: 'set-sound', sound: next })
       onSoundChange?.(next)
     },
-    [onSoundChange, soundControlled, dispatch]
+    [onSoundChange, soundControlled, dispatch],
   )
 
-  const retry = useCallback(() => dispatch({ type: "retry" }), [dispatch])
+  const retry = useCallback(() => dispatch({ type: 'retry' }), [dispatch])
 
   const handleEngineReady = useCallback(
     (info: BookPreviewEngineReadyInfo) => {
       dispatch({
-        type: "engine-ready",
+        type: 'engine-ready',
         totalPages: info.totalPages,
         capabilities: info.capabilities,
         contents: info.contents,
       })
       onCapabilitiesChange?.(info.capabilities)
     },
-    [onCapabilitiesChange, dispatch]
+    [onCapabilitiesChange, dispatch],
   )
 
   const handleEngineError = useCallback(
     (error: BookPreviewError) => {
-      dispatch({ type: "engine-error", error })
+      dispatch({ type: 'engine-error', error })
     },
-    [dispatch]
+    [dispatch],
   )
 
   return {
@@ -552,9 +596,15 @@ function usePrefetchEngines({
     const wants = prefetchModes ?? []
     if (wants.length === 0) return
     const conn = (
-      navigator as { connection?: { saveData?: boolean; effectiveType?: string } }
+      navigator as {
+        connection?: { saveData?: boolean; effectiveType?: string }
+      }
     ).connection
-    if (conn?.saveData || conn?.effectiveType === "slow-2g" || conn?.effectiveType === "2g") {
+    if (
+      conn?.saveData ||
+      conn?.effectiveType === 'slow-2g' ||
+      conn?.effectiveType === '2g'
+    ) {
       return
     }
     const run = () => {
@@ -564,7 +614,7 @@ function usePrefetchEngines({
         prefetchMode(modeId)
       }
     }
-    if ("requestIdleCallback" in window) {
+    if ('requestIdleCallback' in window) {
       const id = window.requestIdleCallback(run, { timeout: 4000 })
       return () => window.cancelIdleCallback(id)
     }
@@ -576,10 +626,10 @@ function usePrefetchEngines({
 export function BookPreview({
   source,
   className,
-  label = "Book preview",
+  label = 'Book preview',
   engines,
   enabledModes,
-  defaultMode = "page",
+  defaultMode = 'page',
   mode,
   onModeChange,
   defaultPageIndex = 0,
@@ -588,7 +638,7 @@ export function BookPreview({
   persistPage = false,
   persistPreferences = false,
   pageParam,
-  defaultAppearance = "system",
+  defaultAppearance = 'system',
   appearance,
   onAppearanceChange,
   defaultSound = false,
@@ -604,7 +654,7 @@ export function BookPreview({
   const propSourceKey = sourceIdentity(propSource)
   const enabledEngines = useMemo(
     () => resolveEnabledEngines(engines, enabledModes),
-    [engines, enabledModes]
+    [engines, enabledModes],
   )
   const modeControlled = mode !== undefined
   const pageControlled = pageIndex !== undefined
@@ -627,13 +677,17 @@ export function BookPreview({
         pageIndex: defaultPageIndex,
         appearance: defaultAppearance,
         sound: defaultSound,
-      })
-    )
+      }),
+    ),
   )
-  const state = useSyncExternalStore(store.subscribe, store.getState, store.getState)
+  const state = useSyncExternalStore(
+    store.subscribe,
+    store.getState,
+    store.getState,
+  )
   const dispatch = store.dispatch
   const [navigationBehavior, setNavigationBehavior] =
-    useState<BookPreviewNavigationBehavior>("animated")
+    useState<BookPreviewNavigationBehavior>('animated')
   const rootRef = useRef<HTMLDivElement | null>(null)
 
   const { upload, uploadPdf } = useUploadedPdf({
@@ -648,7 +702,7 @@ export function BookPreview({
       upload
         ? { ...propSource, pdfUrl: upload.url, pdfFileName: upload.name }
         : propSource,
-    [propSource, upload]
+    [propSource, upload],
   )
   const sourceKey = sourceIdentity(normalized)
 
@@ -665,7 +719,7 @@ export function BookPreview({
   const activeSound = pickControlled(sound, state.sound)
   const compatibleEngines = useMemo(
     () => resolveCompatibleEngines(enabledEngines, normalized),
-    [enabledEngines, normalized]
+    [enabledEngines, normalized],
   )
   const activeResolution = resolveActiveEngine({
     requestedMode: activeMode,
@@ -707,7 +761,7 @@ export function BookPreview({
       const engine = enabledEngines.find((item) => item.id === next)
       void engine?.load().catch(() => {})
     },
-    [enabledEngines]
+    [enabledEngines],
   )
 
   // Runs before useEngineLoader so a source change dispatches reset-source
@@ -777,61 +831,89 @@ export function BookPreview({
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!isReaderKeyboardEvent(event.nativeEvent, rootRef.current)) return
       const shortcuts = engineShortcutsRef.current
-      if (event.key === "ArrowRight" || event.key === "PageDown") {
+      if (event.key === 'ArrowRight' || event.key === 'PageDown') {
         event.preventDefault()
-        goToPage(activePage + 1, "instant")
+        goToPage(activePage + 1, 'instant')
       }
-      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+      if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
         event.preventDefault()
-        goToPage(activePage - 1, "instant")
+        goToPage(activePage - 1, 'instant')
       }
-      if (event.key === " ") {
+      if (event.key === ' ') {
         event.preventDefault()
-        goToPage(activePage + (event.shiftKey ? -1 : 1), "instant")
+        goToPage(activePage + (event.shiftKey ? -1 : 1), 'instant')
       }
-      if (event.key === "Home") {
+      if (event.key === 'Home') {
         event.preventDefault()
-        goToPage(0, "instant")
+        goToPage(0, 'instant')
       }
-      if (event.key === "End") {
+      if (event.key === 'End') {
         event.preventDefault()
-        goToPage(Math.max(state.totalPages - 1, 0), "instant")
+        goToPage(Math.max(state.totalPages - 1, 0), 'instant')
       }
-      if ((event.key === "f" || event.key === "F") && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (
+        (event.key === 'f' || event.key === 'F') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
         event.preventDefault()
         toggleFullscreen()
       }
-      if ((event.metaKey || event.ctrlKey) && (event.key === "f" || event.key === "F")) {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        (event.key === 'f' || event.key === 'F')
+      ) {
         if (shortcuts.search) {
           event.preventDefault()
           shortcuts.search()
         }
       }
-      if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (
+        event.key === '/' &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
         if (shortcuts.search) {
           event.preventDefault()
           shortcuts.search()
         }
       }
-      if ((event.key === "+" || event.key === "=") && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (
+        (event.key === '+' || event.key === '=') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
         if (shortcuts.zoomIn) {
           event.preventDefault()
           shortcuts.zoomIn()
         }
       }
-      if ((event.key === "-" || event.key === "_") && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (
+        (event.key === '-' || event.key === '_') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
         if (shortcuts.zoomOut) {
           event.preventDefault()
           shortcuts.zoomOut()
         }
       }
-      if (event.key === "0" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (
+        event.key === '0' &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
         if (shortcuts.zoomReset) {
           event.preventDefault()
           shortcuts.zoomReset()
         }
       }
-      if (event.key === "Escape") {
+      if (event.key === 'Escape') {
         // Overlays first (engine search/thumbnail sheets), then immersive.
         if (shortcuts.dismiss?.()) {
           event.preventDefault()
@@ -843,7 +925,14 @@ export function BookPreview({
         }
       }
     },
-    [activePage, cssImmersive, goToPage, setCssImmersive, state.totalPages, toggleFullscreen]
+    [
+      activePage,
+      cssImmersive,
+      goToPage,
+      setCssImmersive,
+      state.totalPages,
+      toggleFullscreen,
+    ],
   )
 
   // Clicks on dead space should arm keyboard navigation — browsers do not
@@ -865,7 +954,7 @@ export function BookPreview({
     if (!(target instanceof HTMLElement)) return
     if (
       target.closest(
-        "button, a[href], [role='menuitem'], [data-book-preview-press]"
+        "button, a[href], [role='menuitem'], [data-book-preview-press]",
       )
     ) {
       requestAnimationFrame(() => {
@@ -896,7 +985,7 @@ export function BookPreview({
       dragDepthRef.current += 1
       if (propSource.allowPdfUpload) setDropActive(true)
     },
-    [propSource.allowPdfUpload]
+    [propSource.allowPdfUpload],
   )
   const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     if (!eventHasFiles(event)) return
@@ -921,12 +1010,12 @@ export function BookPreview({
       }
       if (propSource.allowPdfUpload && event.dataTransfer.files.length > 0) {
         dispatch({
-          type: "engine-error",
-          error: { kind: "upload", message: "Only PDF files can be uploaded." },
+          type: 'engine-error',
+          error: { kind: 'upload', message: 'Only PDF files can be uploaded.' },
         })
       }
     },
-    [dispatch, propSource.allowPdfUpload, uploadPdf]
+    [dispatch, propSource.allowPdfUpload, uploadPdf],
   )
 
   // The toolbar renders a slot this element fills; engines portal their
@@ -995,21 +1084,20 @@ export function BookPreview({
       state,
       toggleFullscreen,
       uploadPdf,
-    ]
+    ],
   )
 
   return (
     <TooltipProvider>
       <BookPreviewProvider value={contextValue}>
-        <div
+        <section
           ref={rootRef}
           className={cn(
-            "book-preview relative flex w-full min-w-0 flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            className
+            'book-preview focus-visible:ring-ring/60 focus-visible:ring-offset-background relative flex w-full min-w-0 flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+            className,
           )}
           style={bookPreviewMotionStyle as CSSProperties}
           tabIndex={0}
-          role="region"
           aria-label={label}
           aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f / + - 0 Escape"
           data-reduced-motion={reducedMotion || undefined}
@@ -1044,23 +1132,23 @@ export function BookPreview({
           </BookPreviewViewport>
           <BookPreviewNavigation />
           <p className="sr-only">
-            Arrow keys, Page Up and Page Down turn pages while this reader is focused.
-            Space moves forward, F toggles fullscreen, slash or Control F opens search
-            when the active reader supports it, and plus, minus and zero control zoom.
-            Typing in fields is ignored.
+            Arrow keys, Page Up and Page Down turn pages while this reader is
+            focused. Space moves forward, F toggles fullscreen, slash or Control
+            F opens search when the active reader supports it, and plus, minus
+            and zero control zoom. Typing in fields is ignored.
           </p>
           {dropActive ? (
             <div
-              className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/80 backdrop-blur-sm"
+              className="border-primary bg-background/80 pointer-events-none absolute inset-0 z-50 flex items-center justify-center rounded-xl border-2 border-dashed backdrop-blur-sm"
               data-book-preview-drop
             >
               <p className="text-sm font-medium">Drop PDF to open</p>
             </div>
           ) : null}
-        </div>
+        </section>
       </BookPreviewProvider>
     </TooltipProvider>
   )
 }
 
-export { pageEngine } from "./engines"
+export { pageEngine } from './engines'

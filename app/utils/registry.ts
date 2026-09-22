@@ -1,4 +1,4 @@
-import KeyComponent from '@/components/keyboard-button-component'
+import { KeyboardButton } from '@/components/keyboard-button'
 import { EmailDomainInputDemo } from '@/components/email-domain-input-demo'
 import { BookPreviewDemo } from '@/components/book-preview-demo/book-preview-demo'
 
@@ -16,21 +16,21 @@ export const registry = {
       },
     },
     {
-      name: 'Keyboard Button Component',
+      name: 'Keyboard Button',
       path: 'keyboard',
       description:
-        'A 3d like component that simulates a keyboard button press effect.',
-      component: KeyComponent,
+        'A tactile keycap with spring press physics, entrance animation, and click sound.',
+      component: KeyboardButton,
       image: {
         url: '/key_press/opengraph-image.png',
-        alt: 'Keyboard Button Component',
+        alt: 'Keyboard Button',
       },
     },
     {
-      name: 'Email Domain Input Component',
+      name: 'Email Domain Input',
       path: 'email-domain',
       description:
-        'Reusable React email input component with domain restriction dropdown.shadcn / ui, TypeScript, Tailwind CSS, ARIA accessible.Perfect for enterprise apps.',
+        'Email input restricted to approved domains — an inline domain picker keeps the local part and suffix in one field. ARIA wired, form-ready.',
       component: EmailDomainInputDemo,
       image: {
         url: '',

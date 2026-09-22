@@ -10,6 +10,7 @@ import { CurlPdfSheet } from './curl-pdf-sheet'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { resolvePdfOutline } from '../pdf-runtime'
+import { buildPremierFaces } from './premier-faces'
 import { PdfPasswordGate } from './pdf-password-gate'
 import { PdfPreparingBadge } from './pdf-preparing-badge'
 import { useBookPreview } from '../book-preview-provider'
@@ -18,8 +19,8 @@ import { PdfThumbRail, PdfThumbSheet } from './pdf-thumb-rail'
 import { useStableHandler } from '../hooks/use-stable-handler'
 import { usePdfSheets, type PdfSheet } from '../hooks/use-pdf-sheets'
 import { DEFAULT_CAPABILITIES, hasSpeechSupport } from '../capabilities'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   CURL_MAX_PAGES,
   CURL_PAGE_RATIO,
@@ -35,7 +36,6 @@ import {
   PremierSingleView,
   PremierSpreadView,
   PremierTextView,
-  buildPremierFaces,
 } from './premier-views'
 import type {
   BookPreviewCapabilities,
@@ -175,8 +175,8 @@ function useReadAloud({
       }
       stopRef.current()
     }
-    utterance.onend = finish
-    utterance.onerror = finish
+    utterance.addEventListener('end', finish)
+    utterance.addEventListener('error', finish)
     window.speechSynthesis.speak(utterance)
     // Chrome's speech queue can drop onend on long text; a bounded watchdog
     // makes the same advance decision so reading never parks on a page.
@@ -185,6 +185,8 @@ function useReadAloud({
       (text.length / SPEECH_CHARS_PER_SECOND) * 1000 + SPEECH_WATCHDOG_SLACK_MS,
     )
     return () => {
+      utterance.removeEventListener('end', finish)
+      utterance.removeEventListener('error', finish)
       if (utteranceRef.current === utterance) {
         utteranceRef.current = null
         window.speechSynthesis.cancel()

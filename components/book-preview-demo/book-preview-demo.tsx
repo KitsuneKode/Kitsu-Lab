@@ -51,6 +51,9 @@ const DEMO_DOCUMENTS = [
 
 type DemoDocument = (typeof DEMO_DOCUMENTS)[number]['value']
 
+const engineLabel = (id: BookPreviewMode) =>
+  optionalBookPreviewEngines.find((engine) => engine.id === id)?.label ?? id
+
 export function BookPreviewDemo() {
   const [mode, setMode] = useState<BookPreviewMode>('page')
   const [fallbackNote, setFallbackNote] = useState<string | null>(null)
@@ -89,8 +92,6 @@ export function BookPreviewDemo() {
     : PDF_SPECIMENS
   const pdfFile =
     PDF_SPECIMENS.find((item) => item.url === pdfUrl) ?? PDF_SPECIMENS[0]
-  const engineLabel = (id: BookPreviewMode) =>
-    optionalBookPreviewEngines.find((engine) => engine.id === id)?.label ?? id
 
   // The source depends on which document you picked, never on which view is
   // open. Deriving it from `mode` handed the reader a different document on

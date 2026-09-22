@@ -1,24 +1,28 @@
-"use client"
+'use client'
 
-import { useEffect, useMemo, useState } from "react"
-import { createPortal } from "react-dom"
-import { PauseIcon, PlayIcon, SearchIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { BookPreviewPageView } from "../book-preview-page"
-import { DEFAULT_CAPABILITIES, hasSpeechSupport } from "../capabilities"
-import { usePdfSheets, type PdfSheet } from "../hooks/use-pdf-sheets"
-import { pageSearchText } from "../normalize"
-import { useBookPreview } from "../book-preview-provider"
-import { useStableHandler } from "../hooks/use-stable-handler"
-import type { BookPreviewEngineProps, BookPreviewPage } from "../types"
-import { CURL_MAX_PAGES, CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from "./curl-geometry"
-import { CurlStage } from "./curl-stage"
-import { CurlPdfSheet } from "./curl-pdf-sheet"
-import { PdfPasswordGate } from "./pdf-password-gate"
-import { PdfPreparingBadge } from "./pdf-preparing-badge"
-import { resolvePdfOutline } from "../pdf-runtime"
-import { FlipSheet } from "./flip-sheet"
+import { createPortal } from 'react-dom'
+import { CurlStage } from './curl-stage'
+import { FlipSheet } from './flip-sheet'
+import { pageSearchText } from '../normalize'
+import { Input } from '@/components/ui/input'
+import { CurlPdfSheet } from './curl-pdf-sheet'
+import { Button } from '@/components/ui/button'
+import { resolvePdfOutline } from '../pdf-runtime'
+import { useEffect, useMemo, useState } from 'react'
+import { PdfPasswordGate } from './pdf-password-gate'
+import { PdfPreparingBadge } from './pdf-preparing-badge'
+import { useBookPreview } from '../book-preview-provider'
+import { BookPreviewPageView } from '../book-preview-page'
+import { PauseIcon, PlayIcon, SearchIcon } from 'lucide-react'
+import { useStableHandler } from '../hooks/use-stable-handler'
+import { usePdfSheets, type PdfSheet } from '../hooks/use-pdf-sheets'
+import type { BookPreviewEngineProps, BookPreviewPage } from '../types'
+import { DEFAULT_CAPABILITIES, hasSpeechSupport } from '../capabilities'
+import {
+  CURL_MAX_PAGES,
+  CURL_PAGE_RATIO,
+  CURL_RASTER_WIDTH,
+} from './curl-geometry'
 
 type SearchMatch = { key: string; label: string; index: number }
 
@@ -37,17 +41,17 @@ function usePageSpeech({
 
   useEffect(() => {
     return () => {
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel()
       }
     }
   }, [pageIndex])
 
   const spokenText = usePdf
-    ? sheets?.[pageIndex]?.text ?? ""
+    ? (sheets?.[pageIndex]?.text ?? '')
     : current
       ? pageSearchText(current)
-      : ""
+      : ''
 
   const toggleSpeech = () => {
     if (!hasSpeechSupport() || !spokenText) return
@@ -57,6 +61,8 @@ function usePageSpeech({
       return
     }
     const utterance = new SpeechSynthesisUtterance(spokenText)
+    // Property handlers, not addEventListener — the utterance is transient,
+    // so its listeners die with it; nothing to clean up.
     utterance.onend = () => setSpeaking(false)
     utterance.onerror = () => setSpeaking(false)
     window.speechSynthesis.cancel()
@@ -85,26 +91,30 @@ function ArchivalSearchControls({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative min-w-[12rem] flex-1">
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
         <Input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={usePdf ? "Search document" : "Search plates"}
+          placeholder={usePdf ? 'Search document' : 'Search plates'}
           className="pl-8"
-          aria-label={usePdf ? "Search document" : "Search plates"}
+          aria-label={usePdf ? 'Search document' : 'Search plates'}
         />
       </div>
       <Button
         type="button"
-        variant={speaking ? "secondary" : "outline"}
+        variant={speaking ? 'secondary' : 'outline'}
         size="sm"
         onClick={onToggleSpeech}
         disabled={speechDisabled}
         aria-pressed={speaking}
         data-book-preview-press
       >
-        {speaking ? <PauseIcon data-icon="inline-start" /> : <PlayIcon data-icon="inline-start" />}
-        {speaking ? "Stop reading" : "Read page"}
+        {speaking ? (
+          <PauseIcon data-icon="inline-start" />
+        ) : (
+          <PlayIcon data-icon="inline-start" />
+        )}
+        {speaking ? 'Stop reading' : 'Read page'}
       </Button>
     </div>
   )
@@ -125,10 +135,15 @@ function ArchivalMatchList({
 }) {
   if (!query) return null
   return (
-    <div className="flex max-h-24 flex-wrap gap-2 overflow-auto" aria-live="polite">
+    <div
+      className="flex max-h-24 flex-wrap gap-2 overflow-auto"
+      aria-live="polite"
+    >
       {matches.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          {usePdf && preparing ? "Still reading the document\u2026" : "No matches."}
+        <p className="text-muted-foreground text-xs">
+          {usePdf && preparing
+            ? 'Still reading the document\u2026'
+            : 'No matches.'}
         </p>
       ) : (
         matches.map((match) => (
@@ -157,7 +172,7 @@ function ArchivalSheets({
   usePdf: boolean
   sheets: PdfSheet[] | null
   pages: BookPreviewPage[]
-  appearance: BookPreviewEngineProps["appearance"]
+  appearance: BookPreviewEngineProps['appearance']
 }) {
   if (usePdf && sheets) {
     return sheets.map((sheet) => (
@@ -187,7 +202,7 @@ export default function ArchivalCurlEngine({
   onReady,
   onError,
 }: BookPreviewEngineProps) {
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState('')
   const pages = source.pages
   const pdfUrl = source.pdfUrl
   const usePdf = Boolean(pdfUrl) && pages.length === 0
@@ -196,31 +211,45 @@ export default function ArchivalCurlEngine({
   const reportError = useStableHandler(onError)
   const { chromeHost } = useBookPreview()
 
-  const { sheets, ratio, prepared, preparing, doc, passwordRequest, submitPassword, cancelPassword } =
-    usePdfSheets({
-      pdfUrl,
-      enabled: usePdf,
-      pageIndex,
-      rasterWidth: CURL_RASTER_WIDTH,
-      sizing: "uniform",
-      // An archival reader that cannot find a word in the document is a viewer.
-      extractText: true,
-      maxPages: CURL_MAX_PAGES,
-      maxPagesMessage: `This document is longer than ${CURL_MAX_PAGES} pages — too heavy for the archival reader, which paints every page up front. Scroll or PDF mode handles it instead.`,
-      onError: reportError,
-      errorMessage: "This PDF could not be opened for the archival reader.",
-    })
+  const {
+    sheets,
+    ratio,
+    prepared,
+    preparing,
+    doc,
+    passwordRequest,
+    submitPassword,
+    cancelPassword,
+  } = usePdfSheets({
+    pdfUrl,
+    enabled: usePdf,
+    pageIndex,
+    rasterWidth: CURL_RASTER_WIDTH,
+    sizing: 'uniform',
+    // An archival reader that cannot find a word in the document is a viewer.
+    extractText: true,
+    maxPages: CURL_MAX_PAGES,
+    maxPagesMessage: `This document is longer than ${CURL_MAX_PAGES} pages — too heavy for the archival reader, which paints every page up front. Scroll or PDF mode handles it instead.`,
+    onError: reportError,
+    errorMessage: 'This PDF could not be opened for the archival reader.',
+  })
 
-  const totalPages = usePdf ? sheets?.length ?? 0 : pages.length
+  const totalPages = usePdf ? (sheets?.length ?? 0) : pages.length
 
-  const matches = useMemo<{ key: string; label: string; index: number }[]>(() => {
+  const matches = useMemo<
+    { key: string; label: string; index: number }[]
+  >(() => {
     const value = query.trim().toLowerCase()
     if (!value) return []
     if (usePdf) {
       return (sheets ?? [])
         .map((sheet, index) => ({ sheet, index }))
         .filter(({ sheet }) => sheet.text.toLowerCase().includes(value))
-        .map(({ sheet, index }) => ({ key: sheet.id, label: `Page ${index + 1}`, index }))
+        .map(({ sheet, index }) => ({
+          key: sheet.id,
+          label: `Page ${index + 1}`,
+          index,
+        }))
     }
     return pages
       .map((page, index) => ({ page, index }))
@@ -251,7 +280,10 @@ export default function ArchivalCurlEngine({
       return
     }
     if (pages.length === 0) {
-      reportError({ kind: "empty", message: "The archival curl reader needs page data or a PDF." })
+      reportError({
+        kind: 'empty',
+        message: 'The archival curl reader needs page data or a PDF.',
+      })
       return
     }
     reportReady({
@@ -339,7 +371,7 @@ export default function ArchivalCurlEngine({
       )
     }
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
         Opening PDF…
       </div>
     )
@@ -369,7 +401,7 @@ export default function ArchivalCurlEngine({
       <div className="relative min-h-0 flex-1">
         <CurlStage
           pageIndex={pageIndex}
-          pageRatio={usePdf ? ratio ?? CURL_PAGE_RATIO : CURL_PAGE_RATIO}
+          pageRatio={usePdf ? (ratio ?? CURL_PAGE_RATIO) : CURL_PAGE_RATIO}
           canGoPrev={pageIndex > 0}
           canGoNext={pageIndex < Math.max(totalPages, 1) - 1}
           reducedMotion={reducedMotion}
@@ -377,10 +409,12 @@ export default function ArchivalCurlEngine({
           contentKey={
             usePdf
               ? `pdf:${sheets?.length ?? 0}`
-              : `${appearance}:${pages.map((page) => page.id).join(",")}`
+              : `${appearance}:${pages.map((page) => page.id).join(',')}`
           }
           onPageChange={onPageChange}
-          onEngineError={(message) => reportError({ kind: "engine-load", message })}
+          onEngineError={(message) =>
+            reportError({ kind: 'engine-load', message })
+          }
         >
           <ArchivalSheets
             usePdf={usePdf}

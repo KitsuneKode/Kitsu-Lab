@@ -1,4 +1,5 @@
-// DomainEmailInput.tsx
+'use client'
+
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-export type DomainEmailInputProps = {
+export type EmailDomainInputProps = {
   domains: string[]
   defaultDomain?: string
   value?: string
@@ -35,7 +36,10 @@ function useDomainEmail({
   defaultDomain,
   value,
   onChange,
-}: Pick<DomainEmailInputProps, 'domains' | 'defaultDomain' | 'value' | 'onChange'>) {
+}: Pick<
+  EmailDomainInputProps,
+  'domains' | 'defaultDomain' | 'value' | 'onChange'
+>) {
   // Clean and validate domains
   const cleanDomains = React.useMemo(() => {
     return domains
@@ -118,8 +122,7 @@ function useDomainEmail({
 
   // Simple validation
   const isInvalidUsername =
-    username.length > 0 &&
-    !/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(username)
+    username.length > 0 && !/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(username)
 
   return {
     cleanDomains,
@@ -144,6 +147,15 @@ function DomainSelect({
   onChange: (domain: string) => void
   className?: string
 }) {
+  // One allowed domain is a constant, not a choice — static text instead of a
+  // dead dropdown.
+  if (domains.length <= 1) {
+    return (
+      <span className="text-muted-foreground flex h-10 shrink-0 items-center px-3 text-sm">
+        @{domain}
+      </span>
+    )
+  }
   return (
     <Select
       items={domains.map((d) => ({ value: d, label: `@${d}` }))}
@@ -151,7 +163,7 @@ function DomainSelect({
       onValueChange={(value) => {
         if (value) onChange(value)
       }}
-      disabled={disabled || domains.length <= 1}
+      disabled={disabled}
     >
       <SelectTrigger
         className={cn(
@@ -163,7 +175,12 @@ function DomainSelect({
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent alignItemWithTrigger={false} side="bottom" align="end" className="max-h-64">
+      <SelectContent
+        alignItemWithTrigger={false}
+        side="bottom"
+        align="end"
+        className="max-h-64"
+      >
         <SelectGroup>
           {domains.map((d) => (
             <SelectItem key={d} value={d}>
@@ -204,9 +221,9 @@ function DomainFieldMessages({
   )
 }
 
-export const DomainEmailInput = React.memo(
-  React.forwardRef<HTMLInputElement, DomainEmailInputProps>(
-    function DomainEmailInput(props, ref) {
+export const EmailDomainInput = React.memo(
+  React.forwardRef<HTMLInputElement, EmailDomainInputProps>(
+    function EmailDomainInput(props, ref) {
       const {
         domains,
         defaultDomain,
@@ -219,12 +236,17 @@ export const DomainEmailInput = React.memo(
         name = 'email',
         required,
         disabled,
-        autoComplete = 'username',
+        autoComplete = 'email',
         placeholder = 'Username',
         className,
         inputClassName,
         selectClassName,
       } = props
+
+      // Without a consumer id the label/description wiring would point at
+      // "undefined-*" — generate a stable one.
+      const generatedId = React.useId()
+      const fieldId = id ?? generatedId
 
       const {
         cleanDomains,
@@ -236,17 +258,17 @@ export const DomainEmailInput = React.memo(
       } = useDomainEmail({ domains, defaultDomain, value, onChange })
 
       const describedBy = error
-        ? `${id}-error`
+        ? `${fieldId}-error`
         : description
-          ? `${id}-desc`
+          ? `${fieldId}-desc`
           : undefined
 
       return (
         <div className={cn('w-full', className)}>
           {label && (
             <label
-              htmlFor={id}
-              id={id ? `${id}-label` : undefined}
+              htmlFor={fieldId}
+              id={`${fieldId}-label`}
               className="text-foreground mb-1 block text-sm font-medium"
             >
               {label}
@@ -254,8 +276,7 @@ export const DomainEmailInput = React.memo(
           )}
 
           <div
-            // Remove role="group" and aria-invalid - not needed here
-            aria-labelledby={id ? `${id}-label` : undefined}
+            aria-labelledby={label ? `${fieldId}-label` : undefined}
             aria-describedby={describedBy}
             className={cn(
               'group bg-background relative flex w-full items-stretch overflow-hidden rounded-md border',
@@ -267,15 +288,19 @@ export const DomainEmailInput = React.memo(
           >
             <Input
               ref={ref}
-              id={id}
+              id={fieldId}
               name={`${name}__username`}
+              // Not type="email" — the box holds only the local part, and
+              // native email validation would reject it. inputMode still
+              // gives touch keyboards the @ layout.
+              inputMode="email"
               autoComplete={autoComplete}
               placeholder={placeholder}
               required={required}
               disabled={disabled}
               value={username}
               onChange={handleUsernameChange}
-              aria-invalid={Boolean(error || isInvalidUsername)} // Move aria-invalid here
+              aria-invalid={Boolean(error || isInvalidUsername)}
               aria-describedby={describedBy}
               className={cn(
                 'h-10 flex-1 rounded-none border-0 focus-visible:ring-0',
@@ -295,7 +320,7 @@ export const DomainEmailInput = React.memo(
             />
           </div>
 
-          {/* Hidden field for form submission */}
+          {/* Hidden field carries the joined address on form submit. */}
           <input
             type="hidden"
             name={name}
@@ -303,7 +328,7 @@ export const DomainEmailInput = React.memo(
           />
 
           <DomainFieldMessages
-            id={id}
+            id={fieldId}
             description={description}
             error={error}
             invalid={isInvalidUsername}

@@ -1,30 +1,32 @@
 'use client'
 
 import { useState } from 'react'
-import { DomainEmailInput } from '@/components/email-domain-input-component'
+import { Button } from '@/components/ui/button'
+import { EmailDomainInput } from '@/components/email-domain-input'
 
 export function EmailDomainInputDemo() {
   const [email, setEmail] = useState('')
 
   return (
-    <form className="max-w-md space-y-6 text-center">
-      <div className="border-accent mb-10 text-center text-xl">
-        Email : {email}
-      </div>
+    <form
+      className="max-w-md space-y-6 text-center"
+      onSubmit={(event) => event.preventDefault()}
+    >
+      <p className="text-muted-foreground mb-10 font-mono text-sm">
+        Email: {email || '—'}
+      </p>
 
-      <DomainEmailInput
+      <EmailDomainInput
         label="University email"
         name="email"
-        domains={['edu.in', 'unimail.in']}
+        domains={['cuchd.in', 'edu.in', 'unimail.in']}
         defaultDomain="cuchd.in"
         value={email}
         onChange={setEmail}
         description="Sign in with the official university mail."
         required
       />
-      <button type="submit" className="btn btn-primary">
-        Sign in
-      </button>
+      <Button type="submit">Sign in</Button>
     </form>
   )
 }

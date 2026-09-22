@@ -1,16 +1,11 @@
 'use client'
 
-import { pageSearchText } from '../normalize'
-import type { PdfSheet } from '../hooks/use-pdf-sheets'
-import { BookPreviewPageView } from '../book-preview-page'
+import { spreadSlots, spreadStep } from './premier-math'
 import { usePageArrival } from '../hooks/use-page-arrival'
+import type { BookPreviewNavigationBehavior } from '../types'
 import { useStableHandler } from '../hooks/use-stable-handler'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type {
-  BookPreviewAppearance,
-  BookPreviewNavigationBehavior,
-  BookPreviewPage,
-} from '../types'
+import { FALLBACK_ASPECT, type PremierFace } from './premier-faces'
 import {
   renderPdfTextLayer,
   resolvePdfPageLinks,
@@ -25,67 +20,6 @@ import {
  * raster sheets that fill in (and release) around the reading position, with
  * a live text/link overlay so the copy underneath is still selectable.
  */
-
-export type PremierFace = {
-  key: string
-  /** width / height — null until a pdf page's real size is known. */
-  aspect: number | null
-  /** Plain page text — feeds the text view, search, and read-aloud. */
-  text: string
-  /** One-based PDF page number when the face came from a document. */
-  pageNumber: number | null
-  /** False while a pdf face waits on its bitmap — overlays hold off until
-      real pixels exist to sit on. */
-  hasRaster: boolean
-  content: ReactNode
-}
-
-const FALLBACK_ASPECT = 370 / 530
-
-export function buildPremierFaces(input: {
-  usePdf: boolean
-  sheets: PdfSheet[] | null
-  pages: BookPreviewPage[]
-  appearance: BookPreviewAppearance
-}): PremierFace[] {
-  const { usePdf, sheets, pages, appearance } = input
-  if (usePdf) {
-    return (sheets ?? []).map((sheet, index) => ({
-      key: sheet.id,
-      aspect: sheet.height > 0 ? sheet.width / sheet.height : null,
-      text: sheet.text,
-      pageNumber: index + 1,
-      hasRaster: Boolean(sheet.src),
-      content: sheet.src ? (
-        // Object URLs are generated locally and cannot be optimized by
-        // next/image.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={sheet.src}
-          alt={`Page ${index + 1}`}
-          draggable={false}
-          className="h-full w-full object-contain"
-        />
-      ) : (
-        <div className="bg-muted/40 h-full w-full animate-pulse" aria-hidden />
-      ),
-    }))
-  }
-  return pages.map((page, index) => ({
-    key: page.id,
-    aspect: null,
-    text: pageSearchText(page),
-    pageNumber: null,
-    hasRaster: true,
-    content: (
-      <BookPreviewPageView
-        page={page}
-        appearance={appearance}
-        isLeftPage={index % 2 === 1}
-      />
-    ),
-  }))
-}
 
 /**
  * The selectable layer a flat-view PDF face wears: pdf.js's real text layer
@@ -190,11 +124,12 @@ function PdfFaceOverlay({
           data-book-preview-links
           className="pointer-events-none absolute inset-0 z-20"
         >
-          {links.map((link, index) => {
+          {links.map((link) => {
             const target = link.target
+            const linkKey = `${link.left},${link.top},${link.width}x${link.height}`
             return target.kind === 'page' ? (
               <button
-                key={index}
+                key={linkKey}
                 type="button"
                 className="absolute cursor-pointer rounded-sm"
                 style={{
@@ -211,7 +146,7 @@ function PdfFaceOverlay({
               />
             ) : (
               <a
-                key={index}
+                key={linkKey}
                 className="absolute cursor-pointer rounded-sm"
                 style={{
                   left: link.left,
@@ -598,29 +533,6 @@ export function PremierSingleView({
       </div>
     </div>
   )
-}
-
-/**
- * Spread pairing, book-style: the cover (face 0) sits alone, then faces pair
- * up (1|2), (3|4)… Returns the pair index plus both face slots; right is -1
- * when a pair has no right face.
- */
-export function spreadSlots(pageIndex: number, total: number) {
-  const pair = pageIndex === 0 ? 0 : Math.ceil(pageIndex / 2)
-  const left = pair === 0 ? 0 : pair * 2 - 1
-  const right = pair === 0 ? -1 : left + 1 <= total - 1 ? left + 1 : -1
-  return { pair, left, right }
-}
-
-export function spreadStep(
-  pair: number,
-  direction: 1 | -1,
-  total: number,
-): number | null {
-  const next = pair + direction
-  if (next < 0) return null
-  const face = next === 0 ? 0 : next * 2 - 1
-  return face <= total - 1 ? face : null
 }
 
 /** Two faces side by side — the magazine/atlas view. Advances a pair at a

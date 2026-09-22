@@ -274,10 +274,9 @@ export default function WebGLEngine({
   const currentPage = source.pages[Math.min(pageIndex, source.pages.length - 1)]
 
   return (
-    <div
+    <section
       ref={hostRef}
       className="bg-background relative h-[min(32rem,72svh)] w-full overflow-hidden rounded-xl"
-      role="region"
       aria-label={
         currentPage?.title ? `3D book on ${currentPage.title}` : '3D book'
       }
@@ -328,6 +327,6 @@ export default function WebGLEngine({
           />
         </Suspense>
       </Canvas>
-    </div>
+    </section>
   )
 }

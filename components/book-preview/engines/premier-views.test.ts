@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { spreadSlots, spreadStep } from "./premier-views"
+import { spreadSlots, spreadStep } from "./premier-math"
 
 describe("premier spread pairing", () => {
   test("the cover sits alone", () => {

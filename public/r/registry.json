@@ -22,9 +22,7 @@
         "spinner",
         "input"
       ],
-      "dependencies": [
-        "lucide-react"
-      ],
+      "dependencies": ["lucide-react"],
       "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require page-flip, pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, scalar Slider values, and array-valued ToggleGroup state. Do not treat qualitative capability labels as measured performance guarantees.",
       "files": [
         {
@@ -176,9 +174,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "pdfjs-dist"
-      ],
+      "dependencies": ["pdfjs-dist"],
       "registryDependencies": [
         "https://kitsulab.vercel.app/r/book-preview.json",
         "badge",
@@ -223,9 +219,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "page-flip"
-      ],
+      "dependencies": ["page-flip"],
       "registryDependencies": [
         "https://kitsulab.vercel.app/r/book-preview-pdf.json"
       ]
@@ -262,6 +256,14 @@
         },
         {
           "path": "components/book-preview/engines/premier-views.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/premier-faces.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/premier-math.ts",
           "type": "registry:component"
         },
         {
@@ -362,6 +364,53 @@
         "https://kitsulab.vercel.app/r/book-preview-scroll.json",
         "https://kitsulab.vercel.app/r/book-preview-spread.json",
         "https://kitsulab.vercel.app/r/book-preview-webgl.json"
+      ]
+    },
+    {
+      "name": "keyboard-button",
+      "type": "registry:component",
+      "title": "Keyboard Button",
+      "description": "A tactile keycap with spring press physics, entrance animation, and click sound.",
+      "dependencies": ["motion", "lucide-react"],
+      "files": [
+        {
+          "path": "components/keyboard-button.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "public/key_press/base.svg",
+          "type": "registry:file",
+          "target": "public/key_press/base.svg"
+        },
+        {
+          "path": "public/key_press/cover.svg",
+          "type": "registry:file",
+          "target": "public/key_press/cover.svg"
+        },
+        {
+          "path": "public/key_press/button.svg",
+          "type": "registry:file",
+          "target": "public/key_press/button.svg"
+        },
+        {
+          "path": "public/key_press/click.mp3",
+          "type": "registry:file",
+          "target": "public/key_press/click.mp3"
+        }
+      ]
+    },
+    {
+      "name": "email-domain-input",
+      "type": "registry:component",
+      "title": "Email Domain Input",
+      "description": "Email input restricted to approved domains \u2014 an inline domain picker keeps the local part and suffix in one field.",
+      "registryDependencies": ["input", "select"],
+      "docs": "Requires Base UI primitives (a base-* shadcn project): the Select API relies on `items` and `alignItemWithTrigger`.",
+      "files": [
+        {
+          "path": "components/email-domain-input.tsx",
+          "type": "registry:component"
+        }
       ]
     }
   ]

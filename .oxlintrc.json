@@ -1,0 +1,42 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "rules": {
+    // Next.js uses the automatic JSX runtime — React never needs importing.
+    "react/react-in-jsx-scope": "off",
+    // React Compiler memoizes props — new-object/function hints are noise here.
+    "react-perf/jsx-no-new-function-as-prop": "off",
+    "react-perf/jsx-no-new-object-as-prop": "off",
+    "react-perf/jsx-no-new-array-as-prop": "off",
+    "react-perf/jsx-no-jsx-as-prop": "off",
+    // A focusable/scrollable reader region with keyboard shortcuts is the
+    // intentional pattern (W3C recommends tabindex=0 on scrollable regions).
+    "jsx-a11y/no-noninteractive-element-interactions": "warn",
+    "jsx-a11y/no-noninteractive-tabindex": "warn",
+    // role="status" live regions and canvas role="img" are correct ARIA; the
+    // semantic-tag suggestion does not apply to them. nav/region cases are
+    // fixed in source instead.
+    "jsx-a11y/prefer-tag-over-role": "off",
+    // Deliberate worker-pump pattern: raster/text queues drain serially to
+    // bound pdf.js worker load and memory — Promise.all would rasterize an
+    // entire document at once. `cancelled`/`loaded` are cleanup-closure
+    // flags the rules cannot see.
+    "eslint/no-await-in-loop": "off",
+    "eslint/no-unmodified-loop-condition": "off",
+    "no-unused-vars": "off",
+    "typescript/no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+    ]
+  },
+  "env": {
+    "builtin": true,
+    "browser": true
+  },
+  "ignorePatterns": ["public/r/**", "node_modules/**", ".next/**", "out/**"]
+}

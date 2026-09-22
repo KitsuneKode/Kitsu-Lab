@@ -1,14 +1,14 @@
-"use client"
+'use client'
 
-import { useEffect, useRef } from "react"
-import { BookPreviewPageView } from "../book-preview-page"
-import { DEFAULT_CAPABILITIES } from "../capabilities"
-import { usePdfSheets } from "../hooks/use-pdf-sheets"
-import { PdfPreparingBadge } from "./pdf-preparing-badge"
-import { PdfPasswordGate } from "./pdf-password-gate"
-import { resolvePdfOutline } from "../pdf-runtime"
-import { useStableHandler } from "../hooks/use-stable-handler"
-import type { BookPreviewEngineProps } from "../types"
+import { useEffect, useRef } from 'react'
+import { resolvePdfOutline } from '../pdf-runtime'
+import { PdfPasswordGate } from './pdf-password-gate'
+import type { BookPreviewEngineProps } from '../types'
+import { DEFAULT_CAPABILITIES } from '../capabilities'
+import { usePdfSheets } from '../hooks/use-pdf-sheets'
+import { PdfPreparingBadge } from './pdf-preparing-badge'
+import { BookPreviewPageView } from '../book-preview-page'
+import { useStableHandler } from '../hooks/use-stable-handler'
 
 const SCROLL_RASTER_WIDTH = 840
 // Keep ~2*radius+1 live rasters instead of the whole document — a 200-page
@@ -39,17 +39,24 @@ export default function ScrollEngine({
 
   // Continuous reading measures each page, so a landscape figure page keeps
   // its own shape instead of being forced into page 1's aspect ratio.
-  const { sheets, prepared, preparing, doc, passwordRequest, submitPassword, cancelPassword } =
-    usePdfSheets({
-      pdfUrl,
-      enabled: usePdf,
-      pageIndex,
-      rasterWidth: SCROLL_RASTER_WIDTH,
-      sizing: "per-page",
-      windowRadius: SCROLL_WINDOW_RADIUS,
-      onError: reportError,
-      errorMessage: "This PDF could not be opened for scrolling.",
-    })
+  const {
+    sheets,
+    prepared,
+    preparing,
+    doc,
+    passwordRequest,
+    submitPassword,
+    cancelPassword,
+  } = usePdfSheets({
+    pdfUrl,
+    enabled: usePdf,
+    pageIndex,
+    rasterWidth: SCROLL_RASTER_WIDTH,
+    sizing: 'per-page',
+    windowRadius: SCROLL_WINDOW_RADIUS,
+    onError: reportError,
+    errorMessage: 'This PDF could not be opened for scrolling.',
+  })
 
   useEffect(() => {
     if (usePdf) {
@@ -66,7 +73,10 @@ export default function ScrollEngine({
       return
     }
     if (pages.length === 0) {
-      reportError({ kind: "empty", message: "The scroll reader needs page data or a PDF." })
+      reportError({
+        kind: 'empty',
+        message: 'The scroll reader needs page data or a PDF.',
+      })
       return
     }
     reportReady({
@@ -76,7 +86,15 @@ export default function ScrollEngine({
         download: Boolean(source.downloadUrl),
       },
     })
-  }, [pages.length, reportError, reportReady, sheets, source.downloadUrl, source.pdfUrl, usePdf])
+  }, [
+    pages.length,
+    reportError,
+    reportReady,
+    sheets,
+    source.downloadUrl,
+    source.pdfUrl,
+    usePdf,
+  ])
 
   // A password prompt still counts as "open": reporting a zero-page ready
   // unblocks the viewport so the gate is visible, and pagination stays off
@@ -118,25 +136,25 @@ export default function ScrollEngine({
     }
   }, [doc, reportReady, source.downloadUrl, source.pdfUrl])
 
-  const total = usePdf ? sheets?.length ?? 0 : pages.length
+  const total = usePdf ? (sheets?.length ?? 0) : pages.length
 
   useEffect(() => {
     const root = scrollerRef.current
     if (!root || total === 0) return
-    const items = Array.from(root.querySelectorAll("[data-page-index]"))
+    const items = Array.from(root.querySelectorAll('[data-page-index]'))
     if (items.length === 0) return
     const observer = new IntersectionObserver(
       (entries) => {
         if (lockScrollRef.current) return
         const visible = entries
           .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+          .toSorted((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
         if (!visible) return
-        const index = Number(visible.target.getAttribute("data-page-index"))
+        const index = Number(visible.target.getAttribute('data-page-index'))
         if (!Number.isFinite(index) || index === pageIndexRef.current) return
         reportPageChange(index)
       },
-      { root, threshold: [0.35, 0.55, 0.75] }
+      { root, threshold: [0.35, 0.55, 0.75] },
     )
     for (const item of items) observer.observe(item)
     return () => observer.disconnect()
@@ -149,7 +167,7 @@ export default function ScrollEngine({
     if (!(target instanceof HTMLElement)) return
     if (Math.abs(target.offsetTop - root.scrollTop) < 24) return
     lockScrollRef.current = true
-    target.scrollIntoView({ block: "start", behavior: "auto" })
+    target.scrollIntoView({ block: 'start', behavior: 'auto' })
     const timer = window.setTimeout(() => {
       lockScrollRef.current = false
     }, 80)
@@ -170,7 +188,7 @@ export default function ScrollEngine({
       )
     }
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
         Opening PDF…
       </div>
     )
@@ -189,7 +207,7 @@ export default function ScrollEngine({
                 <article
                   key={sheet.id}
                   data-page-index={index}
-                  className="overflow-hidden rounded-sm bg-background shadow-sm ring-1 ring-foreground/10"
+                  className="bg-background ring-foreground/10 overflow-hidden rounded-sm shadow-sm ring-1"
                 >
                   {sheet.src ? (
                     // Object URLs are generated locally and cannot be optimized
@@ -202,13 +220,15 @@ export default function ScrollEngine({
                       loading="lazy"
                       decoding="async"
                       data-book-preview-sheet-img
-                      className="h-auto w-full bg-background"
+                      className="bg-background h-auto w-full"
                     />
                   ) : (
                     <div
                       data-book-preview-sheet-skeleton
-                      className="w-full animate-pulse bg-muted/50"
-                      style={{ aspectRatio: `${sheet.width} / ${sheet.height}` }}
+                      className="bg-muted/50 w-full animate-pulse"
+                      style={{
+                        aspectRatio: `${sheet.width} / ${sheet.height}`,
+                      }}
                     />
                   )}
                 </article>
@@ -217,7 +237,7 @@ export default function ScrollEngine({
                 <article
                   key={page.id}
                   data-page-index={index}
-                  className="min-h-[min(28rem,70svh)] overflow-hidden rounded-sm shadow-sm ring-1 ring-foreground/10"
+                  className="ring-foreground/10 min-h-[min(28rem,70svh)] overflow-hidden rounded-sm shadow-sm ring-1"
                 >
                   <BookPreviewPageView
                     page={page}

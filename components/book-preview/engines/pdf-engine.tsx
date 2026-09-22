@@ -1,5 +1,28 @@
-"use client"
+'use client'
 
+import { createPortal } from 'react-dom'
+import { useNarrowLayout } from '../media'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { PdfPasswordGate } from './pdf-password-gate'
+import { DEFAULT_CAPABILITIES } from '../capabilities'
+import { useBookPreview } from '../book-preview-provider'
+import { usePageArrival } from '../hooks/use-page-arrival'
+import { PdfThumbRail, PdfThumbSheet } from './pdf-thumb-rail'
+import { useStableHandler } from '../hooks/use-stable-handler'
+import { readBookPreviewPrefs, writeBookPreviewPrefs } from '../prefs'
+import type {
+  BookPreviewCapabilities,
+  BookPreviewEngineProps,
+  NormalizedBookSource,
+} from '../types'
+import {
+  createPdfSearchIndex,
+  highlightTextLayer,
+  PDF_SEARCH_HIT_ATTR,
+  type PdfSearchHit,
+} from './pdf-search'
 import {
   useCallback,
   useEffect,
@@ -7,7 +30,7 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
-} from "react"
+} from 'react'
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -19,11 +42,7 @@ import {
   XIcon,
   ZoomInIcon,
   ZoomOutIcon,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Spinner } from "@/components/ui/spinner"
-import { DEFAULT_CAPABILITIES } from "../capabilities"
+} from 'lucide-react'
 import {
   BOOK_PREVIEW_BOUNDARY_RESISTANCE,
   BOOK_PREVIEW_COMMIT_RATIO,
@@ -31,13 +50,7 @@ import {
   BOOK_PREVIEW_MOMENTUM_MS,
   BOOK_PREVIEW_SETTLE_MS,
   BOOK_PREVIEW_VELOCITY_COMMIT,
-} from "../motion"
-import { usePageArrival } from "../hooks/use-page-arrival"
-import { useStableHandler } from "../hooks/use-stable-handler"
-import { createPortal } from "react-dom"
-import { useBookPreview } from "../book-preview-provider"
-import { useNarrowLayout } from "../media"
-import { readBookPreviewPrefs, writeBookPreviewPrefs } from "../prefs"
+} from '../motion'
 import {
   loadPdfDocument,
   renderPdfPageToCanvas,
@@ -47,16 +60,7 @@ import {
   type PdfDocumentProxy,
   type PdfLoadingTask,
   type PdfPageLink,
-} from "../pdf-runtime"
-import type { BookPreviewCapabilities, BookPreviewEngineProps, NormalizedBookSource } from "../types"
-import {
-  createPdfSearchIndex,
-  highlightTextLayer,
-  PDF_SEARCH_HIT_ATTR,
-  type PdfSearchHit,
-} from "./pdf-search"
-import { PdfPasswordGate } from "./pdf-password-gate"
-import { PdfThumbRail, PdfThumbSheet } from "./pdf-thumb-rail"
+} from '../pdf-runtime'
 
 // A zoom of 0 is the fit-width sentinel: the real scale is derived per page
 // from the live scroller width, so phones and mixed-orientation documents
@@ -73,7 +77,9 @@ function clampZoom(value: number): number {
   return Math.min(PDF_MAX_ZOOM, Math.max(PDF_MIN_ZOOM, value))
 }
 
-function engineCapabilities(source: NormalizedBookSource): BookPreviewCapabilities {
+function engineCapabilities(
+  source: NormalizedBookSource,
+): BookPreviewCapabilities {
   return {
     ...DEFAULT_CAPABILITIES,
     zoom: true,
@@ -108,7 +114,10 @@ export default function PdfEngine({
   const [rotation, setRotation] = useState(0)
   // Links are keyed to the render that produced them — a stale rect never
   // overlays a re-rendered page.
-  const [links, setLinks] = useState<{ key: string; items: PdfPageLink[] } | null>(null)
+  const [links, setLinks] = useState<{
+    key: string
+    items: PdfPageLink[]
+  } | null>(null)
   const [fitted, setFitted] = useState(1)
   const [fitTick, setFitTick] = useState(0)
   const fittedRef = useRef(1)
@@ -128,7 +137,7 @@ export default function PdfEngine({
   const narrow = useNarrowLayout()
 
   const [searchOpen, setSearchOpen] = useState(false)
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState('')
   const [hits, setHits] = useState<PdfSearchHit[] | null>(null)
   const [hitIndex, setHitIndex] = useState(0)
   const [searching, setSearching] = useState(false)
@@ -141,12 +150,14 @@ export default function PdfEngine({
   // so it never fights the pinch transform.
   const arrival = usePageArrival(
     pageIndex,
-    reducedMotion || navigationBehavior === "instant"
+    reducedMotion || navigationBehavior === 'instant',
   )
-  const [passwordRequest, setPasswordRequest] = useState<{ incorrect: boolean } | null>(null)
+  const [passwordRequest, setPasswordRequest] = useState<{
+    incorrect: boolean
+  } | null>(null)
   const passwordSubmitRef = useRef<((password: string) => void) | null>(null)
   const passwordCancelledRef = useRef(false)
-  const activeQueryRef = useRef("")
+  const activeQueryRef = useRef('')
   const pendingHitScrollRef = useRef(false)
 
   // Touch pan/pinch state. Pointer Events are the only portable way to drive
@@ -207,9 +218,9 @@ export default function PdfEngine({
     // page paints and applyPinchCommit takes over.
     const inner = stageInnerRef.current
     if (inner) {
-      if (!pinchCommitRef.current) inner.style.transform = ""
-      inner.style.translate = ""
-      inner.style.transition = ""
+      if (!pinchCommitRef.current) inner.style.transform = ''
+      inner.style.translate = ''
+      inner.style.transition = ''
     }
   }, [])
 
@@ -220,8 +231,8 @@ export default function PdfEngine({
     async function open() {
       if (!source.pdfUrl && !source.allowPdfUpload) {
         reportError({
-          kind: "invalid-source",
-          message: "Provide a PDF URL or enable uploads.",
+          kind: 'invalid-source',
+          message: 'Provide a PDF URL or enable uploads.',
         })
         return
       }
@@ -258,7 +269,10 @@ export default function PdfEngine({
             // document actually opens. The real ready report replaces it.
             reportReady({
               totalPages: 0,
-              capabilities: { ...engineCapabilities(source), pagination: false },
+              capabilities: {
+                ...engineCapabilities(source),
+                pagination: false,
+              },
             })
           },
         })
@@ -276,11 +290,13 @@ export default function PdfEngine({
         if (persistPreferences) {
           const stored = readBookPreviewPrefs().pdfZoom
           const valid =
-            typeof stored === "number" &&
+            typeof stored === 'number' &&
             Number.isFinite(stored) &&
             stored >= PDF_FIT_PAGE &&
             stored <= PDF_MAX_ZOOM
-          setZoom(valid ? (stored > 0 ? clampZoom(stored) : stored) : PDF_FIT_ZOOM)
+          setZoom(
+            valid ? (stored > 0 ? clampZoom(stored) : stored) : PDF_FIT_ZOOM,
+          )
         } else {
           setZoom(PDF_FIT_ZOOM)
         }
@@ -293,10 +309,10 @@ export default function PdfEngine({
       } catch {
         if (!cancelled) {
           reportError({
-            kind: "pdf-parse",
+            kind: 'pdf-parse',
             message: passwordCancelledRef.current
-              ? "This PDF is password-protected. Retry to enter its password."
-              : "This PDF could not be opened.",
+              ? 'This PDF is password-protected. Retry to enter its password.'
+              : 'This PDF could not be opened.',
           })
         }
       }
@@ -341,14 +357,17 @@ export default function PdfEngine({
 
   // A fresh document gets a fresh search index — cached page text would point
   // at pages of the previous file — and the search state resets with it.
-  const searchIndex = useMemo(() => (pdf ? createPdfSearchIndex(pdf) : null), [pdf])
+  const searchIndex = useMemo(
+    () => (pdf ? createPdfSearchIndex(pdf) : null),
+    [pdf],
+  )
   const [prevPdf, setPrevPdf] = useState(pdf)
   if (prevPdf !== pdf) {
     setPrevPdf(pdf)
     setHits(null)
     setHitIndex(0)
     setSearching(false)
-    setQuery("")
+    setQuery('')
     setGrabMode(false)
     setThumbsOpen(false)
   }
@@ -375,26 +394,30 @@ export default function PdfEngine({
   useEffect(() => {
     if (!searchIndex || !needle) {
       const layer = textLayerRef.current
-      if (layer) highlightTextLayer(layer, "")
+      if (layer) highlightTextLayer(layer, '')
       return
     }
     let cancelled = false
     const timer = window.setTimeout(() => {
       setSearching(true)
-      void searchIndex.search(needle, () => cancelled).then((nextHits) => {
-        if (cancelled) return
-        setSearching(false)
-        setHits(nextHits)
-        if (nextHits.length === 0) {
-          setHitIndex(0)
-          return
-        }
-        const after = nextHits.findIndex((hit) => hit.page > pageIndexRef.current + 1)
-        const start = after >= 0 ? after : 0
-        setHitIndex(start)
-        pendingHitScrollRef.current = true
-        reportPageChange(nextHits[start].page - 1, "instant")
-      })
+      void searchIndex
+        .search(needle, () => cancelled)
+        .then((nextHits) => {
+          if (cancelled) return
+          setSearching(false)
+          setHits(nextHits)
+          if (nextHits.length === 0) {
+            setHitIndex(0)
+            return
+          }
+          const after = nextHits.findIndex(
+            (hit) => hit.page > pageIndexRef.current + 1,
+          )
+          const start = after >= 0 ? after : 0
+          setHitIndex(start)
+          pendingHitScrollRef.current = true
+          reportPageChange(nextHits[start].page - 1, 'instant')
+        })
     }, 200)
     return () => {
       cancelled = true
@@ -405,12 +428,13 @@ export default function PdfEngine({
   const stepHit = useCallback(
     (direction: 1 | -1) => {
       if (!activeHits || activeHits.length === 0) return
-      const next = (hitIndex + direction + activeHits.length) % activeHits.length
+      const next =
+        (hitIndex + direction + activeHits.length) % activeHits.length
       setHitIndex(next)
       pendingHitScrollRef.current = true
-      reportPageChange(activeHits[next].page - 1, "instant")
+      reportPageChange(activeHits[next].page - 1, 'instant')
     },
-    [activeHits, hitIndex, reportPageChange]
+    [activeHits, hitIndex, reportPageChange],
   )
 
   const openSearch = useCallback(() => setSearchOpen(true), [])
@@ -438,7 +462,7 @@ export default function PdfEngine({
   // In a fit mode a container resize is a zoom change.
   useEffect(() => {
     const node = scrollRef.current
-    if (!node || typeof ResizeObserver === "undefined") return
+    if (!node || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(() => {
       if (zoomRef.current <= 0) setFitTick((tick) => tick + 1)
     })
@@ -461,14 +485,22 @@ export default function PdfEngine({
     const ref = engineShortcutsRef
     ref.current = {
       zoomIn: () =>
-        setZoom(clampZoom((zoomRef.current > 0 ? zoomRef.current : fittedRef.current) + 0.25)),
+        setZoom(
+          clampZoom(
+            (zoomRef.current > 0 ? zoomRef.current : fittedRef.current) + 0.25,
+          ),
+        ),
       zoomOut: () =>
-        setZoom(clampZoom((zoomRef.current > 0 ? zoomRef.current : fittedRef.current) - 0.25)),
+        setZoom(
+          clampZoom(
+            (zoomRef.current > 0 ? zoomRef.current : fittedRef.current) - 0.25,
+          ),
+        ),
       zoomReset: () => setZoom(PDF_FIT_ZOOM),
       search: openSearch,
       dismiss: () => {
         if (searchOpen) {
-          setQuery("")
+          setQuery('')
           setSearchOpen(false)
           return true
         }
@@ -493,9 +525,10 @@ export default function PdfEngine({
     const scroller = scrollRef.current
     pinchCommitRef.current = null
     if (!commit || !inner || !scroller) return
-    inner.style.transform = ""
+    inner.style.transform = ''
     const rect = inner.getBoundingClientRect()
-    scroller.scrollLeft += rect.left + commit.m.x * commit.scale - commit.target.x
+    scroller.scrollLeft +=
+      rect.left + commit.m.x * commit.scale - commit.target.x
     scroller.scrollTop += rect.top + commit.m.y * commit.scale - commit.target.y
   }, [])
 
@@ -518,11 +551,11 @@ export default function PdfEngine({
         const base = page.getViewport({ scale: 1, rotation })
         const hostWidth = Math.max(
           240,
-          (scrollRef.current?.clientWidth ?? base.width) - PDF_STAGE_PAD
+          (scrollRef.current?.clientWidth ?? base.width) - PDF_STAGE_PAD,
         )
         const hostHeight = Math.max(
           240,
-          (scrollRef.current?.clientHeight ?? base.height) - PDF_STAGE_PAD
+          (scrollRef.current?.clientHeight ?? base.height) - PDF_STAGE_PAD,
         )
         const fitWidth = Math.min(3, Math.max(0.4, hostWidth / base.width))
         const fitPage = Math.min(3, Math.max(0.4, hostHeight / base.height))
@@ -539,7 +572,7 @@ export default function PdfEngine({
           // 3x DPR turns a page into a ~30MP bitmap; 2x is the point of
           // diminishing returns for reading.
           pixelRatio:
-            typeof window === "undefined"
+            typeof window === 'undefined'
               ? 1
               : Math.min(2, Math.max(1, window.devicePixelRatio || 1)),
         })
@@ -556,8 +589,13 @@ export default function PdfEngine({
         container.style.width = canvas.style.width
         container.style.height = canvas.style.height
         // PDF.js positions every span against this factor.
-        container.style.setProperty("--total-scale-factor", String(effective))
-        textLayer = await renderPdfTextLayer({ page, container, scale: effective, rotation })
+        container.style.setProperty('--total-scale-factor', String(effective))
+        textLayer = await renderPdfTextLayer({
+          page,
+          container,
+          scale: effective,
+          rotation,
+        })
         if (cancelled) return
         // In-document links (TOC entries, citations, urls) become real click
         // targets over the text layer — internal ones turn pages, external
@@ -569,20 +607,23 @@ export default function PdfEngine({
           rotation,
         })
         if (!cancelled) setLinks({ key: linkKey, items: pageLinks })
-        const needle = activeQueryRef.current
-        if (needle) {
-          highlightTextLayer(container, needle)
+        const activeNeedle = activeQueryRef.current
+        if (activeNeedle) {
+          highlightTextLayer(container, activeNeedle)
           if (pendingHitScrollRef.current) {
             pendingHitScrollRef.current = false
             container
               .querySelector(`[${PDF_SEARCH_HIT_ATTR}]`)
-              ?.scrollIntoView({ block: "center" })
+              ?.scrollIntoView({ block: 'center' })
           }
         }
       } catch (error) {
         const named = error as { name?: string }
-        if (named.name !== "RenderingCancelledException" && !cancelled) {
-          reportError({ kind: "pdf-render", message: "This page could not be rendered." })
+        if (named.name !== 'RenderingCancelledException' && !cancelled) {
+          reportError({
+            kind: 'pdf-render',
+            message: 'This page could not be rendered.',
+          })
         }
       }
     }
@@ -594,7 +635,16 @@ export default function PdfEngine({
       textLayer?.cancel()
       textLayerEl?.replaceChildren()
     }
-  }, [applyPinchCommit, linkKey, pageIndex, pdf, reportError, rotation, zoom, fitTick])
+  }, [
+    applyPinchCommit,
+    linkKey,
+    pageIndex,
+    pdf,
+    reportError,
+    rotation,
+    zoom,
+    fitTick,
+  ])
 
   // A page change invalidates an uncommitted pinch — declared before the
   // gesture reset so the commit is already gone when that cleanup runs and
@@ -627,7 +677,8 @@ export default function PdfEngine({
     const onWheel = (event: WheelEvent) => {
       if (event.ctrlKey) {
         event.preventDefault()
-        const current = zoomRef.current > 0 ? zoomRef.current : fittedRef.current
+        const current =
+          zoomRef.current > 0 ? zoomRef.current : fittedRef.current
         setZoom(clampZoom(current - Math.sign(event.deltaY) * 0.15))
         return
       }
@@ -645,10 +696,10 @@ export default function PdfEngine({
       wheelAccumRef.current = 0
       wheelLockRef.current = now + 450
       if (target < 0 || target >= (pdf?.numPages ?? 0)) return
-      reportPageChange(target, "instant")
+      reportPageChange(target, 'instant')
     }
-    node.addEventListener("wheel", onWheel, { passive: false })
-    return () => node.removeEventListener("wheel", onWheel)
+    node.addEventListener('wheel', onWheel, { passive: false })
+    return () => node.removeEventListener('wheel', onWheel)
   }, [pdf, reportPageChange])
 
   const onStagePointerDown = useCallback(
@@ -656,20 +707,23 @@ export default function PdfEngine({
       // Touch and pen always drive pan/pinch. The mouse keeps drag-to-select
       // unless the hand tool is on — and a middle-button drag always pans,
       // like Acrobat's grab.
-      const mouse = event.pointerType === "mouse"
+      const mouse = event.pointerType === 'mouse'
       if (mouse && !grabMode && event.button !== 1) return
       if (mouse && event.button !== 0 && event.button !== 1) return
       // Stops text selection for the hand tool and autoscroll for middle-drag.
       event.preventDefault()
       event.currentTarget.setPointerCapture(event.pointerId)
-      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      pointersRef.current.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+      })
       if (!mouse && pointersRef.current.size === 2) {
         // A second finger converts the gesture to a pinch — cancel any swipe
         // in flight or its translate would stack on top of the pinch transform.
         const inner = stageInnerRef.current
         if (inner && panRef.current?.swiping) {
-          inner.style.translate = ""
-          inner.style.transition = ""
+          inner.style.translate = ''
+          inner.style.transition = ''
         }
         const [a, b] = Array.from(pointersRef.current.values())
         const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
@@ -677,7 +731,9 @@ export default function PdfEngine({
         pinchRef.current = {
           startDist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
           startMid: mid,
-          m: rect ? { x: mid.x - rect.left, y: mid.y - rect.top } : { x: 0, y: 0 },
+          m: rect
+            ? { x: mid.x - rect.left, y: mid.y - rect.top }
+            : { x: 0, y: 0 },
           baseZoom: zoomRef.current > 0 ? zoomRef.current : fittedRef.current,
           lastScale: 1,
           lastMid: mid,
@@ -700,85 +756,95 @@ export default function PdfEngine({
         }
       }
     },
-    [grabMode]
+    [grabMode],
   )
 
-  const onStagePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const point = pointersRef.current.get(event.pointerId)
-    if (!point) return
-    point.x = event.clientX
-    point.y = event.clientY
-    const pinch = pinchRef.current
-    const inner = stageInnerRef.current
-    if (pinch && inner && pointersRef.current.size >= 2) {
-      const [a, b] = Array.from(pointersRef.current.values())
-      const dist = Math.hypot(a.x - b.x, a.y - b.y)
-      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-      // Live scale is clamped to the zoom range with slight overshoot so the
-      // gesture feels responsive at the edges without overshooting on commit.
-      const scale = Math.min(
-        (PDF_MAX_ZOOM * 1.05) / pinch.baseZoom,
-        Math.max((PDF_MIN_ZOOM * 0.9) / pinch.baseZoom, dist / pinch.startDist)
-      )
-      pinch.lastScale = scale
-      pinch.lastMid = mid
-      const dx = mid.x - pinch.startMid.x
-      const dy = mid.y - pinch.startMid.y
-      const m = pinch.m
-      // Scale around the pinch midpoint and let the fingers drag it — the
-      // old render stays put until the commit re-renders at the final zoom.
-      inner.style.transform = `translate3d(${m.x * (1 - scale) + dx}px, ${m.y * (1 - scale) + dy}px, 0) scale(${scale})`
-      return
-    }
-    const pan = panRef.current
-    const scroller = scrollRef.current
-    if (pan && scroller && pointersRef.current.size === 1) {
-      const totalDx = event.clientX - pan.startX
-      const totalDy = event.clientY - pan.startY
-      if (!pan.moved) {
-        if (Math.hypot(totalDx, totalDy) < TOUCH_PAN_SLOP_PX) return
-        pan.moved = true
-        // The direction is locked at the intent moment: when the page already
-        // fits horizontally, a dominant horizontal drag becomes a page-turn
-        // swipe; otherwise the finger pans the scroller.
-        pan.swiping =
-          !pan.mouse &&
-          scroller.scrollWidth - scroller.clientWidth <= 2 &&
-          Math.abs(totalDx) > Math.abs(totalDy)
-        if (pan.swiping && inner) inner.style.transition = "none"
-      }
-      if (pan.swiping && inner) {
-        // Once the gesture owns the pointer, block a long-press selection
-        // from starting underneath it.
-        event.preventDefault()
-        const width = scroller.clientWidth
-        const atEdge =
-          (totalDx > 0 && pageIndexRef.current <= 0) ||
-          (totalDx < 0 && pageIndexRef.current >= (pdf?.numPages ?? 1) - 1)
-        const offset = atEdge
-          ? Math.max(
-              -width * 0.4 * BOOK_PREVIEW_BOUNDARY_RESISTANCE,
-              Math.min(width * 0.4 * BOOK_PREVIEW_BOUNDARY_RESISTANCE, totalDx * BOOK_PREVIEW_BOUNDARY_RESISTANCE)
-            )
-          : totalDx
-        // `translate` (not `transform`) so the page-arrival CSS and the pinch
-        // transform never fight over the same property.
-        inner.style.translate = `${offset}px 0px`
-        const dt = Math.max(1, event.timeStamp - pan.lastT)
-        pan.velocity = pan.velocity * 0.55 + ((event.clientX - pan.lastX) / dt) * 0.45
-        pan.lastX = event.clientX
-        pan.lastT = event.timeStamp
+  const onStagePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const point = pointersRef.current.get(event.pointerId)
+      if (!point) return
+      point.x = event.clientX
+      point.y = event.clientY
+      const pinch = pinchRef.current
+      const inner = stageInnerRef.current
+      if (pinch && inner && pointersRef.current.size >= 2) {
+        const [a, b] = Array.from(pointersRef.current.values())
+        const dist = Math.hypot(a.x - b.x, a.y - b.y)
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+        // Live scale is clamped to the zoom range with slight overshoot so the
+        // gesture feels responsive at the edges without overshooting on commit.
+        const scale = Math.min(
+          (PDF_MAX_ZOOM * 1.05) / pinch.baseZoom,
+          Math.max(
+            (PDF_MIN_ZOOM * 0.9) / pinch.baseZoom,
+            dist / pinch.startDist,
+          ),
+        )
+        pinch.lastScale = scale
+        pinch.lastMid = mid
+        const dx = mid.x - pinch.startMid.x
+        const dy = mid.y - pinch.startMid.y
+        const m = pinch.m
+        // Scale around the pinch midpoint and let the fingers drag it — the
+        // old render stays put until the commit re-renders at the final zoom.
+        inner.style.transform = `translate3d(${m.x * (1 - scale) + dx}px, ${m.y * (1 - scale) + dy}px, 0) scale(${scale})`
         return
       }
-      const dx = event.clientX - pan.x
-      const dy = event.clientY - pan.y
-      event.preventDefault()
-      pan.x = event.clientX
-      pan.y = event.clientY
-      scroller.scrollLeft -= dx
-      scroller.scrollTop -= dy
-    }
-  }, [pdf])
+      const pan = panRef.current
+      const scroller = scrollRef.current
+      if (pan && scroller && pointersRef.current.size === 1) {
+        const totalDx = event.clientX - pan.startX
+        const totalDy = event.clientY - pan.startY
+        if (!pan.moved) {
+          if (Math.hypot(totalDx, totalDy) < TOUCH_PAN_SLOP_PX) return
+          pan.moved = true
+          // The direction is locked at the intent moment: when the page already
+          // fits horizontally, a dominant horizontal drag becomes a page-turn
+          // swipe; otherwise the finger pans the scroller.
+          pan.swiping =
+            !pan.mouse &&
+            scroller.scrollWidth - scroller.clientWidth <= 2 &&
+            Math.abs(totalDx) > Math.abs(totalDy)
+          if (pan.swiping && inner) inner.style.transition = 'none'
+        }
+        if (pan.swiping && inner) {
+          // Once the gesture owns the pointer, block a long-press selection
+          // from starting underneath it.
+          event.preventDefault()
+          const width = scroller.clientWidth
+          const atEdge =
+            (totalDx > 0 && pageIndexRef.current <= 0) ||
+            (totalDx < 0 && pageIndexRef.current >= (pdf?.numPages ?? 1) - 1)
+          const offset = atEdge
+            ? Math.max(
+                -width * 0.4 * BOOK_PREVIEW_BOUNDARY_RESISTANCE,
+                Math.min(
+                  width * 0.4 * BOOK_PREVIEW_BOUNDARY_RESISTANCE,
+                  totalDx * BOOK_PREVIEW_BOUNDARY_RESISTANCE,
+                ),
+              )
+            : totalDx
+          // `translate` (not `transform`) so the page-arrival CSS and the pinch
+          // transform never fight over the same property.
+          inner.style.translate = `${offset}px 0px`
+          const dt = Math.max(1, event.timeStamp - pan.lastT)
+          pan.velocity =
+            pan.velocity * 0.55 + ((event.clientX - pan.lastX) / dt) * 0.45
+          pan.lastX = event.clientX
+          pan.lastT = event.timeStamp
+          return
+        }
+        const dx = event.clientX - pan.x
+        const dy = event.clientY - pan.y
+        event.preventDefault()
+        pan.x = event.clientX
+        pan.y = event.clientY
+        scroller.scrollLeft -= dx
+        scroller.scrollTop -= dy
+      }
+    },
+    [pdf],
+  )
 
   const onStagePointerEnd = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -787,7 +853,8 @@ export default function PdfEngine({
       if (pinch && pointersRef.current.size < 2) {
         pinchRef.current = null
         const finalZoom = clampZoom(pinch.baseZoom * pinch.lastScale)
-        const rendered = zoomRef.current > 0 ? zoomRef.current : fittedRef.current
+        const rendered =
+          zoomRef.current > 0 ? zoomRef.current : fittedRef.current
         pinchCommitRef.current = {
           scale: finalZoom / pinch.baseZoom,
           m: pinch.m,
@@ -809,7 +876,7 @@ export default function PdfEngine({
       if (pan?.swiping && inner && scroller) {
         // A cancelled gesture (browser took it back) springs home — it must
         // never complete a turn the user did not release into.
-        const cancelledGesture = event.type === "pointercancel"
+        const cancelledGesture = event.type === 'pointercancel'
         const totalDx = event.clientX - pan.startX
         const width = Math.max(1, scroller.clientWidth)
         const numPages = pdf?.numPages ?? 1
@@ -826,25 +893,27 @@ export default function PdfEngine({
             pan.velocity > BOOK_PREVIEW_VELOCITY_COMMIT)
         const direction = cancelledGesture ? 0 : goNext ? 1 : goPrev ? -1 : 0
         if (direction !== 0 && reducedMotion) {
-          inner.style.translate = ""
-          inner.style.transition = ""
-          reportPageChange(pageIndexRef.current + direction, "instant")
+          inner.style.translate = ''
+          inner.style.transition = ''
+          reportPageChange(pageIndexRef.current + direction, 'instant')
         } else if (direction !== 0) {
           inner.style.transition = `translate ${BOOK_PREVIEW_SETTLE_MS}ms ${BOOK_PREVIEW_EASE_OUT}`
           inner.style.translate = `${direction * -width}px 0px`
-          if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
+          if (swipeTimerRef.current !== null)
+            window.clearTimeout(swipeTimerRef.current)
           swipeTimerRef.current = window.setTimeout(() => {
             swipeTimerRef.current = null
-            reportPageChange(pageIndexRef.current + direction, "instant")
+            reportPageChange(pageIndexRef.current + direction, 'instant')
           }, BOOK_PREVIEW_SETTLE_MS)
         } else {
           inner.style.transition = `translate ${BOOK_PREVIEW_SETTLE_MS}ms ${BOOK_PREVIEW_EASE_OUT}`
-          inner.style.translate = "0px 0px"
-          if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
+          inner.style.translate = '0px 0px'
+          if (swipeTimerRef.current !== null)
+            window.clearTimeout(swipeTimerRef.current)
           swipeTimerRef.current = window.setTimeout(() => {
             swipeTimerRef.current = null
-            inner.style.translate = ""
-            inner.style.transition = ""
+            inner.style.translate = ''
+            inner.style.transition = ''
           }, BOOK_PREVIEW_SETTLE_MS + 30)
         }
         panRef.current = null
@@ -869,7 +938,7 @@ export default function PdfEngine({
           }
         : null
     },
-    [applyPinchCommit, pdf, reducedMotion, reportPageChange]
+    [applyPinchCommit, pdf, reducedMotion, reportPageChange],
   )
 
   const effectiveZoom = zoom > 0 ? zoom : fitted
@@ -886,11 +955,12 @@ export default function PdfEngine({
     // A double-click that selected a word is a selection gesture, not a zoom
     // request — the text layer stays in charge. Links and controls keep their
     // own double-click meaning too.
-    if (typeof window !== "undefined" && window.getSelection()?.toString()) return
+    if (typeof window !== 'undefined' && window.getSelection()?.toString())
+      return
     if (
       event.target instanceof HTMLElement &&
       event.target.closest(
-        "[data-book-preview-link], button, a, input, select, textarea"
+        '[data-book-preview-link], button, a, input, select, textarea',
       )
     ) {
       return
@@ -920,194 +990,203 @@ export default function PdfEngine({
 
   const controls = (
     <div className="flex flex-wrap items-center justify-center gap-2">
-        <p className="max-w-[10rem] truncate text-xs text-muted-foreground sm:max-w-none">
-          {source.pdfFileName ?? "Document"}
-        </p>
-        {searchOpen ? (
-          <div className="flex items-center gap-1">
-            <div className="relative">
-              <SearchIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                ref={searchInputRef}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search document"
-                aria-label="Search document"
-                className="h-8 w-40 pl-7 text-xs sm:w-52"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault()
-                    stepHit(event.shiftKey ? -1 : 1)
-                  }
-                  if (event.key === "Escape") {
-                    event.preventDefault()
-                    setQuery("")
-                    setSearchOpen(false)
-                    event.currentTarget.blur()
-                  }
-                }}
-              />
-            </div>
-            <span className="min-w-[4.5ch] text-center font-mono text-xs text-muted-foreground" aria-live="polite">
-              {searching ? "…" : activeHits ? (hitCount === 0 ? "0" : `${hitIndex + 1}/${hitCount}`) : ""}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Previous match"
-              disabled={hitCount === 0}
-              onClick={() => stepHit(-1)}
-              data-book-preview-press
-            >
-              <ChevronUpIcon />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Next match"
-              disabled={hitCount === 0}
-              onClick={() => stepHit(1)}
-              data-book-preview-press
-            >
-              <ChevronDownIcon />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Close search"
-              onClick={() => {
-                setQuery("")
-                setSearchOpen(false)
+      <p className="text-muted-foreground max-w-[10rem] truncate text-xs sm:max-w-none">
+        {source.pdfFileName ?? 'Document'}
+      </p>
+      {searchOpen ? (
+        <div className="flex items-center gap-1">
+          <div className="relative">
+            <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
+            <Input
+              ref={searchInputRef}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search document"
+              aria-label="Search document"
+              className="h-8 w-40 pl-7 text-xs sm:w-52"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  stepHit(event.shiftKey ? -1 : 1)
+                }
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  setQuery('')
+                  setSearchOpen(false)
+                  event.currentTarget.blur()
+                }
               }}
-              data-book-preview-press
-            >
-              <XIcon />
-            </Button>
+            />
           </div>
-        ) : (
+          <span
+            className="text-muted-foreground min-w-[4.5ch] text-center font-mono text-xs"
+            aria-live="polite"
+          >
+            {searching
+              ? '…'
+              : activeHits
+                ? hitCount === 0
+                  ? '0'
+                  : `${hitIndex + 1}/${hitCount}`
+                : ''}
+          </span>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label="Search document"
-            aria-keyshortcuts="/ Control+F"
-            disabled={!pdf}
-            onClick={openSearch}
+            aria-label="Previous match"
+            disabled={hitCount === 0}
+            onClick={() => stepHit(-1)}
             data-book-preview-press
-            className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
           >
-            <SearchIcon />
+            <ChevronUpIcon />
           </Button>
-        )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Zoom out"
-          onClick={() => setZoom(clampZoom(effectiveZoom - 0.25))}
-          data-book-preview-press
-          className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
-        >
-          <ZoomOutIcon />
-        </Button>
-        <span className="min-w-[5.5ch] text-center font-mono text-xs text-muted-foreground">
-          {zoom === PDF_FIT_ZOOM
-            ? `Fit ${Math.round(effectiveZoom * 100)}%`
-            : zoom === PDF_FIT_PAGE
-              ? `Page ${Math.round(effectiveZoom * 100)}%`
-              : `${Math.round(zoom * 100)}%`}
-        </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Zoom in"
-          onClick={() => setZoom(clampZoom(effectiveZoom + 0.25))}
-          data-book-preview-press
-          className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
-        >
-          <ZoomInIcon />
-        </Button>
-        <Button
-          type="button"
-          variant={zoom <= 0 ? "secondary" : "ghost"}
-          size="sm"
-          aria-pressed={zoom <= 0}
-          aria-label={
-            zoom === PDF_FIT_PAGE ? "Fit entire page" : "Fit page width"
-          }
-          title="Cycle fit width / fit page"
-          onClick={() =>
-            setZoom(zoom === PDF_FIT_ZOOM ? PDF_FIT_PAGE : PDF_FIT_ZOOM)
-          }
-          data-book-preview-press
-        >
-          {zoom === PDF_FIT_PAGE ? "Page" : "Fit"}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Rotate clockwise"
-          disabled={!pdf}
-          onClick={() => setRotation((current) => (current + 90) % 360)}
-          data-book-preview-press
-          className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
-        >
-          <RotateCwIcon />
-        </Button>
-        <Button
-          type="button"
-          variant={grabMode ? "secondary" : "ghost"}
-          size="icon-sm"
-          aria-label="Hand tool — drag to pan the page"
-          aria-pressed={grabMode}
-          disabled={!pdf}
-          title="Hand tool — drag the page to move it"
-          onClick={() => setGrabMode((on) => !on)}
-          data-book-preview-press
-          className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
-        >
-          <HandIcon />
-        </Button>
-        {pdf && docHasMultiplePages(pdf) ? (
           <Button
             type="button"
-            variant={thumbsOpen ? "secondary" : "ghost"}
+            variant="ghost"
             size="icon-sm"
-            aria-label="Page thumbnails"
-            aria-pressed={thumbsOpen}
-            onClick={() => setThumbsOpen((open) => !open)}
+            aria-label="Next match"
+            disabled={hitCount === 0}
+            onClick={() => stepHit(1)}
             data-book-preview-press
-            className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
           >
-            <PanelLeftIcon />
+            <ChevronDownIcon />
           </Button>
-        ) : null}
-      </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Close search"
+            onClick={() => {
+              setQuery('')
+              setSearchOpen(false)
+            }}
+            data-book-preview-press
+          >
+            <XIcon />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Search document"
+          aria-keyshortcuts="/ Control+F"
+          disabled={!pdf}
+          onClick={openSearch}
+          data-book-preview-press
+          className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+        >
+          <SearchIcon />
+        </Button>
+      )}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Zoom out"
+        onClick={() => setZoom(clampZoom(effectiveZoom - 0.25))}
+        data-book-preview-press
+        className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+      >
+        <ZoomOutIcon />
+      </Button>
+      <span className="text-muted-foreground min-w-[5.5ch] text-center font-mono text-xs">
+        {zoom === PDF_FIT_ZOOM
+          ? `Fit ${Math.round(effectiveZoom * 100)}%`
+          : zoom === PDF_FIT_PAGE
+            ? `Page ${Math.round(effectiveZoom * 100)}%`
+            : `${Math.round(zoom * 100)}%`}
+      </span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Zoom in"
+        onClick={() => setZoom(clampZoom(effectiveZoom + 0.25))}
+        data-book-preview-press
+        className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+      >
+        <ZoomInIcon />
+      </Button>
+      <Button
+        type="button"
+        variant={zoom <= 0 ? 'secondary' : 'ghost'}
+        size="sm"
+        aria-pressed={zoom <= 0}
+        aria-label={
+          zoom === PDF_FIT_PAGE ? 'Fit entire page' : 'Fit page width'
+        }
+        title="Cycle fit width / fit page"
+        onClick={() =>
+          setZoom(zoom === PDF_FIT_ZOOM ? PDF_FIT_PAGE : PDF_FIT_ZOOM)
+        }
+        data-book-preview-press
+      >
+        {zoom === PDF_FIT_PAGE ? 'Page' : 'Fit'}
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Rotate clockwise"
+        disabled={!pdf}
+        onClick={() => setRotation((current) => (current + 90) % 360)}
+        data-book-preview-press
+        className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+      >
+        <RotateCwIcon />
+      </Button>
+      <Button
+        type="button"
+        variant={grabMode ? 'secondary' : 'ghost'}
+        size="icon-sm"
+        aria-label="Hand tool — drag to pan the page"
+        aria-pressed={grabMode}
+        disabled={!pdf}
+        title="Hand tool — drag the page to move it"
+        onClick={() => setGrabMode((on) => !on)}
+        data-book-preview-press
+        className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+      >
+        <HandIcon />
+      </Button>
+      {pdf && docHasMultiplePages(pdf) ? (
+        <Button
+          type="button"
+          variant={thumbsOpen ? 'secondary' : 'ghost'}
+          size="icon-sm"
+          aria-label="Page thumbnails"
+          aria-pressed={thumbsOpen}
+          onClick={() => setThumbsOpen((open) => !open)}
+          data-book-preview-press
+          className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+        >
+          <PanelLeftIcon />
+        </Button>
+      ) : null}
+    </div>
   )
 
   return (
     <div className="flex h-full w-full flex-col gap-3 p-4">
       {chromeHost ? createPortal(controls, chromeHost) : controls}
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border bg-muted/30">
+      <div className="bg-muted/30 flex min-h-0 flex-1 overflow-hidden rounded-lg border">
         {narrow ? (
           <PdfThumbSheet
             doc={pdf}
             pageIndex={pageIndex}
             open={thumbsOpen}
             onOpenChange={setThumbsOpen}
-            onSelect={(index) => reportPageChange(index, "instant")}
+            onSelect={(index) => reportPageChange(index, 'instant')}
           />
         ) : (
           <PdfThumbRail
             doc={pdf}
             pageIndex={pageIndex}
             open={thumbsOpen}
-            onSelect={(index) => reportPageChange(index, "instant")}
+            onSelect={(index) => reportPageChange(index, 'instant')}
           />
         )}
         <div
@@ -1126,14 +1205,14 @@ export default function PdfEngine({
                 />
               </div>
             ) : source.pdfUrl ? (
-              <div className="m-auto flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground m-auto flex items-center gap-2 text-sm">
                 <Spinner />
                 Opening PDF…
               </div>
             ) : source.allowPdfUpload ? (
               <div className="m-auto flex flex-col items-center gap-3 text-center">
-                <FileUpIcon className="size-8 text-muted-foreground/60" />
-                <p className="max-w-52 text-sm text-muted-foreground">
+                <FileUpIcon className="text-muted-foreground/60 size-8" />
+                <p className="text-muted-foreground max-w-52 text-sm">
                   Upload or drop a PDF to begin
                 </p>
                 <Button
@@ -1154,12 +1233,12 @@ export default function PdfEngine({
                   onChange={(event) => {
                     const file = event.target.files?.[0]
                     if (file) uploadPdf(file)
-                    event.target.value = ""
+                    event.target.value = ''
                   }}
                 />
               </div>
             ) : (
-              <div className="m-auto flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground m-auto flex items-center gap-2 text-sm">
                 Waiting for a document
               </div>
             )
@@ -1175,12 +1254,12 @@ export default function PdfEngine({
               {...arrival}
               className={
                 grabMode
-                  ? "relative m-auto shrink-0 cursor-grab active:cursor-grabbing"
-                  : "relative m-auto shrink-0"
+                  ? 'relative m-auto shrink-0 cursor-grab active:cursor-grabbing'
+                  : 'relative m-auto shrink-0'
               }
               // Origin 0 0 makes the live pinch transform an exact
               // scale-around-midpoint; the default center origin would drift.
-              style={{ touchAction: "none", transformOrigin: "0 0" }}
+              style={{ touchAction: 'none', transformOrigin: '0 0' }}
               onPointerDown={onStagePointerDown}
               onPointerMove={onStagePointerMove}
               onPointerUp={onStagePointerEnd}
@@ -1190,19 +1269,24 @@ export default function PdfEngine({
                 ref={canvasRef}
                 role="img"
                 aria-label={`Page ${pageIndex + 1}`}
-                className="block rounded bg-background shadow"
+                className="bg-background block rounded shadow"
               />
-              <div ref={textLayerRef} className="textLayer" data-book-preview-text-layer />
+              <div
+                ref={textLayerRef}
+                className="textLayer"
+                data-book-preview-text-layer
+              />
               {links && links.key === linkKey && links.items.length > 0 ? (
                 <div
                   data-book-preview-links
                   className="pointer-events-none absolute inset-0 z-20"
                 >
-                  {links.items.map((link, index) => {
+                  {links.items.map((link) => {
                     const target = link.target
-                    return target.kind === "page" ? (
+                    const rectKey = `${link.left},${link.top},${link.width}x${link.height}`
+                    return target.kind === 'page' ? (
                       <button
-                        key={index}
+                        key={rectKey}
                         type="button"
                         className="absolute cursor-pointer rounded-sm"
                         style={{
@@ -1215,11 +1299,13 @@ export default function PdfEngine({
                         title={`Go to page ${target.pageIndex + 1}`}
                         data-book-preview-link
                         data-book-preview-press
-                        onClick={() => reportPageChange(target.pageIndex, "instant")}
+                        onClick={() =>
+                          reportPageChange(target.pageIndex, 'instant')
+                        }
                       />
                     ) : (
                       <a
-                        key={index}
+                        key={rectKey}
                         className="absolute cursor-pointer rounded-sm"
                         style={{
                           left: link.left,

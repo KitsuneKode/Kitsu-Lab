@@ -1,7 +1,7 @@
 import { BOOK_PREVIEW_APPEARANCES, BOOK_PREVIEW_MODES } from "./types"
 import type { BookPreviewAppearance, BookPreviewMode } from "./types"
 
-export const PREMIER_VIEWS = ["book", "single", "spread", "scroll"] as const
+export const PREMIER_VIEWS = ["book", "single", "spread", "scroll", "text"] as const
 export type PremierView = (typeof PREMIER_VIEWS)[number]
 
 export type BookPreviewPrefs = {

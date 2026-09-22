@@ -1,10 +1,17 @@
 "use client"
 
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { usePageArrival } from "../hooks/use-page-arrival"
 import { useStableHandler } from "../hooks/use-stable-handler"
 import { BookPreviewPageView } from "../book-preview-page"
+import { pageSearchText } from "../normalize"
 import type { PdfSheet } from "../hooks/use-pdf-sheets"
+import {
+  renderPdfTextLayer,
+  resolvePdfPageLinks,
+  type PdfDocumentProxy,
+  type PdfPageLink,
+} from "../pdf-runtime"
 import type {
   BookPreviewAppearance,
   BookPreviewNavigationBehavior,
@@ -12,16 +19,24 @@ import type {
 } from "../types"
 
 /**
- * The premier reader's flat views — one page, a two-page spread, and a
- * continuous strip — all drawn from the same face list the flip book uses.
- * Page-data sources hand over React leaves; PDF sources hand over raster
- * sheets that fill in (and release) around the reading position.
+ * The premier reader's flat views — one page, a two-page spread, a continuous
+ * strip, and a plain-text flow — all drawn from the same face list the flip
+ * book uses. Page-data sources hand over React leaves; PDF sources hand over
+ * raster sheets that fill in (and release) around the reading position, with
+ * a live text/link overlay so the copy underneath is still selectable.
  */
 
 export type PremierFace = {
   key: string
   /** width / height — null until a pdf page's real size is known. */
   aspect: number | null
+  /** Plain page text — feeds the text view, search, and read-aloud. */
+  text: string
+  /** One-based PDF page number when the face came from a document. */
+  pageNumber: number | null
+  /** False while a pdf face waits on its bitmap — overlays hold off until
+      real pixels exist to sit on. */
+  hasRaster: boolean
   content: ReactNode
 }
 
@@ -38,6 +53,9 @@ export function buildPremierFaces(input: {
     return (sheets ?? []).map((sheet, index) => ({
       key: sheet.id,
       aspect: sheet.height > 0 ? sheet.width / sheet.height : null,
+      text: sheet.text,
+      pageNumber: index + 1,
+      hasRaster: Boolean(sheet.src),
       content: sheet.src ? (
         // Object URLs are generated locally and cannot be optimized by
         // next/image.
@@ -59,6 +77,9 @@ export function buildPremierFaces(input: {
   return pages.map((page, index) => ({
     key: page.id,
     aspect: null,
+    text: pageSearchText(page),
+    pageNumber: null,
+    hasRaster: true,
     content: (
       <BookPreviewPageView
         page={page}
@@ -69,16 +90,161 @@ export function buildPremierFaces(input: {
   }))
 }
 
+/**
+ * The selectable layer a flat-view PDF face wears: pdf.js's real text layer
+ * plus resolved link annotations, positioned over the raster at the face's
+ * measured display scale. Work only happens while the face is near the
+ * viewport, so a long scroll never builds hundreds of span layers at once —
+ * and a ResizeObserver re-renders on zoom so the overlay never drifts.
+ */
+function PdfFaceOverlay({
+  doc,
+  pageNumber,
+  hasRaster,
+  zoom,
+  onNavigate,
+}: {
+  doc: PdfDocumentProxy
+  pageNumber: number
+  /** The text layer over an unrendered skeleton would float over blank
+      paper — wait for the bitmap. */
+  hasRaster: boolean
+  /** The view's CSS zoom — clientWidth already includes it, so the layer
+      renders at the unzoomed scale and the ancestor's zoom carries it. */
+  zoom: number
+  onNavigate: (index: number, behavior?: BookPreviewNavigationBehavior) => void
+}) {
+  const hostRef = useRef<HTMLDivElement | null>(null)
+  // No IntersectionObserver → treat every face as near and let the paint
+  // effect do the work. Not rendered into markup, so hydration is safe.
+  const [near, setNear] = useState(
+    () => typeof IntersectionObserver === "undefined"
+  )
+  const [links, setLinks] = useState<PdfPageLink[]>([])
+  const reportNavigate = useStableHandler(onNavigate)
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host || typeof IntersectionObserver === "undefined") return
+    // Generous margin: spans exist a little before the face scrolls in, and
+    // disappear a little after it leaves — fast scrolling never sees a gap.
+    const observer = new IntersectionObserver(
+      ([entry]) => setNear(entry.isIntersecting),
+      { rootMargin: "120%" }
+    )
+    observer.observe(host)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host || !near || !hasRaster) return
+    let cancelled = false
+    let layer: { cancel: () => void } | null = null
+    let timer = 0
+
+    const paint = async () => {
+      try {
+        const page = await doc.getPage(pageNumber)
+        if (cancelled) return
+        const base = page.getViewport({ scale: 1 })
+        const scale = host.clientWidth / (zoom * Math.max(1, base.width))
+        if (!Number.isFinite(scale) || scale <= 0) return
+        host.replaceChildren()
+        host.style.setProperty("--total-scale-factor", String(scale))
+        const rendered = await renderPdfTextLayer({ page, container: host, scale })
+        if (cancelled) {
+          rendered.cancel()
+          return
+        }
+        layer = rendered
+        const pageLinks = await resolvePdfPageLinks({ page, doc, scale })
+        if (!cancelled) setLinks(pageLinks)
+      } catch {
+        // A page that cannot yield a layer reads as image-only — fine.
+      }
+    }
+
+    void paint()
+    const observer = new ResizeObserver(() => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => void paint(), 160)
+    })
+    observer.observe(host)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+      observer.disconnect()
+      layer?.cancel()
+      host.replaceChildren()
+      setLinks([])
+    }
+  }, [doc, hasRaster, near, pageNumber, zoom])
+
+  return (
+    <>
+      <div ref={hostRef} className="textLayer" data-book-preview-text-layer />
+      {links.length > 0 ? (
+        <div
+          data-book-preview-links
+          className="pointer-events-none absolute inset-0 z-20"
+        >
+          {links.map((link, index) => {
+            const target = link.target
+            return target.kind === "page" ? (
+              <button
+                key={index}
+                type="button"
+                className="absolute cursor-pointer rounded-sm"
+                style={{
+                  left: link.left,
+                  top: link.top,
+                  width: link.width,
+                  height: link.height,
+                }}
+                aria-label={`Go to page ${target.pageIndex + 1}`}
+                title={`Go to page ${target.pageIndex + 1}`}
+                data-book-preview-link
+                data-book-preview-press
+                onClick={() => reportNavigate(target.pageIndex, "instant")}
+              />
+            ) : (
+              <a
+                key={index}
+                className="absolute cursor-pointer rounded-sm"
+                style={{
+                  left: link.left,
+                  top: link.top,
+                  width: link.width,
+                  height: link.height,
+                }}
+                href={target.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Open link: ${target.url}`}
+                title={target.url}
+                data-book-preview-link
+              />
+            )
+          })}
+        </div>
+      ) : null}
+    </>
+  )
+}
+
 /** A face sized by its own aspect — height-bounded so it never outgrows the
     stage, width-bounded so a tall page never overflows narrow screens. */
 function FaceBox({
   face,
   className,
   arrival,
+  children,
 }: {
   face: PremierFace
   className?: string
   arrival?: Record<string, unknown>
+  children?: ReactNode
 }) {
   return (
     <div
@@ -90,6 +256,7 @@ function FaceBox({
       style={{ aspectRatio: `${face.aspect ?? FALLBACK_ASPECT}` }}
     >
       {face.content}
+      {children}
     </div>
   )
 }
@@ -244,12 +411,16 @@ export function PremierSingleView({
   pageIndex,
   zoom,
   reducedMotion,
+  doc,
   onPageChange,
 }: {
   faces: PremierFace[]
   pageIndex: number
   zoom: number
   reducedMotion: boolean
+  /** The open pdf document — present only for pdf sources; page-data faces
+      are already real DOM text and need no overlay. */
+  doc: PdfDocumentProxy | null
   onPageChange: (index: number, behavior?: BookPreviewNavigationBehavior) => void
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null)
@@ -281,7 +452,19 @@ export function PremierSingleView({
           style={{ zoom }}
           className="m-auto h-[min(62svh,100%)]"
         >
-          {face ? <FaceBox face={face} arrival={arrival} key={face.key} /> : null}
+          {face ? (
+            <FaceBox face={face} arrival={arrival} key={face.key}>
+              {doc && face.pageNumber !== null ? (
+                <PdfFaceOverlay
+                  doc={doc}
+                  pageNumber={face.pageNumber}
+                  hasRaster={face.hasRaster}
+                  zoom={zoom}
+                  onNavigate={onPageChange}
+                />
+              ) : null}
+            </FaceBox>
+          ) : null}
         </div>
       </div>
     </div>
@@ -318,12 +501,14 @@ export function PremierSpreadView({
   pageIndex,
   zoom,
   reducedMotion,
+  doc,
   onPageChange,
 }: {
   faces: PremierFace[]
   pageIndex: number
   zoom: number
   reducedMotion: boolean
+  doc: PdfDocumentProxy | null
   onPageChange: (index: number, behavior?: BookPreviewNavigationBehavior) => void
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null)
@@ -353,10 +538,30 @@ export function PremierSpreadView({
           className="m-auto flex h-[min(56svh,100%)] items-stretch gap-0.5"
         >
           {leftFace ? (
-            <FaceBox face={leftFace} arrival={arrival} key={leftFace.key} />
+            <FaceBox face={leftFace} arrival={arrival} key={leftFace.key}>
+              {doc && leftFace.pageNumber !== null ? (
+                <PdfFaceOverlay
+                  doc={doc}
+                  pageNumber={leftFace.pageNumber}
+                  hasRaster={leftFace.hasRaster}
+                  zoom={zoom}
+                  onNavigate={onPageChange}
+                />
+              ) : null}
+            </FaceBox>
           ) : null}
           {rightFace ? (
-            <FaceBox face={rightFace} arrival={arrival} key={rightFace.key} />
+            <FaceBox face={rightFace} arrival={arrival} key={rightFace.key}>
+              {doc && rightFace.pageNumber !== null ? (
+                <PdfFaceOverlay
+                  doc={doc}
+                  pageNumber={rightFace.pageNumber}
+                  hasRaster={rightFace.hasRaster}
+                  zoom={zoom}
+                  onNavigate={onPageChange}
+                />
+              ) : null}
+            </FaceBox>
           ) : leftFace ? (
             <div
               aria-hidden
@@ -372,31 +577,31 @@ export function PremierSpreadView({
   )
 }
 
-/** Every face in one continuous strip — the document view. Intersection
-    tracking keeps the reader's page counter (and the raster window) on the
-    face actually on screen, and scrolls only answer external navigation so
-    the two never fight. */
-export function PremierScrollView({
-  faces,
+/**
+ * Scroll position → page index, for the continuous views. The element with
+ * the largest visible share is "current" — that also steers the pdf raster
+ * window. External navigation (thumbs, contents, arrows, search) scrolls the
+ * target into view, but never when the reader's own scroll put it there, so
+ * the two can never fight.
+ */
+function useScrollPageSync({
+  scrollerRef,
   pageIndex,
-  zoom,
+  count,
   reducedMotion,
   onPageChange,
 }: {
-  faces: PremierFace[]
+  scrollerRef: React.RefObject<HTMLElement | null>
   pageIndex: number
-  zoom: number
+  count: number
   reducedMotion: boolean
   onPageChange: (index: number, behavior?: BookPreviewNavigationBehavior) => void
 }) {
-  const scrollerRef = useRef<HTMLDivElement | null>(null)
   const faceEls = useRef(new Map<number, HTMLElement>())
   const ratios = useRef(new Map<number, number>())
   const dominantRef = useRef(pageIndex)
   const report = useStableHandler(onPageChange)
 
-  // Scroll position → page index: the face with the largest visible share is
-  // "current". Also drives the pdf sheet window, so far pages stay unrastered.
   useEffect(() => {
     const host = scrollerRef.current
     if (!host || typeof IntersectionObserver === "undefined") return
@@ -421,11 +626,7 @@ export function PremierScrollView({
             bestRatio = ratio
           }
         }
-        if (
-          best >= 0 &&
-          best < faces.length &&
-          best !== dominantRef.current
-        ) {
+        if (best >= 0 && best < count && best !== dominantRef.current) {
           dominantRef.current = best
           report(best, "instant")
         }
@@ -434,10 +635,8 @@ export function PremierScrollView({
     )
     for (const el of faceEls.current.values()) observer.observe(el)
     return () => observer.disconnect()
-  }, [faces.length, report])
+  }, [count, report, scrollerRef])
 
-  // External navigation (thumbs, contents, arrows, search) scrolls the face
-  // into view — but never when the reader's own scroll already put it there.
   useEffect(() => {
     if (dominantRef.current === pageIndex) return
     const el = faceEls.current.get(pageIndex)
@@ -448,6 +647,37 @@ export function PremierScrollView({
       behavior: reducedMotion ? "auto" : "smooth",
     })
   }, [pageIndex, reducedMotion])
+
+  return (index: number) => (el: HTMLElement | null) => {
+    if (el) faceEls.current.set(index, el)
+    else faceEls.current.delete(index)
+  }
+}
+
+/** Every face in one continuous strip — the document view. */
+export function PremierScrollView({
+  faces,
+  pageIndex,
+  zoom,
+  reducedMotion,
+  doc,
+  onPageChange,
+}: {
+  faces: PremierFace[]
+  pageIndex: number
+  zoom: number
+  reducedMotion: boolean
+  doc: PdfDocumentProxy | null
+  onPageChange: (index: number, behavior?: BookPreviewNavigationBehavior) => void
+}) {
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const registerFace = useScrollPageSync({
+    scrollerRef,
+    pageIndex,
+    count: faces.length,
+    reducedMotion,
+    onPageChange,
+  })
 
   return (
     <div
@@ -462,15 +692,83 @@ export function PremierScrollView({
           <div
             key={face.key}
             data-face-index={index}
-            ref={(el) => {
-              if (el) faceEls.current.set(index, el)
-              else faceEls.current.delete(index)
-            }}
+            ref={registerFace(index)}
             className="relative w-full overflow-hidden rounded-md border bg-card shadow-sm"
             style={{ aspectRatio: `${face.aspect ?? FALLBACK_ASPECT}` }}
           >
             {face.content}
+            {doc && face.pageNumber !== null ? (
+              <PdfFaceOverlay
+                doc={doc}
+                pageNumber={face.pageNumber}
+                hasRaster={face.hasRaster}
+                zoom={zoom}
+                onNavigate={onPageChange}
+              />
+            ) : null}
           </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Just the words — no bitmaps at all. This is the lightest way to read a
+    document: it costs nothing to paint, reflows to any screen, and gives
+    assistive tech clean prose. Page markers keep place with the reader's
+    pager and the other views. */
+export function PremierTextView({
+  faces,
+  pageIndex,
+  zoom,
+  reducedMotion,
+  onPageChange,
+}: {
+  faces: PremierFace[]
+  pageIndex: number
+  zoom: number
+  reducedMotion: boolean
+  onPageChange: (index: number, behavior?: BookPreviewNavigationBehavior) => void
+}) {
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const registerFace = useScrollPageSync({
+    scrollerRef,
+    pageIndex,
+    count: faces.length,
+    reducedMotion,
+    onPageChange,
+  })
+
+  return (
+    <div
+      ref={scrollerRef}
+      className="h-full w-full overflow-auto overscroll-contain"
+    >
+      <div
+        className="mx-auto flex w-[88%] max-w-[40rem] flex-col gap-8 py-8"
+        style={{ zoom }}
+      >
+        {faces.map((face, index) => (
+          <section
+            key={face.key}
+            data-face-index={index}
+            ref={registerFace(index)}
+            aria-label={`Page ${index + 1}`}
+            className="scroll-mt-4"
+          >
+            <p className="mb-2 font-mono text-[11px] tracking-widest text-muted-foreground uppercase">
+              Page {index + 1}
+            </p>
+            {face.text ? (
+              <p className="text-[15px] leading-7 whitespace-pre-wrap text-foreground/90">
+                {face.text}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">
+                This page has no readable text.
+              </p>
+            )}
+          </section>
         ))}
       </div>
     </div>

@@ -18,6 +18,7 @@ import {
   SearchIcon,
   SpeechIcon,
   SquareIcon,
+  TypeIcon,
   XIcon,
   ZoomInIcon,
   ZoomOutIcon,
@@ -57,6 +58,7 @@ import {
   PremierScrollView,
   PremierSingleView,
   PremierSpreadView,
+  PremierTextView,
   buildPremierFaces,
 } from "./premier-views"
 
@@ -300,6 +302,7 @@ export default function PremierEngine({
     ratio,
     prepared,
     preparing,
+    textPending,
     doc,
     passwordRequest,
     submitPassword,
@@ -546,6 +549,13 @@ export default function PremierEngine({
         <ToggleGroupItem value="scroll" aria-label="Continuous scroll" title="Continuous scroll">
           <ScrollIcon />
         </ToggleGroupItem>
+        <ToggleGroupItem
+          value="text"
+          aria-label="Text only"
+          title="Text only — the lightest way to read"
+        >
+          <TypeIcon />
+        </ToggleGroupItem>
       </ToggleGroup>
       {searchOpen ? (
           <div className="flex items-center gap-1">
@@ -578,11 +588,12 @@ export default function PremierEngine({
             <span
               className="min-w-[5ch] text-center font-mono text-xs text-muted-foreground"
               aria-live="polite"
+              title={textPending ? "Still indexing the document" : undefined}
             >
               {needle
                 ? preparing
                   ? "…"
-                  : `${matches.length} ${matches.length === 1 ? "page" : "pages"}`
+                  : `${matches.length}${textPending ? "+" : ""} ${matches.length === 1 ? "page" : "pages"}`
                 : ""}
             </span>
             <Button
@@ -791,10 +802,20 @@ export default function PremierEngine({
               pageIndex={pageIndex}
               zoom={zoom}
               reducedMotion={reducedMotion}
+              doc={doc}
               onPageChange={reportPageChange}
             />
           ) : view === "scroll" ? (
             <PremierScrollView
+              faces={faces}
+              pageIndex={pageIndex}
+              zoom={zoom}
+              reducedMotion={reducedMotion}
+              doc={doc}
+              onPageChange={reportPageChange}
+            />
+          ) : view === "text" ? (
+            <PremierTextView
               faces={faces}
               pageIndex={pageIndex}
               zoom={zoom}
@@ -807,6 +828,7 @@ export default function PremierEngine({
               pageIndex={pageIndex}
               zoom={zoom}
               reducedMotion={reducedMotion}
+              doc={doc}
               onPageChange={reportPageChange}
             />
           )}

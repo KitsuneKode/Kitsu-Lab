@@ -19,6 +19,9 @@ export type PdfSheet = {
   height: number
   /** Plain page text, when extraction is enabled. Empty for image-only pages. */
   text: string
+  /** True once extraction ran for this page — distinguishes "no text" from
+      "not read yet", which windowed search needs. */
+  textExtracted: boolean
 }
 
 type UsePdfSheetsOptions = {
@@ -64,6 +67,9 @@ type UsePdfSheetsResult = {
   ratio: number | null
   prepared: number
   preparing: boolean
+  /** True while the background text index still has pages to read — search
+      results grow as it catches up. */
+  textPending: boolean
   /** Set while the document waits on a password. `incorrect` means the last
       answer was rejected. */
   passwordRequest: { incorrect: boolean } | null
@@ -149,6 +155,9 @@ export function usePdfSheets({
     // Pages already tried — attempted failures stay blank rather than
     // re-failing on every pass, matching the old once-only queue.
     const attempted = new Set<number>()
+    // Pages whose text has been read — the background index drain fills this
+    // behind the raster window so search covers the whole document.
+    const textDone = new Set<number>()
 
     const inWindow = (pageNumber: number, priority: number): boolean =>
       windowRadius === undefined || Math.abs(pageNumber - priority) <= windowRadius
@@ -164,6 +173,7 @@ export function usePdfSheets({
         // Text first: it is cheap, and it makes the page findable before
         // its bitmap has finished painting.
         const text = extractText ? await extractPdfPageText(page) : ""
+        if (extractText) textDone.add(pageNumber)
         if (cancelled) return
         const cssHeight =
           sizing === "uniform"
@@ -196,6 +206,7 @@ export function usePdfSheets({
                           width: raster.width,
                           height: raster.height,
                           text,
+                          textExtracted: true,
                         }
                       : sheet
                   ),
@@ -250,24 +261,67 @@ export function usePdfSheets({
       return undefined
     }
 
+    // Text-only pass for pages outside the raster window — a few KB each,
+    // so the whole document stays searchable without holding every bitmap.
+    async function indexSheetText(url: string, pageNumber: number): Promise<void> {
+      if (cancelled || !loaded) return
+      textDone.add(pageNumber)
+      try {
+        const page = await loaded.doc.getPage(pageNumber)
+        const text = await extractPdfPageText(page)
+        if (cancelled) return
+        const id = `pdf-${pageNumber}`
+        setDoc((current) =>
+          current && current.url === url && current.sheets
+            ? {
+                ...current,
+                sheets: current.sheets.map((sheet) =>
+                  sheet.id === id ? { ...sheet, text, textExtracted: true } : sheet
+                ),
+              }
+            : current
+        )
+      } catch {
+        // A page that will not yield text simply stays unsearchable.
+      }
+    }
+
     // One sequential worker per document. Without a window it ends when every
-    // page is painted; with a window it parks when the visible range is done
-    // and the priority effect above wakes it on the next page turn.
+    // page is painted; with a window it keeps filling the text index in the
+    // background, then parks — the priority effect above wakes it on the next
+    // page turn.
     async function drain(url: string): Promise<void> {
       const count = loaded?.doc.numPages ?? 0
       while (!cancelled && loaded) {
         const priority = Math.min(Math.max(1, priorityRef.current), count)
         prune(url, priority)
         const next = pickNext(priority, count)
-        if (next === undefined) {
-          if (windowRadius === undefined) return
-          await new Promise<void>((resolve) => {
-            wakeRef.current = resolve
-          })
-          wakeRef.current = null
+        if (next !== undefined) {
+          await renderSheet(url, next)
           continue
         }
-        await renderSheet(url, next)
+        // Rasters for the visible range are done — spend idle time on the
+        // text index, nearest unread page to the reading position first.
+        let textNext: number | undefined
+        if (extractText) {
+          if (!textDone.has(priority)) textNext = priority
+          for (let distance = 1; textNext === undefined && distance < count; distance += 1) {
+            if (priority - distance >= 1 && !textDone.has(priority - distance)) {
+              textNext = priority - distance
+            } else if (priority + distance <= count && !textDone.has(priority + distance)) {
+              textNext = priority + distance
+            }
+          }
+        }
+        if (textNext !== undefined) {
+          await indexSheetText(url, textNext)
+          continue
+        }
+        if (windowRadius === undefined) return
+        await new Promise<void>((resolve) => {
+          wakeRef.current = resolve
+        })
+        wakeRef.current = null
       }
     }
 
@@ -324,6 +378,7 @@ export function usePdfSheets({
             width: rasterWidth,
             height: uniformHeight,
             text: "",
+            textExtracted: false,
           })),
         })
 
@@ -375,6 +430,11 @@ export function usePdfSheets({
     ratio: active?.ratio ?? null,
     prepared,
     preparing: enabled && activeSheets !== null && pendingInWindow,
+    textPending:
+      extractText &&
+      enabled &&
+      activeSheets !== null &&
+      activeSheets.some((sheet) => !sheet.textExtracted),
     passwordRequest: enabled && pdfUrl ? passwordRequest : null,
     submitPassword,
     cancelPassword,

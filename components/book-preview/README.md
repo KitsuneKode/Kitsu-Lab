@@ -4,25 +4,37 @@
 
 ## Install
 
-This registry targets shadcn's Base UI styles (`base-*`, including `base-nova`). After the registry is deployed:
+This registry targets shadcn's Base UI styles (`base-*`, including `base-nova`). Register the `@kitsu` namespace once in your `components.json`:
+
+```json
+{
+  "registries": {
+    "@kitsu": "https://kitsu-lab.vercel.app/r/{name}.json"
+  }
+}
+```
+
+Then add the core reader:
 
 ```bash
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview.json
+npx shadcn@latest add @kitsu/book-preview
 ```
 
 Add only the engines the product needs:
 
 ```bash
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-curl.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-pdf.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-scroll.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-spread.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-archival-curl.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-premier.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-webgl.json
+npx shadcn@latest add @kitsu/book-preview-curl
+npx shadcn@latest add @kitsu/book-preview-pdf
+npx shadcn@latest add @kitsu/book-preview-scroll
+npx shadcn@latest add @kitsu/book-preview-spread
+npx shadcn@latest add @kitsu/book-preview-archival-curl
+npx shadcn@latest add @kitsu/book-preview-premier
+npx shadcn@latest add @kitsu/book-preview-webgl
 ```
 
-`book-preview-engines.json` is a convenience bundle for demos that genuinely need every mode. Production apps should prefer individual engine items to avoid installing unused PDF, page-flip, or Three.js packages.
+Every item is also addressable by URL (`https://kitsu-lab.vercel.app/r/<name>.json`), which is how items reference each other so they install without the namespace configured.
+
+`@kitsu/book-preview-engines` is a convenience bundle for demos that genuinely need every mode. Production apps should prefer individual engine items to avoid installing unused PDF, page-flip, or Three.js packages.
 
 ## Core usage
 

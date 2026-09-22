@@ -10,7 +10,7 @@
     "maath"
   ],
   "registryDependencies": [
-    "https://kitsulab.vercel.app/r/book-preview.json"
+    "https://kitsu-lab.vercel.app/r/book-preview.json"
   ],
   "files": [
     {

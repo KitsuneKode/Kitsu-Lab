@@ -4,7 +4,7 @@
   "title": "Book preview - Scroll",
   "description": "Continuous vertical reader for page data or a PDF.",
   "registryDependencies": [
-    "https://kitsulab.vercel.app/r/book-preview-pdf.json"
+    "https://kitsu-lab.vercel.app/r/book-preview-pdf.json"
   ],
   "files": [
     {

@@ -4,7 +4,7 @@
   "title": "Book preview - Spread",
   "description": "Facing-page reader with search, thumbnails, and a magnifying loupe. No extra packages.",
   "registryDependencies": [
-    "https://kitsulab.vercel.app/r/book-preview.json",
+    "https://kitsu-lab.vercel.app/r/book-preview.json",
     "input",
     "toggle-group"
   ],

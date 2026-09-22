@@ -1,74 +1,51 @@
-# Kitsu-Lab 🎨
+# Kitsu-Lab
 
-A digital playground for experimenting with modern web technologies, showcasing interactive components built with React and Motion. Components here are test subjects that might eventually be included in my UI library. Some designs are inspired by popular trends, and credits are given to the original creators for assets on twitter.
+A shadcn registry of production components, each with a live exhibit.
 
-Building this project for fun and learning design and development.
+**Live:** https://kitsu-lab.vercel.app
 
-## Live Demo
+## Install a component
 
-[Live Demo](https://lab.kitsunelabs.xyz/)
+Register the namespace once in your project's `components.json`:
 
-## Features
+```json
+{
+  "registries": {
+    "@kitsu": "https://kitsu-lab.vercel.app/r/{name}.json"
+  }
+}
+```
 
-- 🎨 Interactive exhibition displays
-- 🎮 Custom keyboard button component
-- 🚀 Built with Next.js and TypeScript
-  -~~ 📱 Responsive design for all devices~~
-- 🎨 Modern UI with Orbitron font
+Then add items by name:
 
-## Tech Stack
+```bash
+npx shadcn@latest add @kitsu/book-preview
+npx shadcn@latest add @kitsu/promotions
+```
 
-- Framework: Next.js 15+
-- Language: TypeScript
-- Styling: Tailwindcss + motion
-- Package Manager: Bun (recommended)
+Items target shadcn's Base UI styles (`base-*`). Each item's `docs` field notes
+anything else it needs.
 
-## Getting Started
+## Items
 
-First, install the dependencies:
+| Item                                    | What it is                                                                                     |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `book-preview` (+ `book-preview-*`)     | Accessible book and PDF reader with optional page, spread, scroll, curl, PDF and WebGL engines |
+| `promotions` (+ `promotion`, `promo-*`) | Scheduled announcement bar, inline card and dialog with dismissal, targeting and an editor     |
+| `keyboard-button`                       | Tactile keycap with spring press physics                                                       |
+| `email-domain-input`                    | Email input restricted to approved domains                                                     |
+
+## Develop
 
 ```bash
 bun install
-```
-
-Then, run the development server:
-
-```bash
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-## Project Structure
-
-- `/app` - Main application pages and components
-- `/public` - Static assets
-- `/components` - Reusable UI components
-- `/exhibition` - Exhibition-related pages and features
-
-## Development
-
-The project is set up with:
-
-- TypeScript for type safety
-- ESLint for code linting
-- Prettier for code formatting
-- Next.js built-in optimization features
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Before committing run `bun run check`, `bun run build` and
+`bun run registry:build` (see `AGENTS.md`). `public/r/` is generated; commit it
+with the source that produced it.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details
-
-## Acknowledgments
-
-- Built with ❤️ using Next.js and TypeScript
-- Inspired by modern digital exhibition platforms
-- Special thanks to the Next.js team for their amazing framework
+MIT

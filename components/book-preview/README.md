@@ -64,6 +64,31 @@ export function Reader() {
 
 `persistPage` remembers the reading position per source, `persistPreferences` remembers appearance, reader mode, and engine-level settings like PDF zoom, and `pageParam="page"` deep-links `?page=12` — applied once per source on open, then kept current with `history.replaceState`. All three are opt-in and inert while the matching prop is controlled.
 
+## Image pages
+
+Serve pre-rendered page images instead of a document, for low-end devices or to keep the source file off the client. Every engine renders them; none needs the PDF runtime.
+
+```tsx
+const source = {
+  title: 'Geography notes',
+  pages: pageImages.map((page, index) => ({
+    id: page.id,
+    pageNumber: index + 1,
+    image: {
+      src: page.url1024,
+      srcSet: `${page.url1024} 1024w, ${page.url1600} 1600w`,
+      sizes: '(min-width: 1024px) 50vw, 100vw',
+      width: 1240,
+      height: 1754,
+      alt: `Page ${index + 1}`,
+    },
+    searchableText: page.text, // optional, enables search
+  })),
+}
+```
+
+`width` and `height` are the intrinsic size and fix the aspect ratio, so nothing shifts while images load. Images are not draggable, but anything shown on screen can be captured: do not describe this as copy protection.
+
 ## Compose optional engines
 
 Engine descriptors are deliberately separate from their implementation. Importing a descriptor does not eagerly import its renderer or heavyweight dependency.

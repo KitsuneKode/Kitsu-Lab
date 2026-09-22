@@ -10,6 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { optionalBookPreviewEngines } from '@/components/book-preview/optional-engines'
 import type {
   BookPreviewMode,
+  BookPreviewPage,
   BookPreviewSource,
 } from '@/components/book-preview'
 
@@ -46,8 +47,25 @@ const PDF_SPECIMENS = [
 const DEMO_DOCUMENTS = [
   { value: 'bird', label: 'Bird book' },
   { value: 'celestial', label: 'Celestial' },
+  { value: 'images', label: 'Image pages' },
   { value: 'pdf', label: 'PDF' },
 ] as const
+
+// Pre-rendered page images: how a host serves a document without shipping it.
+const IMAGE_PAGES: BookPreviewPage[] = Array.from(
+  { length: 5 },
+  (_, index) => ({
+    id: `image-${index + 1}`,
+    pageNumber: index + 1,
+    image: {
+      src: `/sample-pages/page-${index + 1}.svg`,
+      width: 1240,
+      height: 1754,
+      alt: `Study notes, page ${index + 1}`,
+      placeholder: '#fbf8f1',
+    },
+  }),
+)
 
 type DemoDocument = (typeof DEMO_DOCUMENTS)[number]['value']
 
@@ -102,6 +120,13 @@ export function BookPreviewDemo() {
         title: 'The Bird Book',
         author: 'Chester A. Reed',
         pages: DEMO_ARCHIVAL_PAGES,
+      }
+    }
+    if (docKind === 'images') {
+      return {
+        title: 'Geography notes',
+        author: 'Page images',
+        pages: IMAGE_PAGES,
       }
     }
     if (docKind === 'pdf') {

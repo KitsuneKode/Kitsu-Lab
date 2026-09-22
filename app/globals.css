@@ -203,3 +203,86 @@ body {
     animation-delay: 0s !important;
   }
 }
+
+/* ---------- Custom cursor (fine pointers only) ---------- */
+
+.cursor-dot,
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  translate: -50% -50%;
+  will-change: transform;
+}
+
+.cursor-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--foreground);
+}
+
+.cursor-ring {
+  width: 34px;
+  height: 34px;
+  border-radius: 9999px;
+  border: 1.5px solid color-mix(in oklab, var(--foreground) 45%, transparent);
+  transition:
+    width 0.25s var(--nav-ease),
+    height 0.25s var(--nav-ease),
+    border-color 0.25s var(--nav-ease),
+    opacity 0.2s ease;
+}
+
+.cursor-ring[data-hover] {
+  width: 52px;
+  height: 52px;
+  border-color: color-mix(in oklab, var(--foreground) 75%, transparent);
+}
+
+/* Native cursor only hides once the custom one is live — never before. */
+body[data-custom-cursor],
+body[data-custom-cursor] * {
+  cursor: none !important;
+}
+
+@media (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .cursor-dot,
+  .cursor-ring {
+    display: none;
+  }
+}
+
+/* ---------- Exhibit rows ---------- */
+
+@keyframes exhibit-row-in {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.exhibit-row {
+  animation: exhibit-row-in 0.5s var(--nav-ease) both;
+  animation-delay: calc(var(--i, 0) * 70ms + 120ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exhibit-row {
+    animation: none;
+  }
+}
+
+/* ---------- Shared-element title morph ---------- */
+
+::view-transition-group(.exhibit-share) {
+  animation-duration: var(--nav-duration-move);
+  animation-timing-function: var(--nav-ease);
+}

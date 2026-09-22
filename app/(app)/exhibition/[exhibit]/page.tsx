@@ -53,7 +53,9 @@ async function ExhibitionBody({ params }: Props) {
   return (
     <div className="relative flex min-h-dvh w-full flex-col items-center">
       <BackToLab />
-      {exhibit !== 'book-reader' && <Intro name={componentExists.name} />}
+      {exhibit !== 'book-reader' && (
+        <Intro name={componentExists.name} slug={componentExists.path} />
+      )}
       <ExhibitStage hasIntro={exhibit !== 'book-reader'}>
         <Exhibit />
       </ExhibitStage>

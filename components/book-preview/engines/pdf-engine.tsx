@@ -12,6 +12,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   FileUpIcon,
+  HandIcon,
   PanelLeftIcon,
   RotateCwIcon,
   SearchIcon,
@@ -23,6 +24,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { DEFAULT_CAPABILITIES } from "../capabilities"
+import {
+  BOOK_PREVIEW_BOUNDARY_RESISTANCE,
+  BOOK_PREVIEW_COMMIT_RATIO,
+  BOOK_PREVIEW_EASE_OUT,
+  BOOK_PREVIEW_MOMENTUM_MS,
+  BOOK_PREVIEW_SETTLE_MS,
+  BOOK_PREVIEW_VELOCITY_COMMIT,
+} from "../motion"
+import { usePageArrival } from "../hooks/use-page-arrival"
 import { useStableHandler } from "../hooks/use-stable-handler"
 import { useBookPreview } from "../book-preview-provider"
 import { useNarrowLayout } from "../media"
@@ -79,6 +89,8 @@ export default function PdfEngine({
   source,
   pageIndex,
   persistPreferences,
+  reducedMotion,
+  navigationBehavior,
   onPageChange,
   onReady,
   onError,
@@ -120,6 +132,16 @@ export default function PdfEngine({
   const [hitIndex, setHitIndex] = useState(0)
   const [searching, setSearching] = useState(false)
   const [thumbsOpen, setThumbsOpen] = useState(false)
+  // Hand tool: when on, a mouse drag pans the page like Acrobat's hand —
+  // manual viewing without giving up text selection the rest of the time.
+  const [grabMode, setGrabMode] = useState(false)
+  // The incoming page drifts in from the direction it was pushed toward —
+  // the same arrival the page engine uses, routed through `translate` in CSS
+  // so it never fights the pinch transform.
+  const arrival = usePageArrival(
+    pageIndex,
+    reducedMotion || navigationBehavior === "instant"
+  )
   const [passwordRequest, setPasswordRequest] = useState<{ incorrect: boolean } | null>(null)
   const passwordSubmitRef = useRef<((password: string) => void) | null>(null)
   const passwordCancelledRef = useRef(false)
@@ -130,7 +152,24 @@ export default function PdfEngine({
   // pinch on a scroll container: browsers claim two-finger gestures before a
   // site sees them, so the stage takes touch-action:none and pans manually.
   const pointersRef = useRef(new Map<number, { x: number; y: number }>())
-  const panRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  const panRef = useRef<{
+    /** Gesture origin, for the swipe-to-turn commit decision. */
+    startX: number
+    startY: number
+    x: number
+    y: number
+    moved: boolean
+    /** A page that already fits horizontally converts a horizontal drag into
+        a page turn instead of a pan — the Apple Books swipe. Mouse pans are
+        always scroll pans; turning stays on buttons/keys/wheel there. */
+    swiping: boolean
+    mouse: boolean
+    lastX: number
+    lastT: number
+    velocity: number
+  } | null>(null)
+  // Timer for the slide-out settle before a swipe commits its page turn.
+  const swipeTimerRef = useRef<number | null>(null)
   const pinchRef = useRef<{
     startDist: number
     startMid: { x: number; y: number }
@@ -158,11 +197,19 @@ export default function PdfEngine({
     pointersRef.current.clear()
     panRef.current = null
     pinchRef.current = null
+    if (swipeTimerRef.current !== null) {
+      window.clearTimeout(swipeTimerRef.current)
+      swipeTimerRef.current = null
+    }
     // A pending pinch commit needs its transform left in place — it is what
     // keeps the pinch point glued under the fingers until the re-rendered
     // page paints and applyPinchCommit takes over.
     const inner = stageInnerRef.current
-    if (inner && !pinchCommitRef.current) inner.style.transform = ""
+    if (inner) {
+      if (!pinchCommitRef.current) inner.style.transform = ""
+      inner.style.translate = ""
+      inner.style.transition = ""
+    }
   }, [])
 
   useEffect(() => {
@@ -301,6 +348,8 @@ export default function PdfEngine({
     setHitIndex(0)
     setSearching(false)
     setQuery("")
+    setGrabMode(false)
+    setThumbsOpen(false)
   }
 
   const needle = query.trim()
@@ -565,44 +614,93 @@ export default function PdfEngine({
   }, [clearGesture, pageIndex, zoom])
 
   // Ctrl+wheel (and trackpad pinch, which browsers surface as ctrl+wheel) zooms
-  // the document instead of scrolling. Needs a non-passive native listener.
+  // the document instead of scrolling. A horizontal trackpad swipe on a page
+  // that already fits turns it — and suppressing the default there also stops
+  // the browser's overscroll history navigation. Needs a non-passive listener.
+  const wheelAccumRef = useRef(0)
+  const wheelLastRef = useRef(0)
+  const wheelLockRef = useRef(0)
   useEffect(() => {
     const node = scrollRef.current
     if (!node) return
     const onWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey) return
+      if (event.ctrlKey) {
+        event.preventDefault()
+        const current = zoomRef.current > 0 ? zoomRef.current : fittedRef.current
+        setZoom(clampZoom(current - Math.sign(event.deltaY) * 0.15))
+        return
+      }
+      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return
+      if (node.scrollWidth - node.clientWidth > 2) return
       event.preventDefault()
-      const current = zoomRef.current > 0 ? zoomRef.current : fittedRef.current
-      setZoom(clampZoom(current - Math.sign(event.deltaY) * 0.15))
+      const now = performance.now()
+      if (now - wheelLastRef.current > 250) wheelAccumRef.current = 0
+      wheelLastRef.current = now
+      if (now < wheelLockRef.current) return
+      wheelAccumRef.current += event.deltaX
+      if (Math.abs(wheelAccumRef.current) < 60) return
+      const direction = wheelAccumRef.current > 0 ? 1 : -1
+      const target = pageIndexRef.current + direction
+      wheelAccumRef.current = 0
+      wheelLockRef.current = now + 450
+      if (target < 0 || target >= (pdf?.numPages ?? 0)) return
+      reportPageChange(target, "instant")
     }
     node.addEventListener("wheel", onWheel, { passive: false })
     return () => node.removeEventListener("wheel", onWheel)
-  }, [])
+  }, [pdf, reportPageChange])
 
-  const onStagePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    // Touch and pen both drive pan/pinch; only the mouse keeps drag-to-select.
-    if (event.pointerType === "mouse") return
-    event.currentTarget.setPointerCapture(event.pointerId)
-    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
-    if (pointersRef.current.size === 2) {
-      const [a, b] = Array.from(pointersRef.current.values())
-      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-      const rect = stageInnerRef.current?.getBoundingClientRect()
-      pinchRef.current = {
-        startDist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
-        startMid: mid,
-        m: rect ? { x: mid.x - rect.left, y: mid.y - rect.top } : { x: 0, y: 0 },
-        baseZoom: zoomRef.current > 0 ? zoomRef.current : fittedRef.current,
-        lastScale: 1,
-        lastMid: mid,
+  const onStagePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      // Touch and pen always drive pan/pinch. The mouse keeps drag-to-select
+      // unless the hand tool is on — and a middle-button drag always pans,
+      // like Acrobat's grab.
+      const mouse = event.pointerType === "mouse"
+      if (mouse && !grabMode && event.button !== 1) return
+      if (mouse && event.button !== 0 && event.button !== 1) return
+      // Stops text selection for the hand tool and autoscroll for middle-drag.
+      event.preventDefault()
+      event.currentTarget.setPointerCapture(event.pointerId)
+      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (!mouse && pointersRef.current.size === 2) {
+        // A second finger converts the gesture to a pinch — cancel any swipe
+        // in flight or its translate would stack on top of the pinch transform.
+        const inner = stageInnerRef.current
+        if (inner && panRef.current?.swiping) {
+          inner.style.translate = ""
+          inner.style.transition = ""
+        }
+        const [a, b] = Array.from(pointersRef.current.values())
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+        const rect = inner?.getBoundingClientRect()
+        pinchRef.current = {
+          startDist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+          startMid: mid,
+          m: rect ? { x: mid.x - rect.left, y: mid.y - rect.top } : { x: 0, y: 0 },
+          baseZoom: zoomRef.current > 0 ? zoomRef.current : fittedRef.current,
+          lastScale: 1,
+          lastMid: mid,
+        }
+        panRef.current = null
+        return
       }
-      panRef.current = null
-      return
-    }
-    if (pointersRef.current.size === 1) {
-      panRef.current = { x: event.clientX, y: event.clientY, moved: false }
-    }
-  }, [])
+      if (pointersRef.current.size === 1) {
+        panRef.current = {
+          startX: event.clientX,
+          startY: event.clientY,
+          x: event.clientX,
+          y: event.clientY,
+          moved: false,
+          swiping: false,
+          mouse,
+          lastX: event.clientX,
+          lastT: event.timeStamp,
+          velocity: 0,
+        }
+      }
+    },
+    [grabMode]
+  )
 
   const onStagePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const point = pointersRef.current.get(event.pointerId)
@@ -634,16 +732,52 @@ export default function PdfEngine({
     const pan = panRef.current
     const scroller = scrollRef.current
     if (pan && scroller && pointersRef.current.size === 1) {
+      const totalDx = event.clientX - pan.startX
+      const totalDy = event.clientY - pan.startY
+      if (!pan.moved) {
+        if (Math.hypot(totalDx, totalDy) < TOUCH_PAN_SLOP_PX) return
+        pan.moved = true
+        // The direction is locked at the intent moment: when the page already
+        // fits horizontally, a dominant horizontal drag becomes a page-turn
+        // swipe; otherwise the finger pans the scroller.
+        pan.swiping =
+          !pan.mouse &&
+          scroller.scrollWidth - scroller.clientWidth <= 2 &&
+          Math.abs(totalDx) > Math.abs(totalDy)
+        if (pan.swiping && inner) inner.style.transition = "none"
+      }
+      if (pan.swiping && inner) {
+        // Once the gesture owns the pointer, block a long-press selection
+        // from starting underneath it.
+        event.preventDefault()
+        const width = scroller.clientWidth
+        const atEdge =
+          (totalDx > 0 && pageIndexRef.current <= 0) ||
+          (totalDx < 0 && pageIndexRef.current >= (pdf?.numPages ?? 1) - 1)
+        const offset = atEdge
+          ? Math.max(
+              -width * 0.4 * BOOK_PREVIEW_BOUNDARY_RESISTANCE,
+              Math.min(width * 0.4 * BOOK_PREVIEW_BOUNDARY_RESISTANCE, totalDx * BOOK_PREVIEW_BOUNDARY_RESISTANCE)
+            )
+          : totalDx
+        // `translate` (not `transform`) so the page-arrival CSS and the pinch
+        // transform never fight over the same property.
+        inner.style.translate = `${offset}px 0px`
+        const dt = Math.max(1, event.timeStamp - pan.lastT)
+        pan.velocity = pan.velocity * 0.55 + ((event.clientX - pan.lastX) / dt) * 0.45
+        pan.lastX = event.clientX
+        pan.lastT = event.timeStamp
+        return
+      }
       const dx = event.clientX - pan.x
       const dy = event.clientY - pan.y
-      if (!pan.moved && Math.hypot(dx, dy) < TOUCH_PAN_SLOP_PX) return
-      pan.moved = true
+      event.preventDefault()
       pan.x = event.clientX
       pan.y = event.clientY
       scroller.scrollLeft -= dx
       scroller.scrollTop -= dy
     }
-  }, [])
+  }, [pdf])
 
   const onStagePointerEnd = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -665,11 +799,76 @@ export default function PdfEngine({
           setZoom(finalZoom)
         }
       }
-      // A remaining finger can keep panning after the other lifts.
+      // A swipe release either commits the turn (page slides out, then the
+      // change dispatches and the gesture reset clears the inline styles) or
+      // springs the page back to center.
+      const pan = panRef.current
+      const inner = stageInnerRef.current
+      const scroller = scrollRef.current
+      if (pan?.swiping && inner && scroller) {
+        // A cancelled gesture (browser took it back) springs home — it must
+        // never complete a turn the user did not release into.
+        const cancelledGesture = event.type === "pointercancel"
+        const totalDx = event.clientX - pan.startX
+        const width = Math.max(1, scroller.clientWidth)
+        const numPages = pdf?.numPages ?? 1
+        const canPrev = pageIndexRef.current > 0
+        const canNext = pageIndexRef.current < numPages - 1
+        const projected = totalDx + pan.velocity * BOOK_PREVIEW_MOMENTUM_MS
+        const goNext =
+          canNext &&
+          (projected < -width * BOOK_PREVIEW_COMMIT_RATIO ||
+            pan.velocity < -BOOK_PREVIEW_VELOCITY_COMMIT)
+        const goPrev =
+          canPrev &&
+          (projected > width * BOOK_PREVIEW_COMMIT_RATIO ||
+            pan.velocity > BOOK_PREVIEW_VELOCITY_COMMIT)
+        const direction = cancelledGesture ? 0 : goNext ? 1 : goPrev ? -1 : 0
+        if (direction !== 0 && reducedMotion) {
+          inner.style.translate = ""
+          inner.style.transition = ""
+          reportPageChange(pageIndexRef.current + direction, "instant")
+        } else if (direction !== 0) {
+          inner.style.transition = `translate ${BOOK_PREVIEW_SETTLE_MS}ms ${BOOK_PREVIEW_EASE_OUT}`
+          inner.style.translate = `${direction * -width}px 0px`
+          if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
+          swipeTimerRef.current = window.setTimeout(() => {
+            swipeTimerRef.current = null
+            reportPageChange(pageIndexRef.current + direction, "instant")
+          }, BOOK_PREVIEW_SETTLE_MS)
+        } else {
+          inner.style.transition = `translate ${BOOK_PREVIEW_SETTLE_MS}ms ${BOOK_PREVIEW_EASE_OUT}`
+          inner.style.translate = "0px 0px"
+          if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
+          swipeTimerRef.current = window.setTimeout(() => {
+            swipeTimerRef.current = null
+            inner.style.translate = ""
+            inner.style.transition = ""
+          }, BOOK_PREVIEW_SETTLE_MS + 30)
+        }
+        panRef.current = null
+        return
+      }
+      // A remaining finger can keep panning after the other lifts — restart
+      // its origin at the finger's own position so the swipe decision and
+      // velocity don't inherit the lifted finger's travel.
       const remaining = Array.from(pointersRef.current.values())[0]
-      panRef.current = remaining ? { ...remaining, moved: true } : null
+      panRef.current = remaining
+        ? {
+            startX: remaining.x,
+            startY: remaining.y,
+            x: remaining.x,
+            y: remaining.y,
+            moved: true,
+            swiping: false,
+            mouse: false,
+            lastX: remaining.x,
+            lastT: event.timeStamp,
+            velocity: 0,
+          }
+        : null
     },
-    [applyPinchCommit]
+    [applyPinchCommit, pdf, reducedMotion, reportPageChange]
   )
 
   const effectiveZoom = zoom > 0 ? zoom : fitted
@@ -689,7 +888,9 @@ export default function PdfEngine({
     if (typeof window !== "undefined" && window.getSelection()?.toString()) return
     if (
       event.target instanceof HTMLElement &&
-      event.target.closest("[data-book-preview-link], button, a, input")
+      event.target.closest(
+        "[data-book-preview-link], button, a, input, select, textarea"
+      )
     ) {
       return
     }
@@ -793,6 +994,7 @@ export default function PdfEngine({
             size="icon-sm"
             aria-label="Search document"
             aria-keyshortcuts="/ Control+F"
+            disabled={!pdf}
             onClick={openSearch}
             data-book-preview-press
             className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
@@ -856,6 +1058,20 @@ export default function PdfEngine({
           className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
         >
           <RotateCwIcon />
+        </Button>
+        <Button
+          type="button"
+          variant={grabMode ? "secondary" : "ghost"}
+          size="icon-sm"
+          aria-label="Hand tool — drag to pan the page"
+          aria-pressed={grabMode}
+          disabled={!pdf}
+          title="Hand tool — drag the page to move it"
+          onClick={() => setGrabMode((on) => !on)}
+          data-book-preview-press
+          className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+        >
+          <HandIcon />
         </Button>
         {pdf && docHasMultiplePages(pdf) ? (
           <Button
@@ -950,7 +1166,13 @@ export default function PdfEngine({
                pinch to the pointer handlers above. */
             <div
               ref={stageInnerRef}
-              className="relative m-auto shrink-0"
+              data-book-preview-pdf-stage
+              {...arrival}
+              className={
+                grabMode
+                  ? "relative m-auto shrink-0 cursor-grab active:cursor-grabbing"
+                  : "relative m-auto shrink-0"
+              }
               // Origin 0 0 makes the live pinch transform an exact
               // scale-around-midpoint; the default center origin would drift.
               style={{ touchAction: "none", transformOrigin: "0 0" }}

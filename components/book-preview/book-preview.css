@@ -178,6 +178,63 @@
   }
 }
 
+/* The PDF stage reuses the page-turn arrival, but animates `translate`
+   rather than `transform` — pinch zoom owns transform on this element and
+   the two would otherwise fight over the same property mid-gesture.
+   Declared after the generic rules so equal-specificity overrides land. */
+.book-preview [data-book-preview-pdf-stage][data-book-preview-page] {
+  transform: none;
+  translate: var(--book-preview-enter-x, 0.75rem) 0;
+  transition:
+    opacity var(--book-preview-ui-ms) var(--book-preview-ease-out),
+    translate var(--book-preview-ui-ms) var(--book-preview-ease-out);
+}
+
+.book-preview [data-book-preview-pdf-stage][data-book-preview-page][data-mounted] {
+  translate: 0 0;
+}
+
+.book-preview [data-book-preview-pdf-stage][data-instant] {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-pdf-stage][data-book-preview-page] {
+    translate: none;
+    transition: opacity 160ms linear;
+  }
+}
+
+/* The resting curl book casts a soft shadow — page-flip draws shadows only
+   while a leaf is in the air, so without this the book floats flat. */
+.book-preview [data-book-preview-curl-book] {
+  box-shadow:
+    0 22px 44px -18px rgb(0 0 0 / 0.3),
+    0 6px 14px -8px rgb(0 0 0 / 0.16);
+}
+
+/* Fore-edge page stacks. Thin repeating strips on each side of the book,
+   width set per-side by the engine from the leaf count on that side. */
+.book-preview [data-book-preview-curl-edge] {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to right,
+    color-mix(in oklab, var(--foreground) 18%, transparent) 0 1px,
+    transparent 1px 2.5px
+  );
+}
+
+.book-preview [data-book-preview-curl-edge="prev"] {
+  right: 100%;
+}
+
+.book-preview [data-book-preview-curl-edge="next"] {
+  left: 100%;
+}
+
 /* A rasterized PDF leaf fades up as its bitmap lands, instead of snapping
    from skeleton to page. Driven by the src attribute so it works on the
    clones the flip book makes, which React never re-renders. */

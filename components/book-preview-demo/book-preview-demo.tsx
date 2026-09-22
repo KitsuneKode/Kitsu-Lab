@@ -88,8 +88,9 @@ export function BookPreviewDemo() {
           The reusable component picks the right reader for the document &mdash; a paged,
           selectable-text view for PDFs and a lightweight slide for book pages. Curl, scroll,
           WebGL, and PDF adapters load only after you select them. Drop a PDF anywhere on the
-          reader to open it, search the whole document, browse its outline or thumbnails, and
-          pick up where you left off &mdash; even across visits.
+          reader to open it, search the whole document, browse its outline or thumbnails,
+          swipe or drag to turn and pan, and pick up where you left off &mdash; even across
+          visits.
         </p>
       </div>
       <ToggleGroup

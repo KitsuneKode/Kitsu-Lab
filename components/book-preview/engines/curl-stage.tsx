@@ -94,6 +94,13 @@ function isInteractiveTarget(target: EventTarget | null) {
   return Boolean(target.closest("a, button, input, textarea, select, [data-book-preview-press]"))
 }
 
+/** Fore-edge page-stack thickness: a few pixels, growing gently with the
+    number of leaves on that side — enough to read as a book block. */
+function curlEdgeWidth(pageCountOnSide: number): number {
+  if (pageCountOnSide <= 0) return 0
+  return Math.min(6, 2 + Math.floor(pageCountOnSide / 8))
+}
+
 function applyCurlSize(
   book: CurlFlipBook,
   host: HTMLElement,
@@ -559,9 +566,27 @@ export function CurlStage({
         >
           {children}
         </div>
+        {ready && pageCount > 1 ? (
+          <>
+            {/* The book block: thin stacked page edges flanking the live
+                page, thickest where the most leaves sit. Purely decorative —
+                the corner drag, tap zones, and arrows do the turning. */}
+            <div
+              aria-hidden
+              data-book-preview-curl-edge="prev"
+              style={{ width: curlEdgeWidth(pageIndex) }}
+            />
+            <div
+              aria-hidden
+              data-book-preview-curl-edge="next"
+              style={{ width: curlEdgeWidth(pageCount - 1 - pageIndex) }}
+            />
+          </>
+        ) : null}
         <div
           ref={hostWrapRef}
-          className="cursor-grab touch-none active:cursor-grabbing"
+          data-book-preview-curl-book
+          className="relative cursor-grab touch-none active:cursor-grabbing"
           // A spread is two leaves wide. Sizing this box for one leaf leaves the
           // book overflowing its own container instead of sitting centred.
           style={

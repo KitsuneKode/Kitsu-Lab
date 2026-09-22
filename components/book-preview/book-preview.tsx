@@ -346,7 +346,7 @@ function usePersistedPageIndex({
     } catch {
       // history may be unavailable (sandboxed iframe).
     }
-  }, [pageParam, status, activePage])
+  }, [pageParam, status, totalPages, activePage])
 }
 
 // Appearance and mode are "how I like my reader" settings — they belong to

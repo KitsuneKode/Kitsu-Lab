@@ -10,7 +10,7 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "lint": "oxlint",
-    "test": "bun test components/book-preview components/book-preview-demo",
+    "test": "bun test components/book-preview components/book-preview-demo components/promotions",
     "typecheck": "tsc --noEmit",
     "registry:build": "shadcn build",
     "registry:check": "shadcn build && git diff --exit-code --stat public/r registry.json",

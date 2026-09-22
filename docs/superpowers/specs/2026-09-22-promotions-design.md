@@ -29,15 +29,15 @@ baked in.
 
 ## Registry items
 
-| Item                  | Type               | Contents                                                                                     | Deps                                |
-| --------------------- | ------------------ | -------------------------------------------------------------------------------------------- | ----------------------------------- |
-| `promotion`           | `registry:lib`     | Types, `parsePromotion`, `deliveryState`, `selectPromotions`, `dismissalKey`, route matcher | none                                |
-| `promotion-provider`  | `registry:component` | Context: source, pathname, clock, dismissal store, event callbacks, intrusive-slot arbiter | `promotion`                         |
-| `promo-bar`           | `registry:component` | Announcement bar (top), dismissible, optional countdown to `endsAt`                       | provider, `button`                  |
-| `promo-card`          | `registry:component` | Inline card for a named slot (`<PromoCard slot="hero" />`), 3 layouts: text, media, compact | provider, `button`, `badge`         |
-| `promo-dialog`        | `registry:component` | Dialog on ≥`md`, bottom sheet below; engagement trigger                                     | provider, `dialog`, `drawer`        |
-| `promotion-editor`    | `registry:block`   | Form + live preview + schedule summary; host supplies `onSubmit`, allowed routes/targets    | `field`, `input`, `textarea`, `select`, `tabs`, the renderers |
-| `promotions`          | `registry:block`   | Convenience bundle of all of the above                                                       |                                     |
+| Item                 | Type                 | Contents                                                                                    | Deps                                                          |
+| -------------------- | -------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `promotion`          | `registry:lib`       | Types, `parsePromotion`, `deliveryState`, `selectPromotions`, `dismissalKey`, route matcher | none                                                          |
+| `promotion-provider` | `registry:component` | Context: source, pathname, clock, dismissal store, event callbacks, intrusive-slot arbiter  | `promotion`                                                   |
+| `promo-bar`          | `registry:component` | Announcement bar (top), dismissible, optional countdown to `endsAt`                         | provider, `button`                                            |
+| `promo-card`         | `registry:component` | Inline card for a named slot (`<PromoCard slot="hero" />`), 3 layouts: text, media, compact | provider, `button`, `badge`                                   |
+| `promo-dialog`       | `registry:component` | Dialog on ≥`md`, bottom sheet below; engagement trigger                                     | provider, `dialog`, `drawer`                                  |
+| `promotion-editor`   | `registry:block`     | Form + live preview + schedule summary; host supplies `onSubmit`, allowed routes/targets    | `field`, `input`, `textarea`, `select`, `tabs`, the renderers |
+| `promotions`         | `registry:block`     | Convenience bundle of all of the above                                                      |                                                               |
 
 No data adapters ship in the core: the host passes a `PromotionSource`. A
 `promotion-source-fetch` item (GET JSON, stale-while-revalidate in memory) is
@@ -56,21 +56,21 @@ type Promotion = {
   /** For `card`: which named slot it fills. Ignored otherwise. */
   slot?: string
   eyebrow?: string
-  title: string            // plain text, ≤ 80
-  body?: string            // plain text, ≤ 320
+  title: string // plain text, ≤ 80
+  body?: string // plain text, ≤ 320
   media?: { src: string; alt: string; width: number; height: number }
   cta?: { label: string; href: string; external?: boolean }
   tone: PromotionTone
   /** Route patterns: '/', '/courses', '/courses/*'. Empty = everywhere. */
   include: string[]
-  exclude: string[]        // always wins over include
-  startsAt: number         // ms epoch; delivery window is [startsAt, endsAt)
+  exclude: string[] // always wins over include
+  startsAt: number // ms epoch; delivery window is [startsAt, endsAt)
   endsAt: number
-  priority: number         // 0–100, higher wins within a placement/slot
+  priority: number // 0–100, higher wins within a placement/slot
   dismiss: { mode: 'session' | 'days' | 'never-again'; days?: number }
   dismissalVersion: number // bump to show a changed promotion again
-  showCountdown?: boolean  // only honoured when endsAt ≤ 14 days away
-  campaign?: string        // opaque id passed to analytics callbacks
+  showCountdown?: boolean // only honoured when endsAt ≤ 14 days away
+  campaign?: string // opaque id passed to analytics callbacks
   revision: number
 }
 ```
@@ -100,7 +100,7 @@ beats include. The provider then applies visitor-level rules:
 1. Dismissed (key = `promo:<id>:<dismissalVersion>`) → skipped.
 2. **Intrusive arbiter:** at most one of `bar`/`dialog` open at once; a dialog
    defers while a bar is visible unless its priority is strictly higher.
-3. **Engagement trigger for dialogs:** after N seconds *and* scroll depth, or
+3. **Engagement trigger for dialogs:** after N seconds _and_ scroll depth, or
    on an explicit `openPromotion(id)`; never within the first interaction.
 4. `suppress` prop / `suppressOn` patterns (checkout, sign-in) hide intrusive
    placements entirely.
@@ -165,7 +165,7 @@ analytics callbacks.
 - Rendering tests only where logic lives in components (arbiter, engagement
   trigger) with an injected clock.
 - `registry:check` stays green; `shadcn add ./public/r/promotions.json
-  --dry-run` in a clean base-nova app.
+--dry-run` in a clean base-nova app.
 
 ## Scope boundaries
 
@@ -185,12 +185,12 @@ type BookPreviewPage = {
   // …existing fields
   image?: {
     src: string
-    srcSet?: string          // e.g. '…-1024.webp 1024w, …-1600.webp 1600w'
+    srcSet?: string // e.g. '…-1024.webp 1024w, …-1600.webp 1600w'
     sizes?: string
-    width: number            // intrinsic, for aspect ratio and no layout shift
+    width: number // intrinsic, for aspect ratio and no layout shift
     height: number
-    alt: string              // required; page text summary or "Page 3"
-    placeholder?: string     // tiny data URL or dominant colour
+    alt: string // required; page text summary or "Page 3"
+    placeholder?: string // tiny data URL or dominant colour
   }
 }
 ```

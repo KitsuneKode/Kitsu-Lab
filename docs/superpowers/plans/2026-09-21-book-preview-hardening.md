@@ -35,4 +35,3 @@
 - Fix the Next 16 `useLinkStatus` provider/descendant misuse using the repository's installed documentation.
 - Address actionable React Doctor findings in the touched reader path and remove unused heavy dependencies.
 - Run focused tests after each behavioral change, then full tests, typecheck, lint, production build, registry build/install, React Doctor, diff checks, and a responsive keyboard/touch browser pass where tooling permits.
-

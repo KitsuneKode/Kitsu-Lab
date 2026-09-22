@@ -1,6 +1,6 @@
-"use client"
+'use client'
 
-import type { BookPreviewContentsEntry } from "./types"
+import type { BookPreviewContentsEntry } from './types'
 
 export type PdfTextItem = { str?: string }
 export type PdfTextContent = { items: PdfTextItem[] }
@@ -27,7 +27,7 @@ export type PdfAnnotation = {
   rect?: number[] | null
   url?: string
   unsafeUrl?: string
-  dest?: PdfOutlineNode["dest"]
+  dest?: PdfOutlineNode['dest']
 }
 
 export type PdfDestinationRef = { num: number; gen: number }
@@ -60,7 +60,7 @@ export type PdfLoadingTask = {
   destroy: () => Promise<void>
   onPassword?: (
     updatePassword: (password: string) => void,
-    reason: number
+    reason: number,
   ) => void
 }
 
@@ -78,16 +78,19 @@ export async function loadPdfDocument(
     /** Fires synchronously with the task so callers can destroy a document
         that never resolves (e.g. abandoned password prompt). */
     onTask?: (task: PdfLoadingTask) => void
-  }
+  },
 ): Promise<PdfLoadResult> {
-  const pdfjs = await import("pdfjs-dist")
-  if (!pdfjs.GlobalWorkerOptions.workerSrc && !pdfjs.GlobalWorkerOptions.workerPort) {
+  const pdfjs = await import('pdfjs-dist')
+  if (
+    !pdfjs.GlobalWorkerOptions.workerSrc &&
+    !pdfjs.GlobalWorkerOptions.workerPort
+  ) {
     pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      "pdfjs-dist/build/pdf.worker.min.mjs",
-      import.meta.url
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url,
     ).toString()
   }
-  const source = typeof src === "string" ? { url: src } : src
+  const source = typeof src === 'string' ? { url: src } : src
   const task = pdfjs.getDocument(source) as unknown as PdfLoadingTask
   options?.onTask?.(task)
   if (options?.onPassword) {
@@ -111,7 +114,7 @@ export async function loadPdfDocument(
 const PDF_MAX_RENDER_DPR = 2
 
 function defaultPixelRatio(): number {
-  if (typeof window === "undefined") return 1
+  if (typeof window === 'undefined') return 1
   return Math.min(PDF_MAX_RENDER_DPR, Math.max(1, window.devicePixelRatio || 1))
 }
 
@@ -124,16 +127,20 @@ export function renderPdfPageToCanvas(input: {
   pixelRatio?: number
 }): { promise: Promise<void>; cancel: () => void } {
   const pixelRatio = input.pixelRatio ?? defaultPixelRatio()
-  const viewport = input.page.getViewport({ scale: input.scale, rotation: input.rotation })
-  const context = input.canvas.getContext("2d")
+  const viewport = input.page.getViewport({
+    scale: input.scale,
+    rotation: input.rotation,
+  })
+  const context = input.canvas.getContext('2d')
   if (!context) {
-    throw new Error("Could not create a canvas for this PDF page.")
+    throw new Error('Could not create a canvas for this PDF page.')
   }
   input.canvas.width = Math.max(1, Math.floor(viewport.width * pixelRatio))
   input.canvas.height = Math.max(1, Math.floor(viewport.height * pixelRatio))
   input.canvas.style.width = `${Math.floor(viewport.width)}px`
   input.canvas.style.height = `${Math.floor(viewport.height)}px`
-  const transform = pixelRatio === 1 ? undefined : [pixelRatio, 0, 0, pixelRatio, 0, 0]
+  const transform =
+    pixelRatio === 1 ? undefined : [pixelRatio, 0, 0, pixelRatio, 0, 0]
   return input.page.render({ canvasContext: context, viewport, transform })
 }
 
@@ -147,17 +154,17 @@ export function renderPdfPageToCanvas(input: {
  * *selectable* text.
  */
 export async function extractPdfPageText(page: PdfPageProxy): Promise<string> {
-  if (typeof page.getTextContent !== "function") return ""
+  if (typeof page.getTextContent !== 'function') return ''
   try {
     const content = await page.getTextContent()
     return content.items
-      .map((item) => item.str ?? "")
-      .join(" ")
-      .replace(/\s+/g, " ")
+      .map((item) => item.str ?? '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
       .trim()
   } catch {
     // An image-only or malformed page simply has no text.
-    return ""
+    return ''
   }
 }
 
@@ -171,11 +178,14 @@ export async function renderPdfTextLayer(input: {
   scale: number
   rotation?: number
 }): Promise<{ cancel: () => void }> {
-  if (typeof input.page.getTextContent !== "function") {
+  if (typeof input.page.getTextContent !== 'function') {
     return { cancel: () => {} }
   }
-  const pdfjs = await import("pdfjs-dist")
-  const viewport = input.page.getViewport({ scale: input.scale, rotation: input.rotation })
+  const pdfjs = await import('pdfjs-dist')
+  const viewport = input.page.getViewport({
+    scale: input.scale,
+    rotation: input.rotation,
+  })
   const textContentSource = await input.page.getTextContent()
   const layer = new pdfjs.TextLayer({
     textContentSource: textContentSource as never,
@@ -198,19 +208,19 @@ function canvasToObjectUrl(canvas: HTMLCanvasElement): Promise<string> {
     // Blob URLs keep the bitmap out of the JS heap. A base64 data URL of the
     // same page is ~33% larger and is copied again by every DOM clone the
     // flip book makes, so it is only the fallback.
-    if (typeof canvas.toBlob !== "function") {
-      resolve(canvas.toDataURL("image/png"))
+    if (typeof canvas.toBlob !== 'function') {
+      resolve(canvas.toDataURL('image/png'))
       return
     }
     canvas.toBlob((blob) => {
-      resolve(blob ? URL.createObjectURL(blob) : canvas.toDataURL("image/png"))
-    }, "image/png")
+      resolve(blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/png'))
+    }, 'image/png')
   })
 }
 
 /** Release a URL produced by `rasterizePdfPage`. Safe for data-URL fallbacks. */
 export function releaseRasterUrl(src: string | undefined | null): void {
-  if (!src || !src.startsWith("blob:")) return
+  if (!src || !src.startsWith('blob:')) return
   try {
     URL.revokeObjectURL(src)
   } catch {
@@ -225,14 +235,19 @@ const OUTLINE_MAX_ENTRIES = 300
 const OUTLINE_MAX_DEPTH = 4
 
 function outlineDestinationRef(
-  dest: PdfOutlineNode["dest"]
+  dest: PdfOutlineNode['dest'],
 ): PdfDestinationRef | string | number | null {
-  if (typeof dest === "string") return dest
+  if (typeof dest === 'string') return dest
   if (Array.isArray(dest)) {
-    const first = dest[0] as Partial<PdfDestinationRef> | number | null | undefined
+    const first = dest[0] as
+      | Partial<PdfDestinationRef>
+      | number
+      | null
+      | undefined
     // Some writers emit a bare zero-based page index instead of a reference.
-    if (typeof first === "number") return first
-    if (first && typeof first.num === "number") return first as PdfDestinationRef
+    if (typeof first === 'number') return first
+    if (first && typeof first.num === 'number')
+      return first as PdfDestinationRef
   }
   return null
 }
@@ -243,9 +258,12 @@ function outlineDestinationRef(
  * external links and action bookmarks have nowhere in the reader to go.
  */
 export async function resolvePdfOutline(
-  doc: PdfDocumentProxy
+  doc: PdfDocumentProxy,
 ): Promise<BookPreviewContentsEntry[]> {
-  if (typeof doc.getOutline !== "function" || typeof doc.getPageIndex !== "function") {
+  if (
+    typeof doc.getOutline !== 'function' ||
+    typeof doc.getPageIndex !== 'function'
+  ) {
     return []
   }
   let outline: PdfOutlineNode[] | null
@@ -256,13 +274,21 @@ export async function resolvePdfOutline(
   }
   if (!outline || outline.length === 0) return []
 
-  const flat: { title: string; depth: number; ref: PdfDestinationRef | string | number | null }[] = []
+  const flat: {
+    title: string
+    depth: number
+    ref: PdfDestinationRef | string | number | null
+  }[] = []
   const walk = (nodes: PdfOutlineNode[], depth: number) => {
     for (const node of nodes) {
       if (flat.length >= OUTLINE_MAX_ENTRIES) return
       const title = node.title?.trim()
       if (title) {
-        flat.push({ title, depth: Math.min(depth, OUTLINE_MAX_DEPTH), ref: outlineDestinationRef(node.dest) })
+        flat.push({
+          title,
+          depth: Math.min(depth, OUTLINE_MAX_DEPTH),
+          ref: outlineDestinationRef(node.dest),
+        })
       }
       if (node.items && node.items.length > 0) walk(node.items, depth + 1)
     }
@@ -276,9 +302,11 @@ export async function resolvePdfOutline(
       return pageIndex === null
         ? null
         : { title: item.title, pageIndex, depth: item.depth }
-    })
+    }),
   )
-  return entries.filter((entry): entry is BookPreviewContentsEntry => entry !== null)
+  return entries.filter(
+    (entry): entry is BookPreviewContentsEntry => entry !== null,
+  )
 }
 
 /**
@@ -289,28 +317,38 @@ export async function resolvePdfOutline(
  */
 async function resolvePdfDestPageIndex(
   doc: PdfDocumentProxy,
-  dest: PdfDestinationRef | string | number | null | undefined
+  dest: PdfDestinationRef | string | number | null | undefined,
 ): Promise<number | null> {
-  if (dest === null || dest === undefined || typeof doc.getPageIndex !== "function") {
+  if (
+    dest === null ||
+    dest === undefined ||
+    typeof doc.getPageIndex !== 'function'
+  ) {
     return null
   }
   // A bare number is already a zero-based page index.
-  if (typeof dest === "number") {
+  if (typeof dest === 'number') {
     return dest >= 0 && dest < doc.numPages ? dest : null
   }
   try {
     let ref: PdfDestinationRef | string = dest
-    if (typeof ref === "string") {
-      const resolved = ((await doc.getDestination?.(ref)) ?? null) as PdfOutlineNode["dest"]
+    if (typeof ref === 'string') {
+      const resolved = ((await doc.getDestination?.(ref)) ??
+        null) as PdfOutlineNode['dest']
       const inner = outlineDestinationRef(resolved)
-      if (typeof inner === "number") {
+      if (typeof inner === 'number') {
         return inner >= 0 && inner < doc.numPages ? inner : null
       }
-      if (!inner || typeof inner === "string") return null
+      if (!inner || typeof inner === 'string') return null
       ref = inner
     }
     const pageIndex = await doc.getPageIndex(ref)
-    if (!Number.isFinite(pageIndex) || pageIndex < 0 || pageIndex >= doc.numPages) return null
+    if (
+      !Number.isFinite(pageIndex) ||
+      pageIndex < 0 ||
+      pageIndex >= doc.numPages
+    )
+      return null
     return pageIndex
   } catch {
     return null
@@ -319,9 +357,11 @@ async function resolvePdfDestPageIndex(
 
 // Link annotations may carry unsanitized URLs (unsafeUrl). Only schemes that
 // are safe to navigate to pass through — javascript: and friends are dropped.
-const LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"])
+const LINK_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:'])
 
-export function sanitizePdfLinkUrl(raw: string | undefined | null): string | null {
+export function sanitizePdfLinkUrl(
+  raw: string | undefined | null,
+): string | null {
   if (!raw) return null
   try {
     const url = new URL(raw)
@@ -337,7 +377,7 @@ export type PdfPageLink = {
   top: number
   width: number
   height: number
-  target: { kind: "page"; pageIndex: number } | { kind: "url"; url: string }
+  target: { kind: 'page'; pageIndex: number } | { kind: 'url'; url: string }
 }
 
 /**
@@ -352,20 +392,23 @@ export async function resolvePdfPageLinks(input: {
   scale: number
   rotation?: number
 }): Promise<PdfPageLink[]> {
-  if (typeof input.page.getAnnotations !== "function") return []
+  if (typeof input.page.getAnnotations !== 'function') return []
   let annotations: PdfAnnotation[]
   try {
-    annotations = await input.page.getAnnotations({ intent: "display" })
+    annotations = await input.page.getAnnotations({ intent: 'display' })
   } catch {
     return []
   }
-  const viewport = input.page.getViewport({ scale: input.scale, rotation: input.rotation })
+  const viewport = input.page.getViewport({
+    scale: input.scale,
+    rotation: input.rotation,
+  })
   const convert = viewport.convertToViewportRectangle
   if (!convert) return []
 
   const links: PdfPageLink[] = []
   for (const annotation of annotations) {
-    if (annotation.subtype !== "Link") continue
+    if (annotation.subtype !== 'Link') continue
     const rect = annotation.rect
     if (!rect || rect.length < 4) continue
     const mapped = convert.call(viewport, rect)
@@ -378,7 +421,7 @@ export async function resolvePdfPageLinks(input: {
 
     const url = sanitizePdfLinkUrl(annotation.url ?? annotation.unsafeUrl)
     if (url) {
-      links.push({ left, top, width, height, target: { kind: "url", url } })
+      links.push({ left, top, width, height, target: { kind: 'url', url } })
       continue
     }
     const dest = annotation.dest
@@ -389,7 +432,13 @@ export async function resolvePdfPageLinks(input: {
       : dest
     const pageIndex = await resolvePdfDestPageIndex(input.doc, target)
     if (pageIndex !== null) {
-      links.push({ left, top, width, height, target: { kind: "page", pageIndex } })
+      links.push({
+        left,
+        top,
+        width,
+        height,
+        target: { kind: 'page', pageIndex },
+      })
     }
   }
   return links
@@ -404,9 +453,15 @@ export async function rasterizePdfPage(input: {
 }): Promise<{ src: string; width: number; height: number }> {
   const pixelRatio = input.pixelRatio ?? defaultPixelRatio()
   const base = input.page.getViewport({ scale: 1, rotation: input.rotation })
-  const fit = Math.min(input.cssWidth / base.width, input.cssHeight / base.height)
-  const viewport = input.page.getViewport({ scale: fit, rotation: input.rotation })
-  const canvas = document.createElement("canvas")
+  const fit = Math.min(
+    input.cssWidth / base.width,
+    input.cssHeight / base.height,
+  )
+  const viewport = input.page.getViewport({
+    scale: fit,
+    rotation: input.rotation,
+  })
+  const canvas = document.createElement('canvas')
   await renderPdfPageToCanvas({
     page: input.page,
     canvas,

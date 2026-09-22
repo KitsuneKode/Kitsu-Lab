@@ -2,24 +2,30 @@ import type {
   BookPreviewPage,
   BookPreviewSource,
   NormalizedBookSource,
-} from "./types"
+} from './types'
 
 function pageId(page: BookPreviewPage, index: number): string {
   if (page.id.trim().length > 0) return page.id
   return `page-${page.pageNumber || index + 1}`
 }
 
-export function normalizePages(pages: BookPreviewPage[] | undefined): BookPreviewPage[] {
+export function normalizePages(
+  pages: BookPreviewPage[] | undefined,
+): BookPreviewPage[] {
   if (!pages || pages.length === 0) return []
   return pages.map((page, index) => ({
     ...page,
     id: pageId(page, index),
     pageNumber: page.pageNumber > 0 ? page.pageNumber : index + 1,
-    paragraphs: page.paragraphs?.filter((paragraph) => paragraph.trim().length > 0),
+    paragraphs: page.paragraphs?.filter(
+      (paragraph) => paragraph.trim().length > 0,
+    ),
   }))
 }
 
-export function normalizeSource(source: BookPreviewSource): NormalizedBookSource {
+export function normalizeSource(
+  source: BookPreviewSource,
+): NormalizedBookSource {
   const pages = normalizePages(source.pages)
   const pdfUrl = source.pdfUrl?.trim() || undefined
   const downloadUrl = source.downloadUrl?.trim() || pdfUrl
@@ -33,7 +39,10 @@ export function normalizeSource(source: BookPreviewSource): NormalizedBookSource
     pdfFileName: source.pdfFileName?.trim() || undefined,
     allowPdfUpload: Boolean(source.allowPdfUpload),
     downloadUrl,
-    downloadFileName: source.downloadFileName?.trim() || source.pdfFileName?.trim() || undefined,
+    downloadFileName:
+      source.downloadFileName?.trim() ||
+      source.pdfFileName?.trim() ||
+      undefined,
   }
 }
 
@@ -74,7 +83,7 @@ export function pageSearchText(page: BookPreviewPage): string {
     page.quote?.attribution,
   ]
     .filter(Boolean)
-    .join(" ")
+    .join(' ')
 }
 
 export function clampPageIndex(pageIndex: number, totalPages: number): number {

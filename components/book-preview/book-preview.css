@@ -17,7 +17,8 @@
 }
 
 .book-preview [data-book-preview-press] {
-  transition: transform var(--book-preview-press-ms) var(--book-preview-ease-out);
+  transition: transform var(--book-preview-press-ms)
+    var(--book-preview-ease-out);
 }
 
 .book-preview [data-book-preview-fade] {
@@ -36,7 +37,10 @@
   .book-preview [data-book-preview-press],
   .book-preview [data-book-preview-fade],
   .book-preview [data-book-preview-hover] {
-    transition: opacity 160ms linear, color 160ms linear, background-color 160ms linear,
+    transition:
+      opacity 160ms linear,
+      color 160ms linear,
+      background-color 160ms linear,
       border-color 160ms linear;
     transform: none;
   }
@@ -126,7 +130,10 @@
   max-width: none;
 }
 
-.book-preview[data-book-preview-immersive] [data-book-preview-slide] > div > div {
+.book-preview[data-book-preview-immersive]
+  [data-book-preview-slide]
+  > div
+  > div {
   height: min(82svh, 48rem);
   width: min(28rem, 46vw);
 }
@@ -154,7 +161,7 @@
     transform var(--book-preview-ui-ms) var(--book-preview-ease-out);
 }
 
-.book-preview [data-book-preview-page][data-enter-dir="prev"] {
+.book-preview [data-book-preview-page][data-enter-dir='prev'] {
   --book-preview-enter-x: -0.75rem;
 }
 
@@ -190,7 +197,8 @@
     translate var(--book-preview-ui-ms) var(--book-preview-ease-out);
 }
 
-.book-preview [data-book-preview-pdf-stage][data-book-preview-page][data-mounted] {
+.book-preview
+  [data-book-preview-pdf-stage][data-book-preview-page][data-mounted] {
   translate: 0 0;
 }
 
@@ -227,11 +235,11 @@
   );
 }
 
-.book-preview [data-book-preview-curl-edge="prev"] {
+.book-preview [data-book-preview-curl-edge='prev'] {
   right: 100%;
 }
 
-.book-preview [data-book-preview-curl-edge="next"] {
+.book-preview [data-book-preview-curl-edge='next'] {
   left: 100%;
 }
 
@@ -240,7 +248,8 @@
    clones the flip book makes, which React never re-renders. */
 .book-preview [data-book-preview-sheet-img] {
   opacity: 0;
-  transition: opacity var(--book-preview-crossfade-ms) var(--book-preview-ease-out);
+  transition: opacity var(--book-preview-crossfade-ms)
+    var(--book-preview-ease-out);
 }
 
 .book-preview [data-book-preview-sheet-img][src] {
@@ -251,7 +260,8 @@
   :has(> [data-book-preview-sheet-img][src])
   > [data-book-preview-sheet-skeleton] {
   opacity: 0;
-  transition: opacity var(--book-preview-crossfade-ms) var(--book-preview-ease-out);
+  transition: opacity var(--book-preview-crossfade-ms)
+    var(--book-preview-ease-out);
   animation: none;
 }
 
@@ -278,8 +288,8 @@
 }
 
 .book-preview [data-book-preview-thumb] {
-  animation: book-preview-thumb-in var(--book-preview-ui-ms) var(--book-preview-ease-out)
-    var(--book-preview-thumb-delay, 0ms) both;
+  animation: book-preview-thumb-in var(--book-preview-ui-ms)
+    var(--book-preview-ease-out) var(--book-preview-thumb-delay, 0ms) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -344,7 +354,8 @@
   font-size: calc(var(--text-scale-factor) * var(--font-height));
   --scale-x: 1;
   --rotate: 0deg;
-  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x))
+    scale(var(--min-font-size-inv));
 }
 
 .book-preview .textLayer .markedContent {

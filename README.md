@@ -13,7 +13,7 @@ Building this project for fun and learning design and development.
 - 🎨 Interactive exhibition displays
 - 🎮 Custom keyboard button component
 - 🚀 Built with Next.js and TypeScript
--~~ 📱 Responsive design for all devices~~
+  -~~ 📱 Responsive design for all devices~~
 - 🎨 Modern UI with Orbitron font
 
 ## Tech Stack

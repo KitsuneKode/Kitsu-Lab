@@ -1,10 +1,10 @@
-import { DEFAULT_CAPABILITIES } from "../capabilities"
-import type { BookPreviewEngine } from "../types"
+import { DEFAULT_CAPABILITIES } from '../capabilities'
+import type { BookPreviewEngine } from '../types'
 
 export const spreadEngine: BookPreviewEngine = {
-  id: "spread",
-  label: "Spread",
-  description: "Two-page archival spread",
+  id: 'spread',
+  label: 'Spread',
+  description: 'Two-page archival spread',
   capabilities: {
     ...DEFAULT_CAPABILITIES,
     spreads: true,
@@ -13,5 +13,5 @@ export const spreadEngine: BookPreviewEngine = {
     thumbnails: true,
   },
   requiresPages: true,
-  load: () => import("./spread-engine"),
+  load: () => import('./spread-engine'),
 }

@@ -1,6 +1,6 @@
-import type { BookPreviewAppearance } from "@/components/book-preview"
+import type { BookPreviewAppearance } from '@/components/book-preview'
 
-export type ArchivalFilterMode = "aged" | "museum" | "night"
+export type ArchivalFilterMode = 'aged' | 'museum' | 'night'
 
 /**
  * Maps the reader's appearance setting onto a plate treatment.
@@ -10,9 +10,9 @@ export type ArchivalFilterMode = "aged" | "museum" | "night"
  * from the app theme and paint near-white type onto near-white paper.
  */
 export function archivalFilterModeFor(
-  appearance: BookPreviewAppearance
+  appearance: BookPreviewAppearance,
 ): ArchivalFilterMode {
-  if (appearance === "dark" || appearance === "oled") return "night"
-  if (appearance === "light") return "museum"
-  return "aged"
+  if (appearance === 'dark' || appearance === 'oled') return 'night'
+  if (appearance === 'light') return 'museum'
+  return 'aged'
 }

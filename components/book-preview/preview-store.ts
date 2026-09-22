@@ -2,8 +2,8 @@ import {
   bookPreviewReducer,
   type BookPreviewAction,
   type BookPreviewState,
-} from "./reducer"
-import type { BookPreviewError, BookPreviewStatus } from "./types"
+} from './reducer'
+import type { BookPreviewError, BookPreviewStatus } from './types'
 
 export type PreviewListeners = {
   onStatusChange?: (status: BookPreviewStatus) => void
@@ -32,7 +32,8 @@ export function createPreviewStore(initial: BookPreviewState) {
       const prev = state
       state = next
       if (next.status !== prev.status) listeners.onStatusChange?.(next.status)
-      if (next.error && next.error !== prev.error) listeners.onError?.(next.error)
+      if (next.error && next.error !== prev.error)
+        listeners.onError?.(next.error)
       for (const listener of subscribers) listener()
     },
     setListeners(next: PreviewListeners) {

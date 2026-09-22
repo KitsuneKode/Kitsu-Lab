@@ -1,13 +1,14 @@
-"use client"
+'use client'
 
-import { useId, useState } from "react"
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react"
-import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
-import { useBookPreview } from "./book-preview-provider"
+import { useId, useState } from 'react'
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { Button } from '@/components/ui/button'
+import { Slider } from '@/components/ui/slider'
+import { useBookPreview } from './book-preview-provider'
 
 export function BookPreviewNavigation() {
-  const { state, canGoPrev, canGoNext, prevPage, nextPage, goToPage } = useBookPreview()
+  const { state, canGoPrev, canGoNext, prevPage, nextPage, goToPage } =
+    useBookPreview()
   const total = Math.max(state.totalPages, 1)
   const [scrub, setScrub] = useState<number | null>(null)
   const [jumpDraft, setJumpDraft] = useState<string | null>(null)
@@ -42,14 +43,14 @@ export function BookPreviewNavigation() {
           Previous
         </Button>
         {state.totalPages === 0 ? (
-          <p className="font-mono text-xs text-muted-foreground">No pages</p>
+          <p className="text-muted-foreground font-mono text-xs">No pages</p>
         ) : (
           <form
-            className="flex items-baseline gap-1.5 font-mono text-xs text-muted-foreground"
-            aria-live={scrub === null ? "polite" : "off"}
+            className="text-muted-foreground flex items-baseline gap-1.5 font-mono text-xs"
+            aria-live={scrub === null ? 'polite' : 'off'}
             onSubmit={(event) => {
               event.preventDefault()
-              commitJump(jumpDraft ?? "")
+              commitJump(jumpDraft ?? '')
             }}
           >
             <label htmlFor={jumpId}>Page</label>
@@ -58,18 +59,18 @@ export function BookPreviewNavigation() {
               name="page"
               value={jumpDraft ?? String(shown + 1)}
               inputMode="numeric"
-              className="min-w-[3ch] max-w-[6ch] rounded bg-transparent text-center outline-none focus-visible:bg-muted focus-visible:ring-1 focus-visible:ring-ring/50"
+              className="focus-visible:bg-muted focus-visible:ring-ring/50 max-w-[6ch] min-w-[3ch] rounded bg-transparent text-center outline-none focus-visible:ring-1"
               size={Math.max(String(shown + 1).length + 1, 3)}
               onFocus={(event) => {
                 setJumpDraft(String(shown + 1))
                 event.target.select()
               }}
               onChange={(event) => {
-                setJumpDraft(event.target.value.replace(/[^0-9]/g, ""))
+                setJumpDraft(event.target.value.replace(/[^0-9]/g, ''))
               }}
-              onBlur={() => commitJump(jumpDraft ?? "")}
+              onBlur={() => commitJump(jumpDraft ?? '')}
               onKeyDown={(event) => {
-                if (event.key === "Escape") {
+                if (event.key === 'Escape') {
                   setJumpDraft(null)
                   event.currentTarget.blur()
                 }
@@ -102,11 +103,13 @@ export function BookPreviewNavigation() {
           max={total - 1}
           step={1}
           aria-label="Page position"
-          onValueChange={(value) => setScrub(Array.isArray(value) ? value[0] : value)}
+          onValueChange={(value) =>
+            setScrub(Array.isArray(value) ? value[0] : value)
+          }
           onValueCommitted={(value) => {
             const next = Array.isArray(value) ? value[0] : value
             setScrub(null)
-            if (typeof next === "number") goToPage(next, "instant")
+            if (typeof next === 'number') goToPage(next, 'instant')
           }}
         />
       ) : null}

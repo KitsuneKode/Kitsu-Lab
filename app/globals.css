@@ -165,7 +165,8 @@ body {
 ::view-transition-new(.nav-forward) {
   --slide-offset: 48px;
   animation:
-    var(--nav-duration-enter) var(--nav-ease) var(--nav-duration-exit) both nav-fade,
+    var(--nav-duration-enter) var(--nav-ease) var(--nav-duration-exit) both
+      nav-fade,
     var(--nav-duration-move) var(--nav-ease) both nav-slide;
 }
 
@@ -179,7 +180,8 @@ body {
 ::view-transition-new(.nav-back) {
   --slide-offset: -48px;
   animation:
-    var(--nav-duration-enter) var(--nav-ease) var(--nav-duration-exit) both nav-fade,
+    var(--nav-duration-enter) var(--nav-ease) var(--nav-duration-exit) both
+      nav-fade,
     var(--nav-duration-move) var(--nav-ease) both nav-slide;
 }
 

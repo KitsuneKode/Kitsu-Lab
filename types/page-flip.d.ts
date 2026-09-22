@@ -1,4 +1,4 @@
-declare module "page-flip/dist/js/page-flip.module.js" {
+declare module 'page-flip/dist/js/page-flip.module.js' {
   export type PageFlipPoint = {
     x: number
     y: number
@@ -6,7 +6,7 @@ declare module "page-flip/dist/js/page-flip.module.js" {
 
   export type PageFlipSettings = {
     startPage: number
-    size: "fixed" | "stretch"
+    size: 'fixed' | 'stretch'
     width: number
     height: number
     minWidth: number

@@ -1,5 +1,5 @@
-import { DEFAULT_CAPABILITIES } from "../capabilities"
-import type { BookPreviewEngine } from "../types"
+import { DEFAULT_CAPABILITIES } from '../capabilities'
+import type { BookPreviewEngine } from '../types'
 
 /**
  * Descriptor for the curl reader.
@@ -9,9 +9,9 @@ import type { BookPreviewEngine } from "../types"
  * page-flip never reaches a bundle that does not open a curl book.
  */
 export const curlEngine: BookPreviewEngine = {
-  id: "curl",
-  label: "Curl",
-  description: "Tactile corner peel",
+  id: 'curl',
+  label: 'Curl',
+  description: 'Tactile corner peel',
   capabilities: { ...DEFAULT_CAPABILITIES, curl: true, spreads: true },
-  load: () => import("./curl-engine"),
+  load: () => import('./curl-engine'),
 }

@@ -1,6 +1,6 @@
-"use client"
+'use client'
 
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef } from 'react'
 import {
   BOOK_PREVIEW_BOUNDARY_RESISTANCE,
   BOOK_PREVIEW_COMMIT_RATIO,
@@ -9,7 +9,7 @@ import {
   BOOK_PREVIEW_SETTLE_MS,
   BOOK_PREVIEW_VELOCITY_COMMIT,
   BOOK_PREVIEW_MOMENTUM_MS,
-} from "../motion"
+} from '../motion'
 
 type GestureOptions = {
   enabled: boolean
@@ -40,7 +40,7 @@ function rubberband(distance: number, limit: number): number {
 
 function readOffsetX(node: HTMLElement): number {
   const transform = getComputedStyle(node).transform
-  if (!transform || transform === "none") return 0
+  if (!transform || transform === 'none') return 0
   try {
     return new DOMMatrixReadOnly(transform).m41
   } catch {
@@ -80,7 +80,7 @@ export function usePageGesture(options: GestureOptions) {
     // later unrelated transition can fire the stale commit.
     const pending = settleListenerRef.current
     if (pending) {
-      pending.node.removeEventListener("transitionend", pending.listener)
+      pending.node.removeEventListener('transitionend', pending.listener)
       settleListenerRef.current = null
     }
   }, [])
@@ -90,7 +90,7 @@ export function usePageGesture(options: GestureOptions) {
     if (!node) return
     node.style.transform = `translate3d(${value}px, 0, 0)`
     node.style.transition = immediate
-      ? "none"
+      ? 'none'
       : `transform ${BOOK_PREVIEW_SETTLE_MS}ms ${BOOK_PREVIEW_EASE_OUT}`
     stateRef.current.offset = value
   }, [])
@@ -115,7 +115,7 @@ export function usePageGesture(options: GestureOptions) {
         if (finished) return
         finished = true
         settleListenerRef.current = null
-        node.removeEventListener("transitionend", onTransitionEnd)
+        node.removeEventListener('transitionend', onTransitionEnd)
         clearSettle()
         if (target !== 0) {
           // Commit the page change first, then re-enter from the opposite
@@ -129,15 +129,19 @@ export function usePageGesture(options: GestureOptions) {
         onSettled?.()
       }
       const onTransitionEnd = (event: TransitionEvent) => {
-        if (event.propertyName === "transform" && event.target === node) finish()
+        if (event.propertyName === 'transform' && event.target === node)
+          finish()
       }
-      node.addEventListener("transitionend", onTransitionEnd)
+      node.addEventListener('transitionend', onTransitionEnd)
       settleListenerRef.current = { node, listener: onTransitionEnd }
       // transitionend is not guaranteed (hidden tab, detached node, display
       // changes), so the commit must not depend on it alone.
-      settleTimerRef.current = window.setTimeout(finish, BOOK_PREVIEW_SETTLE_MS + 80)
+      settleTimerRef.current = window.setTimeout(
+        finish,
+        BOOK_PREVIEW_SETTLE_MS + 80,
+      )
     },
-    [clearSettle, setOffset]
+    [clearSettle, setOffset],
   )
 
   useEffect(() => {
@@ -230,16 +234,16 @@ export function usePageGesture(options: GestureOptions) {
       settleTo(0)
     }
 
-    node.addEventListener("pointerdown", onPointerDown)
-    node.addEventListener("pointermove", onPointerMove)
-    node.addEventListener("pointerup", finish)
-    node.addEventListener("pointercancel", finish)
+    node.addEventListener('pointerdown', onPointerDown)
+    node.addEventListener('pointermove', onPointerMove)
+    node.addEventListener('pointerup', finish)
+    node.addEventListener('pointercancel', finish)
 
     return () => {
-      node.removeEventListener("pointerdown", onPointerDown)
-      node.removeEventListener("pointermove", onPointerMove)
-      node.removeEventListener("pointerup", finish)
-      node.removeEventListener("pointercancel", finish)
+      node.removeEventListener('pointerdown', onPointerDown)
+      node.removeEventListener('pointermove', onPointerMove)
+      node.removeEventListener('pointerup', finish)
+      node.removeEventListener('pointercancel', finish)
       clearSettle()
     }
   }, [options.enabled, clearSettle, setOffset, settleTo])

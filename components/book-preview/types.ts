@@ -1,48 +1,48 @@
-import type { ComponentType, ReactNode } from "react"
+import type { ComponentType, ReactNode } from 'react'
 
 export const BOOK_PREVIEW_MODES = [
-  "page",
-  "curl",
-  "scroll",
-  "spread",
-  "archival-curl",
-  "webgl",
-  "pdf",
-  "premier",
+  'page',
+  'curl',
+  'scroll',
+  'spread',
+  'archival-curl',
+  'webgl',
+  'pdf',
+  'premier',
 ] as const
 
 export type BookPreviewMode = (typeof BOOK_PREVIEW_MODES)[number]
 
 export const BOOK_PREVIEW_APPEARANCES = [
-  "system",
-  "sepia",
-  "light",
-  "dark",
-  "oled",
+  'system',
+  'sepia',
+  'light',
+  'dark',
+  'oled',
 ] as const
 
 export type BookPreviewAppearance = (typeof BOOK_PREVIEW_APPEARANCES)[number]
 
 export const BOOK_PREVIEW_ERROR_KINDS = [
-  "unsupported",
-  "engine-load",
-  "invalid-source",
-  "pdf-parse",
-  "pdf-render",
-  "upload",
-  "page-render",
-  "empty",
+  'unsupported',
+  'engine-load',
+  'invalid-source',
+  'pdf-parse',
+  'pdf-render',
+  'upload',
+  'page-render',
+  'empty',
 ] as const
 
 export type BookPreviewErrorKind = (typeof BOOK_PREVIEW_ERROR_KINDS)[number]
 
 export type BookPreviewStatus =
-  | "idle"
-  | "loading"
-  | "ready"
-  | "error"
-  | "unsupported"
-  | "empty"
+  | 'idle'
+  | 'loading'
+  | 'ready'
+  | 'error'
+  | 'unsupported'
+  | 'empty'
 
 export type BookPreviewCapabilities = {
   pagination: boolean
@@ -129,7 +129,7 @@ export type BookPreviewEngineReadyInfo = {
   contents?: BookPreviewContentsEntry[]
 }
 
-export type BookPreviewNavigationBehavior = "animated" | "instant"
+export type BookPreviewNavigationBehavior = 'animated' | 'instant'
 
 export type BookPreviewEngineProps = {
   source: NormalizedBookSource
@@ -141,7 +141,10 @@ export type BookPreviewEngineProps = {
   /** Mirror of the shell's persistPreferences prop, so engines can remember
       their own view settings (e.g. the PDF reader's zoom level). */
   persistPreferences?: boolean
-  onPageChange: (pageIndex: number, behavior?: BookPreviewNavigationBehavior) => void
+  onPageChange: (
+    pageIndex: number,
+    behavior?: BookPreviewNavigationBehavior,
+  ) => void
   onReady: (info: BookPreviewEngineReadyInfo) => void
   onError: (error: BookPreviewError) => void
 }

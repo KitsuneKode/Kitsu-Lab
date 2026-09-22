@@ -22,7 +22,7 @@ export default function Home() {
             Components and design elements by{' '}
             <Link
               href="https://x.com/kitsunekode"
-              className="text-foreground underline decoration-foreground/30 underline-offset-4 transition-colors hover:decoration-foreground"
+              className="text-foreground decoration-foreground/30 hover:decoration-foreground underline underline-offset-4 transition-colors"
             >
               @kitsunekode
             </Link>

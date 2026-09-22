@@ -1,9 +1,9 @@
-"use client"
+'use client'
 
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef } from 'react'
 
 export function useStableHandler<Args extends unknown[], Result>(
-  handler: (...args: Args) => Result
+  handler: (...args: Args) => Result,
 ): (...args: Args) => Result {
   const handlerRef = useRef(handler)
   useEffect(() => {

@@ -1,15 +1,15 @@
-"use client"
+'use client'
 
-import { Toggle as TogglePrimitive } from "@base-ui/react/toggle"
-import { type VariantProps } from "class-variance-authority"
-import { cn } from "cn"
+import { Toggle as TogglePrimitive } from '@base-ui/react/toggle'
+import { type VariantProps } from 'class-variance-authority'
+import { cn } from 'cn'
 
-import { toggleVariants } from "@/components/ui/toggle-variants"
+import { toggleVariants } from '@/components/ui/toggle-variants'
 
 function Toggle({
   className,
-  variant = "default",
-  size = "default",
+  variant = 'default',
+  size = 'default',
   ...props
 }: TogglePrimitive.Props & VariantProps<typeof toggleVariants>) {
   return (

@@ -1,6 +1,6 @@
-"use client"
+'use client'
 
-import { useRef } from "react"
+import { useRef } from 'react'
 import {
   IconChevronDown,
   IconDownload,
@@ -10,29 +10,29 @@ import {
   IconUpload,
   IconVolume,
   IconVolumeOff,
-} from "@tabler/icons-react"
-import { Button } from "@/components/ui/button"
+} from '@tabler/icons-react'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Separator } from "@/components/ui/separator"
-import { BookPreviewIconButton } from "./book-preview-icon-button"
-import { BookPreviewModePicker } from "./book-preview-mode-picker"
-import { useBookPreview } from "./book-preview-provider"
-import { useCoarsePointer, useNarrowLayout } from "./media"
-import type { BookPreviewAppearance } from "./types"
+} from '@/components/ui/dropdown-menu'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Separator } from '@/components/ui/separator'
+import { BookPreviewIconButton } from './book-preview-icon-button'
+import { BookPreviewModePicker } from './book-preview-mode-picker'
+import { useBookPreview } from './book-preview-provider'
+import { useCoarsePointer, useNarrowLayout } from './media'
+import type { BookPreviewAppearance } from './types'
 
 const appearances: { value: BookPreviewAppearance; label: string }[] = [
-  { value: "system", label: "System" },
-  { value: "sepia", label: "Sepia" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-  { value: "oled", label: "OLED" },
+  { value: 'system', label: 'System' },
+  { value: 'sepia', label: 'Sepia' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'oled', label: 'OLED' },
 ]
 
 export function BookPreviewToolbar() {
@@ -50,7 +50,8 @@ export function BookPreviewToolbar() {
   const narrow = useNarrowLayout()
   const coarse = useCoarsePointer()
   const appearanceLabel =
-    appearances.find((item) => item.value === state.appearance)?.label ?? "Paper"
+    appearances.find((item) => item.value === state.appearance)?.label ??
+    'Paper'
   // A document-provided outline (PDF bookmarks) wins over titles synthesized
   // from page data — it is the author's own table of contents.
   const contents =
@@ -61,16 +62,21 @@ export function BookPreviewToolbar() {
           depth: entry.depth,
         }))
       : source.pages
-          .map((page, index) => ({ title: page.title ?? page.kicker, index, depth: 0 }))
-          .filter((entry): entry is { title: string; index: number; depth: number } =>
-            Boolean(entry.title)
+          .map((page, index) => ({
+            title: page.title ?? page.kicker,
+            index,
+            depth: 0,
+          }))
+          .filter(
+            (entry): entry is { title: string; index: number; depth: number } =>
+              Boolean(entry.title),
           )
 
   return (
     <div
       data-book-preview-surface
       data-book-preview-chrome
-      className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border bg-card p-2 sm:gap-3 sm:p-3"
+      className="bg-card flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border p-2 sm:gap-3 sm:p-3"
     >
       <BookPreviewModePicker />
       {/* Engines portal their controls into this slot — the reader keeps a
@@ -163,7 +169,11 @@ function AppearanceControl({
       aria-label="Paper appearance"
     >
       {appearances.map((item) => (
-        <ToggleGroupItem key={item.value} value={item.value} aria-label={item.label}>
+        <ToggleGroupItem
+          key={item.value}
+          value={item.value}
+          aria-label={item.label}
+        >
           {item.label}
         </ToggleGroupItem>
       ))}
@@ -211,7 +221,7 @@ function ToolbarActions({
             aria-hidden
             onChange={(event) => {
               const file = event.target.files?.[0]
-              event.target.value = ""
+              event.target.value = ''
               if (file) onUploadPdf(file)
             }}
           />
@@ -225,7 +235,7 @@ function ToolbarActions({
       ) : null}
       {soundCapable ? (
         <BookPreviewIconButton
-          label={sound ? "Mute page sounds" : "Enable page sounds"}
+          label={sound ? 'Mute page sounds' : 'Enable page sounds'}
           pressed={sound}
           onClick={() => onSetSound(!sound)}
         >
@@ -234,7 +244,7 @@ function ToolbarActions({
       ) : null}
       {fullscreenCapable ? (
         <BookPreviewIconButton
-          label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
           pressed={fullscreen}
           onClick={onToggleFullscreen}
         >
@@ -300,7 +310,7 @@ function ContentsMenu({
               >
                 {entry.title}
               </span>
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="text-muted-foreground font-mono text-xs">
                 {entry.index + 1}
               </span>
             </DropdownMenuItem>

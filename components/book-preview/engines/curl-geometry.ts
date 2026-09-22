@@ -2,7 +2,9 @@ export const CURL_MIN_PAGE_WIDTH = 220 // phone-readable floor
 export const CURL_MAX_PAGE_WIDTH = 1400
 export const CURL_PAGE_RATIO = 530 / 370
 export const CURL_RASTER_WIDTH = 960
-export const CURL_RASTER_HEIGHT = Math.round(CURL_RASTER_WIDTH * CURL_PAGE_RATIO)
+export const CURL_RASTER_HEIGHT = Math.round(
+  CURL_RASTER_WIDTH * CURL_PAGE_RATIO,
+)
 export const CURL_SIZE_QUANTUM = 16
 export const CURL_CLICK_SLOP_PX = 24
 /** A spread is only worth showing if each leaf stays comfortably readable. */
@@ -21,7 +23,7 @@ export type CurlPageSize = {
   height: number
 }
 
-export type CurlClickIntent = "prev" | "next"
+export type CurlClickIntent = 'prev' | 'next'
 
 export type CurlPoint = { x: number; y: number }
 
@@ -62,7 +64,7 @@ export function curlSameSpread(a: number, b: number, spread: boolean): boolean {
 export function curlPageLabel(
   pageIndex: number,
   totalPages: number,
-  spread: boolean
+  spread: boolean,
 ): string {
   if (!spread) return String(pageIndex + 1)
   const left = pageIndex - (pageIndex % 2)
@@ -74,7 +76,7 @@ export function curlPageSizeForStage(
   clientWidth: number,
   clientHeight: number,
   ratio: number = CURL_PAGE_RATIO,
-  spread = false
+  spread = false,
 ) {
   const padX = CURL_STAGE_PAD_X
   const padY = 36
@@ -87,22 +89,22 @@ export function curlPageSizeForStage(
   }
   const availH = Math.max(
     Math.round(CURL_MIN_PAGE_WIDTH * ratio),
-    Math.floor(clientHeight - padY)
+    Math.floor(clientHeight - padY),
   )
   const width = Math.max(
     CURL_MIN_PAGE_WIDTH,
-    Math.min(CURL_MAX_PAGE_WIDTH, availW, Math.floor(availH / ratio))
+    Math.min(CURL_MAX_PAGE_WIDTH, availW, Math.floor(availH / ratio)),
   )
   return { width, height: Math.round(width * ratio) }
 }
 
 export function quantizeCurlPageSize(
   size: CurlPageSize,
-  ratio: number = CURL_PAGE_RATIO
+  ratio: number = CURL_PAGE_RATIO,
 ): CurlPageSize {
   const width = Math.max(
     CURL_MIN_PAGE_WIDTH,
-    Math.round(size.width / CURL_SIZE_QUANTUM) * CURL_SIZE_QUANTUM
+    Math.round(size.width / CURL_SIZE_QUANTUM) * CURL_SIZE_QUANTUM,
   )
   return { width, height: Math.round(width * ratio) }
 }
@@ -111,15 +113,19 @@ export function curlClickIntent(
   x: number,
   width: number,
   canGoPrev: boolean,
-  canGoNext: boolean
+  canGoNext: boolean,
 ): CurlClickIntent | null {
   if (!canGoPrev && !canGoNext) return null
   const preferPrev = width > 0 && x < width / 2
-  if (preferPrev) return canGoPrev ? "prev" : "next"
-  return canGoNext ? "next" : "prev"
+  if (preferPrev) return canGoPrev ? 'prev' : 'next'
+  return canGoNext ? 'next' : 'prev'
 }
 
-export function curlDragOrigin(start: CurlPoint, current: CurlPoint, width: number): CurlPoint {
+export function curlDragOrigin(
+  start: CurlPoint,
+  current: CurlPoint,
+  width: number,
+): CurlPoint {
   const goingPrev = current.x - start.x > 4
   if (goingPrev) {
     return { x: Math.min(start.x, width * 0.12), y: start.y }

@@ -1,4 +1,4 @@
-declare module "page-flip/dist/js/page-flip.module.js" {
+declare module 'page-flip/dist/js/page-flip.module.js' {
   export type PageFlipPoint = { x: number; y: number }
 
   export class PageFlip {
@@ -6,9 +6,9 @@ declare module "page-flip/dist/js/page-flip.module.js" {
     loadFromHTML(pages: HTMLElement[]): void
     destroy(): void
     update(): void
-    flip(page: number, corner?: "top" | "bottom"): void
-    flipNext(corner?: "top" | "bottom"): void
-    flipPrev(corner?: "top" | "bottom"): void
+    flip(page: number, corner?: 'top' | 'bottom'): void
+    flipNext(corner?: 'top' | 'bottom'): void
+    flipPrev(corner?: 'top' | 'bottom'): void
     getCurrentPageIndex(): number
     getState(): string
     getSettings(): { showPageCorners: boolean }

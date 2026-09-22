@@ -1,4 +1,4 @@
-import type { NextConfig } from "next"
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
@@ -8,7 +8,11 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   poweredByHeader: false,
   experimental: {
-    optimizePackageImports: ["@tabler/icons-react", "@react-three/drei", "@react-three/fiber"],
+    optimizePackageImports: [
+      '@tabler/icons-react',
+      '@react-three/drei',
+      '@react-three/fiber',
+    ],
   },
   async headers() {
     return [
@@ -16,29 +20,29 @@ const nextConfig: NextConfig = {
         // Exhibition assets and sample documents are stable but unhashed —
         // a day fresh, a week stale-while-revalidate (not immutable, so a
         // replaced file still reaches users).
-        source: "/key_press/:path*",
+        source: '/key_press/:path*',
         headers: [
           {
-            key: "Cache-Control",
-            value: "public, max-age=86400, stale-while-revalidate=604800",
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
           },
         ],
       },
       {
-        source: "/sample-:name.pdf",
+        source: '/sample-:name.pdf',
         headers: [
           {
-            key: "Cache-Control",
-            value: "public, max-age=86400, stale-while-revalidate=604800",
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
           },
         ],
       },
       {
-        source: "/specimens/:path*",
+        source: '/specimens/:path*',
         headers: [
           {
-            key: "Cache-Control",
-            value: "public, max-age=86400, stale-while-revalidate=604800",
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
           },
         ],
       },

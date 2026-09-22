@@ -1,8 +1,13 @@
-"use client"
+'use client'
 
-import { IconAlertCircle, IconBook2, IconLoader2, IconShieldOff } from "@tabler/icons-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
+import {
+  IconAlertCircle,
+  IconBook2,
+  IconLoader2,
+  IconShieldOff,
+} from '@tabler/icons-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import {
   Empty,
   EmptyContent,
@@ -10,10 +15,10 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@/components/ui/empty"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Spinner } from "@/components/ui/spinner"
-import type { BookPreviewError, BookPreviewStatus } from "./types"
+} from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
+import type { BookPreviewError, BookPreviewStatus } from './types'
 
 type BookPreviewStatusProps = {
   status: BookPreviewStatus
@@ -30,17 +35,17 @@ export function BookPreviewStatus({
   onRetry,
   onReload,
   onFallback,
-  fallbackLabel = "Open lightweight reader",
+  fallbackLabel = 'Open lightweight reader',
 }: BookPreviewStatusProps) {
-  if (status === "loading" || status === "idle") {
+  if (status === 'loading' || status === 'idle') {
     return <LoadingStatus />
   }
 
-  if (status === "empty") {
+  if (status === 'empty') {
     return <EmptyStatus />
   }
 
-  if (status === "unsupported") {
+  if (status === 'unsupported') {
     return (
       <UnsupportedStatus
         message={error?.message}
@@ -50,7 +55,7 @@ export function BookPreviewStatus({
     )
   }
 
-  if (status === "error" && error) {
+  if (status === 'error' && error) {
     return (
       <ErrorStatus
         error={error}
@@ -67,13 +72,16 @@ export function BookPreviewStatus({
 
 function LoadingStatus() {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6" role="status">
+    <div
+      className="flex h-full w-full flex-col items-center justify-center gap-4 p-6"
+      role="status"
+    >
       <Spinner />
       <div className="flex w-full max-w-sm flex-col gap-2">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
       </div>
-      <p className="text-sm text-muted-foreground">Loading reader…</p>
+      <p className="text-muted-foreground text-sm">Loading reader…</p>
     </div>
   )
 }
@@ -111,7 +119,8 @@ function UnsupportedStatus({
         </EmptyMedia>
         <EmptyTitle>This mode is unavailable</EmptyTitle>
         <EmptyDescription>
-          {message ?? "The selected reader is not supported in this browser or source."}
+          {message ??
+            'The selected reader is not supported in this browser or source.'}
         </EmptyDescription>
       </EmptyHeader>
       {onFallback ? (
@@ -146,19 +155,36 @@ function ErrorStatus({
         <AlertDescription>
           <p>{error.message}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {onReload && error.kind === "engine-load" ? (
-              <Button type="button" size="sm" onClick={onReload} data-book-preview-press>
+            {onReload && error.kind === 'engine-load' ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={onReload}
+                data-book-preview-press
+              >
                 Reload page
               </Button>
             ) : null}
             {onRetry ? (
-              <Button type="button" size="sm" variant="outline" onClick={onRetry} data-book-preview-press>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onRetry}
+                data-book-preview-press
+              >
                 <IconLoader2 data-icon="inline-start" />
                 Retry
               </Button>
             ) : null}
             {onFallback ? (
-              <Button type="button" size="sm" variant={onReload ? "outline" : "default"} onClick={onFallback} data-book-preview-press>
+              <Button
+                type="button"
+                size="sm"
+                variant={onReload ? 'outline' : 'default'}
+                onClick={onFallback}
+                data-book-preview-press
+              >
                 {fallbackLabel}
               </Button>
             ) : null}

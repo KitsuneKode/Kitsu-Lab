@@ -1,12 +1,13 @@
 let sharedContext: AudioContext | null = null
 
 function getAudioContext(): AudioContext | null {
-  if (typeof window === "undefined") return null
+  if (typeof window === 'undefined') return null
   const AudioContextClass =
     window.AudioContext ||
-    (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    (window as Window & { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext
   if (!AudioContextClass) return null
-  if (!sharedContext || sharedContext.state === "closed") {
+  if (!sharedContext || sharedContext.state === 'closed') {
     try {
       sharedContext = new AudioContextClass()
     } catch {
@@ -14,7 +15,7 @@ function getAudioContext(): AudioContext | null {
     }
   }
   // Browsers suspend contexts created before a user gesture; resume on play.
-  if (sharedContext.state === "suspended") void sharedContext.resume()
+  if (sharedContext.state === 'suspended') void sharedContext.resume()
   return sharedContext
 }
 
@@ -48,14 +49,20 @@ export function playPageTurnSound(): void {
   whiteNoise.buffer = buffer
 
   const filter = context.createBiquadFilter()
-  filter.type = "bandpass"
+  filter.type = 'bandpass'
   filter.frequency.setValueAtTime(650, context.currentTime)
-  filter.frequency.exponentialRampToValueAtTime(250, context.currentTime + duration)
+  filter.frequency.exponentialRampToValueAtTime(
+    250,
+    context.currentTime + duration,
+  )
   filter.Q.setValueAtTime(1.5, context.currentTime)
 
   const gainNode = context.createGain()
   gainNode.gain.setValueAtTime(0.18, context.currentTime)
-  gainNode.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration)
+  gainNode.gain.exponentialRampToValueAtTime(
+    0.001,
+    context.currentTime + duration,
+  )
 
   whiteNoise.connect(filter)
   filter.connect(gainNode)

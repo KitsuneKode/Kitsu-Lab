@@ -9,10 +9,13 @@
   "sortTailwindcss": {},
   "ignorePatterns": [
     "node_modules/",
+    ".next/",
     ".vscode/",
     ".git/",
     "build/",
     "dist/",
-    "logs/"
+    "logs/",
+    "public/r/",
+    "bun.lock"
   ]
 }

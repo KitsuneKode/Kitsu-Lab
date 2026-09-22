@@ -1,4 +1,3 @@
-
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
@@ -11,11 +10,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Verification & tooling
 
-Run the full gate before committing: `npm run check` (typecheck + oxlint + eslint + tests), then `npm run build` and `npm run registry:build`.
+Run the full gate before committing: `npm run check` (typecheck + oxlint + oxfmt check + tests), then `npm run build` and `npm run registry:build`.
 
-- `npm run lint:ox` — oxlint (Rust, fast prefilter). Config: `.oxlintrc.json`. The worker-pump `await`-in-loop and cleanup-closure flags in the book-preview engines are intentional; those rules are off there. `role="status"` live regions and canvas `role="img"` are correct ARIA — `prefer-tag-over-role` is off.
-- `npm run lint` — eslint (React Compiler rules live here; oxlint does not cover them).
-- `npm run format` — prettier is the canonical formatter (`sort-imports` + `tailwindcss` plugins). `oxfmt` is installed for editor speed (`fmt:ox`) but does not replicate the import-sort plugin — do not bulk-rewrite with it.
+- `npm run lint` — oxlint only (ESLint was removed; `.oxlintrc.json` is the single lint config). The worker-pump `await`-in-loop and cleanup-closure flags in the book-preview engines are intentional; those rules are off there. `role="status"` live regions and canvas `role="img"` are correct ARIA — `prefer-tag-over-role` is off. Note: React Compiler diagnostics are no longer linted — the compiler itself still runs via `reactCompiler: true` in `next.config.ts` and bails safely per-component.
+- `npm run format` — oxfmt is the canonical formatter. `.oxfmtrc.json` replicates the old prettier behavior: `sortingMethod: lineLength` (import sorting) and `sortTailwindcss` (class sorting). Generated `public/r/` artifacts are in `ignorePatterns` — never format them.
 - `npm run test` — bun test (book-preview suites).
 - `npm run registry:build` — `shadcn build` regenerates `public/r/*.json` from `registry.json` + source. Keep artifacts in sync: `npm run registry:check` fails if the built output drifts from what's committed.
 - `npx react-doctor` — occasional health audits (score lives at react.doctor). Intentional patterns it flags: serialized awaits in raster/text drains (bounded worker load), setState-after-await behind `cancelled` guards, big orchestrator engines.

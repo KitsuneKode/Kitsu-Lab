@@ -5,8 +5,8 @@ type EditableLike = {
 }
 
 function asElement(target: EventTarget | null): EditableLike | null {
-  if (!target || typeof target !== "object") return null
-  if (!("tagName" in target) && !("isContentEditable" in target)) return null
+  if (!target || typeof target !== 'object') return null
+  if (!('tagName' in target) && !('isContentEditable' in target)) return null
   return target as EditableLike
 }
 
@@ -15,16 +15,18 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   if (!element) return false
   if (element.isContentEditable) return true
   const tag = element.tagName?.toUpperCase()
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true
-  return Boolean(element.closest?.("[contenteditable='true'], [role='textbox']"))
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+  return Boolean(
+    element.closest?.("[contenteditable='true'], [role='textbox']"),
+  )
 }
 
 const INTERACTIVE_SELECTOR = [
-  "a[href]",
-  "button",
-  "input",
-  "select",
-  "textarea",
+  'a[href]',
+  'button',
+  'input',
+  'select',
+  'textarea',
   "[contenteditable='true']",
   "[role='button']",
   "[role='checkbox']",
@@ -38,13 +40,19 @@ const INTERACTIVE_SELECTOR = [
   "[role='switch']",
   "[role='tab']",
   "[role='textbox']",
-].join(",")
+].join(',')
 
 export function isInteractiveTarget(target: EventTarget | null): boolean {
   const element = asElement(target)
   if (!element) return false
   const tag = element.tagName?.toUpperCase()
-  if (tag === "A" || tag === "BUTTON" || tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
+  if (
+    tag === 'A' ||
+    tag === 'BUTTON' ||
+    tag === 'INPUT' ||
+    tag === 'SELECT' ||
+    tag === 'TEXTAREA'
+  ) {
     return true
   }
   return Boolean(element.closest?.(INTERACTIVE_SELECTOR))
@@ -52,13 +60,21 @@ export function isInteractiveTarget(target: EventTarget | null): boolean {
 
 export function isReaderKeyboardEvent(
   event: KeyboardEvent,
-  root: HTMLElement | null
+  root: HTMLElement | null,
 ): boolean {
   if (!root) return false
   if (isInteractiveTarget(event.target) && event.target !== root) return false
   const active = document.activeElement
-  if (active instanceof HTMLElement && !root.contains(active) && active !== root) {
+  if (
+    active instanceof HTMLElement &&
+    !root.contains(active) &&
+    active !== root
+  ) {
     return false
   }
-  return root.contains(event.target instanceof Node ? event.target : null) || active === root || root.contains(active)
+  return (
+    root.contains(event.target instanceof Node ? event.target : null) ||
+    active === root ||
+    root.contains(active)
+  )
 }

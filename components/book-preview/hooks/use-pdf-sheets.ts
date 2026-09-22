@@ -1,6 +1,6 @@
-"use client"
+'use client'
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from 'react'
 import {
   extractPdfPageText,
   loadPdfDocument,
@@ -9,8 +9,8 @@ import {
   releaseRasterUrl,
   type PdfDocumentProxy,
   type PdfLoadingTask,
-} from "../pdf-runtime"
-import type { BookPreviewError } from "../types"
+} from '../pdf-runtime'
+import type { BookPreviewError } from '../types'
 
 export type PdfSheet = {
   id: string
@@ -36,7 +36,7 @@ type UsePdfSheetsOptions = {
    * bound book needs -- leaves cannot each be a different shape. "per-page"
    * measures each page, for continuous scrolling.
    */
-  sizing: "uniform" | "per-page"
+  sizing: 'uniform' | 'per-page'
   /** Pull plain text per page so the reader can search and speak a PDF. */
   extractText?: boolean
   /**
@@ -160,7 +160,8 @@ export function usePdfSheets({
     const textDone = new Set<number>()
 
     const inWindow = (pageNumber: number, priority: number): boolean =>
-      windowRadius === undefined || Math.abs(pageNumber - priority) <= windowRadius
+      windowRadius === undefined ||
+      Math.abs(pageNumber - priority) <= windowRadius
 
     // Pages commit through this guarded writer. It stays a flat async
     // function — not a loop body — so each post-await state write is provably
@@ -172,11 +173,11 @@ export function usePdfSheets({
         const page = await loaded.doc.getPage(pageNumber)
         // Text first: it is cheap, and it makes the page findable before
         // its bitmap has finished painting.
-        const text = extractText ? await extractPdfPageText(page) : ""
+        const text = extractText ? await extractPdfPageText(page) : ''
         if (extractText) textDone.add(pageNumber)
         if (cancelled) return
         const cssHeight =
-          sizing === "uniform"
+          sizing === 'uniform'
             ? uniformHeight
             : Math.round(rasterWidth * pdfPageAspectRatio(page))
         const raster = await rasterizePdfPage({
@@ -193,25 +194,24 @@ export function usePdfSheets({
         if (previous) releaseRasterUrl(previous)
         rendered.set(pageNumber, raster.src)
         const id = `pdf-${pageNumber}`
-        setDoc(
-          (current) =>
-            current && current.url === url && current.sheets
-              ? {
-                  ...current,
-                  sheets: current.sheets.map((sheet) =>
-                    sheet.id === id
-                      ? {
-                          ...sheet,
-                          src: raster.src,
-                          width: raster.width,
-                          height: raster.height,
-                          text,
-                          textExtracted: true,
-                        }
-                      : sheet
-                  ),
-                }
-              : current
+        setDoc((current) =>
+          current && current.url === url && current.sheets
+            ? {
+                ...current,
+                sheets: current.sheets.map((sheet) =>
+                  sheet.id === id
+                    ? {
+                        ...sheet,
+                        src: raster.src,
+                        width: raster.width,
+                        height: raster.height,
+                        text,
+                        textExtracted: true,
+                      }
+                    : sheet,
+                ),
+              }
+            : current,
         )
       } catch {
         // A single bad page stays blank instead of failing the document.
@@ -233,10 +233,10 @@ export function usePdfSheets({
             ? {
                 ...current,
                 sheets: current.sheets.map((sheet) =>
-                  sheet.id === id ? { ...sheet, src: "" } : sheet
+                  sheet.id === id ? { ...sheet, src: '' } : sheet,
                 ),
               }
-            : current
+            : current,
         )
       }
     }
@@ -250,10 +250,18 @@ export function usePdfSheets({
         if (windowRadius !== undefined && distance > windowRadius) break
         const before = priority - distance
         const after = priority + distance
-        if (before >= 1 && inWindow(before, priority) && !attempted.has(before)) {
+        if (
+          before >= 1 &&
+          inWindow(before, priority) &&
+          !attempted.has(before)
+        ) {
           return before
         }
-        if (after <= count && inWindow(after, priority) && !attempted.has(after)) {
+        if (
+          after <= count &&
+          inWindow(after, priority) &&
+          !attempted.has(after)
+        ) {
           return after
         }
         if (before < 1 && after > count) break
@@ -263,7 +271,10 @@ export function usePdfSheets({
 
     // Text-only pass for pages outside the raster window — a few KB each,
     // so the whole document stays searchable without holding every bitmap.
-    async function indexSheetText(url: string, pageNumber: number): Promise<void> {
+    async function indexSheetText(
+      url: string,
+      pageNumber: number,
+    ): Promise<void> {
       if (cancelled || !loaded) return
       textDone.add(pageNumber)
       try {
@@ -276,10 +287,12 @@ export function usePdfSheets({
             ? {
                 ...current,
                 sheets: current.sheets.map((sheet) =>
-                  sheet.id === id ? { ...sheet, text, textExtracted: true } : sheet
+                  sheet.id === id
+                    ? { ...sheet, text, textExtracted: true }
+                    : sheet,
                 ),
               }
-            : current
+            : current,
         )
       } catch {
         // A page that will not yield text simply stays unsearchable.
@@ -305,10 +318,20 @@ export function usePdfSheets({
         let textNext: number | undefined
         if (extractText) {
           if (!textDone.has(priority)) textNext = priority
-          for (let distance = 1; textNext === undefined && distance < count; distance += 1) {
-            if (priority - distance >= 1 && !textDone.has(priority - distance)) {
+          for (
+            let distance = 1;
+            textNext === undefined && distance < count;
+            distance += 1
+          ) {
+            if (
+              priority - distance >= 1 &&
+              !textDone.has(priority - distance)
+            ) {
               textNext = priority - distance
-            } else if (priority + distance <= count && !textDone.has(priority + distance)) {
+            } else if (
+              priority + distance <= count &&
+              !textDone.has(priority + distance)
+            ) {
               textNext = priority + distance
             }
           }
@@ -352,7 +375,7 @@ export function usePdfSheets({
           await result.task.destroy()
           if (!cancelled) {
             reportError.current({
-              kind: "pdf-render",
+              kind: 'pdf-render',
               message: maxPagesMessage ?? message.current,
             })
           }
@@ -361,7 +384,9 @@ export function usePdfSheets({
         // A 960px sheet at 2x is already roughly a 4MP bitmap. Capping DPR
         // avoids turning high-density phones into a large memory multiplier.
         pixelRatio =
-          typeof window === "undefined" ? 1 : Math.min(2, Math.max(1, window.devicePixelRatio || 1))
+          typeof window === 'undefined'
+            ? 1
+            : Math.min(2, Math.max(1, window.devicePixelRatio || 1))
 
         const firstPage = await result.doc.getPage(1)
         if (cancelled) return
@@ -374,10 +399,10 @@ export function usePdfSheets({
           ratio: baseRatio,
           sheets: Array.from({ length: count }, (_, index) => ({
             id: `pdf-${index + 1}`,
-            src: "",
+            src: '',
             width: rasterWidth,
             height: uniformHeight,
-            text: "",
+            text: '',
             textExtracted: false,
           })),
         })
@@ -386,9 +411,9 @@ export function usePdfSheets({
       } catch {
         if (!cancelled) {
           reportError.current({
-            kind: "pdf-render",
+            kind: 'pdf-render',
             message: passwordCancelledRef.current
-              ? "This PDF is password-protected. Retry to enter its password."
+              ? 'This PDF is password-protected. Retry to enter its password.'
               : message.current,
           })
         }
@@ -410,7 +435,16 @@ export function usePdfSheets({
       for (const src of rendered.values()) releaseRasterUrl(src)
       rendered.clear()
     }
-  }, [enabled, pdfUrl, rasterWidth, sizing, extractText, windowRadius, maxPages, maxPagesMessage])
+  }, [
+    enabled,
+    pdfUrl,
+    rasterWidth,
+    sizing,
+    extractText,
+    windowRadius,
+    maxPages,
+    maxPagesMessage,
+  ])
 
   const active = enabled && pdfUrl && doc?.url === pdfUrl ? doc : null
   const activeSheets = active?.sheets ?? null
@@ -422,7 +456,7 @@ export function usePdfSheets({
       (sheet, index) =>
         !sheet.src &&
         (windowRadius === undefined ||
-          Math.abs(index + 1 - (pageIndex + 1)) <= windowRadius)
+          Math.abs(index + 1 - (pageIndex + 1)) <= windowRadius),
     ) ?? false
   return {
     sheets: activeSheets,

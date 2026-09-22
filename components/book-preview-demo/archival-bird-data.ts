@@ -1,24 +1,31 @@
 export interface ArchivalPlate {
-  pageNumber: number;
-  facingPageNumber?: number;
-  order?: string;
-  family?: string;
-  commonName: string;
-  scientificName: string;
-  isCover?: boolean;
-  isIndex?: boolean;
-  length?: string;
-  nestNotes?: string;
-  rangeNotes?: string;
-  eggCount?: string;
-  description: string[];
-  plateType: 'plate' | 'text' | 'cover' | 'index';
+  pageNumber: number
+  facingPageNumber?: number
+  order?: string
+  family?: string
+  commonName: string
+  scientificName: string
+  isCover?: boolean
+  isIndex?: boolean
+  length?: string
+  nestNotes?: string
+  rangeNotes?: string
+  eggCount?: string
+  description: string[]
+  plateType: 'plate' | 'text' | 'cover' | 'index'
   colorTheme: {
-    primary: string;
-    accent: string;
-    plumageGlow: string;
-  };
-  svgType: 'scarlet-tanager' | 'bluebird' | 'snowy-owl' | 'hummingbird' | 'goldfinch' | 'cover' | 'index';
+    primary: string
+    accent: string
+    plumageGlow: string
+  }
+  svgType:
+    | 'scarlet-tanager'
+    | 'bluebird'
+    | 'snowy-owl'
+    | 'hummingbird'
+    | 'goldfinch'
+    | 'cover'
+    | 'index'
 }
 
 export const ARCHIVAL_BIRD_BOOK_PAGES: ArchivalPlate[] = [
@@ -51,7 +58,7 @@ export const ARCHIVAL_BIRD_BOOK_PAGES: ArchivalPlate[] = [
     plateType: 'text',
     description: [
       'In this volume an attempt is made to present a guide so simple and concise that anyone may identify any North American bird with certainty.',
-      'Few studies possess such lasting fascination as ornithology. In the field, the eye is caught first by motion and color. A flash of fiery scarlet among maple boughs, the mellow carol of an azure bluebird across early spring pastures—these are moments etched into the naturalist\'s memory.',
+      "Few studies possess such lasting fascination as ornithology. In the field, the eye is caught first by motion and color. A flash of fiery scarlet among maple boughs, the mellow carol of an azure bluebird across early spring pastures—these are moments etched into the naturalist's memory.",
       'Each specimen herein is reproduced from original watercolors executed directly from living subjects in their natural habitats.',
     ],
     colorTheme: {
@@ -68,9 +75,12 @@ export const ARCHIVAL_BIRD_BOOK_PAGES: ArchivalPlate[] = [
     commonName: 'Scarlet Tanager • Life History',
     scientificName: 'Piranga olivacea',
     length: '7.25 inches (18.4 cm)',
-    nestNotes: 'A shallow, saucer-shaped structure of slender twigs and pine needles, placed 15 to 30 feet high on a horizontal limb of an oak or hemlock.',
-    rangeNotes: 'Breeds from southern Canada south through the deciduous forests to northern Georgia; winters in northwestern South America.',
-    eggCount: '3 to 5, pale greenish-blue speckled with rufous-brown and purplish shell markings (0.95 x 0.65 in).',
+    nestNotes:
+      'A shallow, saucer-shaped structure of slender twigs and pine needles, placed 15 to 30 feet high on a horizontal limb of an oak or hemlock.',
+    rangeNotes:
+      'Breeds from southern Canada south through the deciduous forests to northern Georgia; winters in northwestern South America.',
+    eggCount:
+      '3 to 5, pale greenish-blue speckled with rufous-brown and purplish shell markings (0.95 x 0.65 in).',
     plateType: 'text',
     description: [
       'Male in breeding plumage is brilliant, glowing scarlet, with wings and tail jet black. Female and young are light olive-green above, yellowish beneath, with dusky brownish wings.',
@@ -92,7 +102,8 @@ export const ARCHIVAL_BIRD_BOOK_PAGES: ArchivalPlate[] = [
     scientificName: 'Piranga olivacea (Left) & Piranga rubra (Right)',
     plateType: 'plate',
     length: 'Male in full adult vernal plumage',
-    nestNotes: 'Illustrated from life specimen No. 498, Worcester Natural History Museum.',
+    nestNotes:
+      'Illustrated from life specimen No. 498, Worcester Natural History Museum.',
     description: [
       'Fig. 1 (Center): Male Scarlet Tanager in adult breeding array perched upon White Oak branch.',
       'Fig. 2 (Lower inset): Clutch of four eggs, natural coloration and scale.',
@@ -112,9 +123,12 @@ export const ARCHIVAL_BIRD_BOOK_PAGES: ArchivalPlate[] = [
     commonName: 'Eastern Bluebird • Life History',
     scientificName: 'Sialia sialis',
     length: '6.75 inches (17.1 cm)',
-    nestNotes: 'Constructed within natural tree cavities, old flicker holes, or wooden nesting boxes; lined with dried grass stems and fine feathers.',
-    rangeNotes: 'Eastern North America, from southern Saskatchewan east to Newfoundland, south to the Gulf Coast.',
-    eggCount: '4 to 6, clear sky-blue, rarely pure white (0.84 x 0.65 in). Two or three broods reared each season.',
+    nestNotes:
+      'Constructed within natural tree cavities, old flicker holes, or wooden nesting boxes; lined with dried grass stems and fine feathers.',
+    rangeNotes:
+      'Eastern North America, from southern Saskatchewan east to Newfoundland, south to the Gulf Coast.',
+    eggCount:
+      '4 to 6, clear sky-blue, rarely pure white (0.84 x 0.65 in). Two or three broods reared each season.',
     plateType: 'text',
     description: [
       'Male: Upperparts intense cobalt and sky-blue; throat, breast, and sides rich cinnamon-chestnut; belly and under tail-coverts white.',
@@ -156,9 +170,12 @@ export const ARCHIVAL_BIRD_BOOK_PAGES: ArchivalPlate[] = [
     commonName: 'Snowy Owl • Arctic Nomad',
     scientificName: 'Bubo scandiacus',
     length: '23 to 27 inches (58 to 68 cm) • Wingspread: 5 feet',
-    nestNotes: 'A shallow depression scooped directly in the arctic tundra moss on elevated knolls or gravel ridges.',
-    rangeNotes: 'Circumpolar arctic barrens; irruptive winter visitor southward across northern United States during lemming cycle collapses.',
-    eggCount: '5 to 8 (in lemming abundance years up to 11), chalky white and rounded (2.25 x 1.75 in).',
+    nestNotes:
+      'A shallow depression scooped directly in the arctic tundra moss on elevated knolls or gravel ridges.',
+    rangeNotes:
+      'Circumpolar arctic barrens; irruptive winter visitor southward across northern United States during lemming cycle collapses.',
+    eggCount:
+      '5 to 8 (in lemming abundance years up to 11), chalky white and rounded (2.25 x 1.75 in).',
     plateType: 'text',
     description: [
       'Plumage is dense, ivory-white, heavily barred with dark brown in females and young, almost pure immaculate white in old males.',
@@ -200,9 +217,12 @@ export const ARCHIVAL_BIRD_BOOK_PAGES: ArchivalPlate[] = [
     commonName: 'Ruby-throated Hummingbird',
     scientificName: 'Archilochus colubris',
     length: '3.5 inches (8.9 cm) • Weight: 3.2 grams',
-    nestNotes: 'A marvel of animal architecture—scarcely larger than a walnut shell, fashioned of plant down and spider gossamer, shingled with green tree lichens.',
-    rangeNotes: 'Breeds across North America east of the 100th meridian; makes a non-stop 500-mile flight across the Gulf of Mexico each autumn.',
-    eggCount: '2, pure dead-white, resembling tiny white navy beans (0.50 x 0.35 in).',
+    nestNotes:
+      'A marvel of animal architecture—scarcely larger than a walnut shell, fashioned of plant down and spider gossamer, shingled with green tree lichens.',
+    rangeNotes:
+      'Breeds across North America east of the 100th meridian; makes a non-stop 500-mile flight across the Gulf of Mexico each autumn.',
+    eggCount:
+      '2, pure dead-white, resembling tiny white navy beans (0.50 x 0.35 in).',
     plateType: 'text',
     description: [
       'Male: Upperparts lustrous metallic emerald green; gorget (throat patch) brilliant ruby-red flashing with iridescent gold in direct sunlight.',
@@ -224,7 +244,8 @@ export const ARCHIVAL_BIRD_BOOK_PAGES: ArchivalPlate[] = [
     scientificName: 'Archilochus colubris • Campsis radicans',
     plateType: 'plate',
     length: 'Hovering flight studies at life scale (1:1)',
-    nestNotes: 'Lichen nest attached to down-sloping birch branch with spider silk.',
+    nestNotes:
+      'Lichen nest attached to down-sloping birch branch with spider silk.',
     description: [
       'Fig. 1: Male hovering before scarlet trumpet blossoms.',
       'Fig. 2: Natural scale nest with two miniature white eggs.',
@@ -258,4 +279,4 @@ export const ARCHIVAL_BIRD_BOOK_PAGES: ArchivalPlate[] = [
     },
     svgType: 'index',
   },
-];
+]

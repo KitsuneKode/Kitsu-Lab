@@ -1,12 +1,12 @@
-"use client"
+'use client'
 
-import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
+import type { ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from '@/components/ui/tooltip'
 
 type BookPreviewIconButtonProps = {
   label: string
@@ -26,7 +26,7 @@ export function BookPreviewIconButton({
   const button = (
     <Button
       type="button"
-      variant={pressed ? "secondary" : "ghost"}
+      variant={pressed ? 'secondary' : 'ghost'}
       size="icon-sm"
       aria-label={label}
       aria-pressed={pressed}
@@ -42,7 +42,9 @@ export function BookPreviewIconButton({
   if (disabled) {
     return (
       <Tooltip>
-        <TooltipTrigger render={<span className="inline-flex" />}>{button}</TooltipTrigger>
+        <TooltipTrigger render={<span className="inline-flex" />}>
+          {button}
+        </TooltipTrigger>
         <TooltipContent>{label}</TooltipContent>
       </Tooltip>
     )

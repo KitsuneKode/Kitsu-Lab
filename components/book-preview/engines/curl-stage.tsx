@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import {
   Children,
@@ -7,13 +7,13 @@ import {
   useRef,
   useState,
   type ReactNode,
-} from "react"
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react"
-import { PageFlip } from "page-flip/dist/js/page-flip.module.js"
-import { Button } from "@/components/ui/button"
-import { Spinner } from "@/components/ui/spinner"
-import { playPageTurnSound } from "../audio"
-import { useStableHandler } from "../hooks/use-stable-handler"
+} from 'react'
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { PageFlip } from 'page-flip/dist/js/page-flip.module.js'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { playPageTurnSound } from '../audio'
+import { useStableHandler } from '../hooks/use-stable-handler'
 import {
   CURL_CLICK_SLOP_PX,
   CURL_FLIP_MS,
@@ -29,7 +29,7 @@ import {
   quantizeCurlPageSize,
   type CurlPageSize,
   type CurlPoint,
-} from "./curl-geometry"
+} from './curl-geometry'
 
 type CurlStageProps = {
   pageIndex: number
@@ -81,17 +81,28 @@ function asCurlBook(book: PageFlip): CurlFlipBook {
 }
 
 function htmlPagesFrom(source: HTMLElement) {
-  return Array.from(source.children).filter((node): node is HTMLElement => node instanceof HTMLElement)
+  return Array.from(source.children).filter(
+    (node): node is HTMLElement => node instanceof HTMLElement,
+  )
 }
 
 function pointIn(el: HTMLElement, clientX: number, clientY: number) {
   const rect = el.getBoundingClientRect()
-  return { x: clientX - rect.left, y: clientY - rect.top, width: rect.width, height: rect.height }
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top,
+    width: rect.width,
+    height: rect.height,
+  }
 }
 
 function isInteractiveTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false
-  return Boolean(target.closest("a, button, input, textarea, select, [data-book-preview-press]"))
+  return Boolean(
+    target.closest(
+      'a, button, input, textarea, select, [data-book-preview-press]',
+    ),
+  )
 }
 
 /** Fore-edge page-stack thickness: a few pixels, growing gently with the
@@ -105,7 +116,7 @@ function applyCurlSize(
   book: CurlFlipBook,
   host: HTMLElement,
   size: CurlPageSize,
-  spread: boolean
+  spread: boolean,
 ) {
   const settings = book.getSettings()
   settings.width = size.width
@@ -124,7 +135,10 @@ function applyCurlSize(
   book.update()
 }
 
-function attachCurlPointers(book: CurlFlipBook, interacting: { current: boolean }) {
+function attachCurlPointers(
+  book: CurlFlipBook,
+  interacting: { current: boolean },
+) {
   const dist = book.getUI().getDistElement()
   const press = {
     pointerId: -1,
@@ -136,7 +150,7 @@ function attachCurlPointers(book: CurlFlipBook, interacting: { current: boolean 
   const onPointerDown = (event: PointerEvent) => {
     if (event.button !== 0 || press.pointerId !== -1) return
     if (isInteractiveTarget(event.target)) return
-    if (book.getState() === "flipping") return
+    if (book.getState() === 'flipping') return
     const pos = pointIn(dist, event.clientX, event.clientY)
     press.pointerId = event.pointerId
     press.startX = pos.x
@@ -160,7 +174,11 @@ function attachCurlPointers(book: CurlFlipBook, interacting: { current: boolean 
       if (distance < CURL_CLICK_SLOP_PX) return
       press.dragging = true
       book.startUserTouch(
-        curlDragOrigin({ x: press.startX, y: press.startY }, { x: pos.x, y: pos.y }, pos.width)
+        curlDragOrigin(
+          { x: press.startX, y: press.startY },
+          { x: pos.x, y: pos.y },
+          pos.width,
+        ),
       )
     }
     book.userMove({ x: pos.x, y: pos.y }, true)
@@ -175,7 +193,7 @@ function attachCurlPointers(book: CurlFlipBook, interacting: { current: boolean 
     if (dist.hasPointerCapture(event.pointerId)) {
       dist.releasePointerCapture(event.pointerId)
     }
-    if (event.type === "pointercancel") {
+    if (event.type === 'pointercancel') {
       if (dragging) book.userStop({ x: pos.x, y: pos.y })
       else interacting.current = false
       return
@@ -188,14 +206,14 @@ function attachCurlPointers(book: CurlFlipBook, interacting: { current: boolean 
       pos.x,
       pos.width,
       book.getCurrentPageIndex() > 0,
-      book.getCurrentPageIndex() < book.getPageCount() - 1
+      book.getCurrentPageIndex() < book.getPageCount() - 1,
     )
     if (!intent) {
       interacting.current = false
       return
     }
-    const corner = pos.y < pos.height / 2 ? "top" : "bottom"
-    if (intent === "prev") book.flipPrev(corner)
+    const corner = pos.y < pos.height / 2 ? 'top' : 'bottom'
+    if (intent === 'prev') book.flipPrev(corner)
     else book.flipNext(corner)
   }
 
@@ -203,33 +221,33 @@ function attachCurlPointers(book: CurlFlipBook, interacting: { current: boolean 
   // drag. page-flip only runs this path when told the move is not a touch,
   // and it resets itself the moment the pointer is off the corner.
   const onHoverCorner = (event: PointerEvent) => {
-    if (press.pointerId !== -1 || event.pointerType !== "mouse") return
-    if (book.getState() === "flipping") return
+    if (press.pointerId !== -1 || event.pointerType !== 'mouse') return
+    if (book.getState() === 'flipping') return
     const pos = pointIn(dist, event.clientX, event.clientY)
     book.userMove({ x: pos.x, y: pos.y }, false)
   }
 
   const onLeaveCorner = (event: PointerEvent) => {
-    if (press.pointerId !== -1 || event.pointerType !== "mouse") return
+    if (press.pointerId !== -1 || event.pointerType !== 'mouse') return
     const rect = dist.getBoundingClientRect()
     // Centre of the sheet is off every corner, which drops the peek.
     book.userMove({ x: rect.width / 2, y: rect.height / 2 }, false)
   }
 
-  dist.addEventListener("pointerdown", onPointerDown, { passive: false })
-  dist.addEventListener("pointermove", onHoverCorner)
-  dist.addEventListener("pointerleave", onLeaveCorner)
-  window.addEventListener("pointermove", onPointerMove, { passive: false })
-  window.addEventListener("pointerup", finish)
-  window.addEventListener("pointercancel", finish)
+  dist.addEventListener('pointerdown', onPointerDown, { passive: false })
+  dist.addEventListener('pointermove', onHoverCorner)
+  dist.addEventListener('pointerleave', onLeaveCorner)
+  window.addEventListener('pointermove', onPointerMove, { passive: false })
+  window.addEventListener('pointerup', finish)
+  window.addEventListener('pointercancel', finish)
 
   return () => {
-    dist.removeEventListener("pointerdown", onPointerDown)
-    dist.removeEventListener("pointermove", onHoverCorner)
-    dist.removeEventListener("pointerleave", onLeaveCorner)
-    window.removeEventListener("pointermove", onPointerMove)
-    window.removeEventListener("pointerup", finish)
-    window.removeEventListener("pointercancel", finish)
+    dist.removeEventListener('pointerdown', onPointerDown)
+    dist.removeEventListener('pointermove', onHoverCorner)
+    dist.removeEventListener('pointerleave', onLeaveCorner)
+    window.removeEventListener('pointermove', onPointerMove)
+    window.removeEventListener('pointerup', finish)
+    window.removeEventListener('pointercancel', finish)
   }
 }
 
@@ -291,11 +309,11 @@ function useCurlBook({
 
     const pages = htmlPagesFrom(source)
     if (pages.length === 0) {
-      reportEngineError("The page-curl engine needs at least one page.")
+      reportEngineError('The page-curl engine needs at least one page.')
       return
     }
 
-    const host = document.createElement("div")
+    const host = document.createElement('div')
     // Sized before PageFlip reads the box, so it picks the right orientation
     // on the very first layout instead of flashing a single page.
     host.style.width = `${spread ? size.width * 2 : size.width}px`
@@ -307,30 +325,30 @@ function useCurlBook({
     try {
       book = asCurlBook(
         new PageFlip(host, {
-        width: size.width,
-        height: size.height,
-        size: "fixed",
-        minWidth: CURL_MIN_PAGE_WIDTH,
-        maxWidth: CURL_MAX_PAGE_WIDTH,
-        minHeight: Math.round(CURL_MIN_PAGE_WIDTH * pageRatioRef.current),
-        maxHeight: Math.round(CURL_MAX_PAGE_WIDTH * pageRatioRef.current),
-        showCover: false,
-        drawShadow: !reducedMotion,
-        flippingTime: reducedMotion ? 1 : CURL_FLIP_MS,
-        usePortrait: true,
-        // The lifted corner is the affordance that teaches the drag; without it
-        // a curl book reads as a static image until someone guesses.
-        showPageCorners: !reducedMotion,
-        maxShadowOpacity: reducedMotion ? 0 : 0.55,
-        startZIndex: 1,
-        startPage: pageIndexRef.current,
-        autoSize: false,
-        mobileScrollSupport: false,
-        clickEventForward: true,
-        useMouseEvents: false,
-        disableFlipByClick: false,
-        swipeDistance: 30,
-      })
+          width: size.width,
+          height: size.height,
+          size: 'fixed',
+          minWidth: CURL_MIN_PAGE_WIDTH,
+          maxWidth: CURL_MAX_PAGE_WIDTH,
+          minHeight: Math.round(CURL_MIN_PAGE_WIDTH * pageRatioRef.current),
+          maxHeight: Math.round(CURL_MAX_PAGE_WIDTH * pageRatioRef.current),
+          showCover: false,
+          drawShadow: !reducedMotion,
+          flippingTime: reducedMotion ? 1 : CURL_FLIP_MS,
+          usePortrait: true,
+          // The lifted corner is the affordance that teaches the drag; without it
+          // a curl book reads as a static image until someone guesses.
+          showPageCorners: !reducedMotion,
+          maxShadowOpacity: reducedMotion ? 0 : 0.55,
+          startZIndex: 1,
+          startPage: pageIndexRef.current,
+          autoSize: false,
+          mobileScrollSupport: false,
+          clickEventForward: true,
+          useMouseEvents: false,
+          disableFlipByClick: false,
+          swipeDistance: 30,
+        }),
       )
       const clones = pages.map((page) => page.cloneNode(true) as HTMLElement)
       book.loadFromHTML(clones)
@@ -338,23 +356,31 @@ function useCurlBook({
     } catch (error) {
       wrap.replaceChildren()
       reportEngineError(
-        error instanceof Error ? error.message : "The page-curl engine could not start."
+        error instanceof Error
+          ? error.message
+          : 'The page-curl engine could not start.',
       )
       return
     }
 
     contentKeyRef.current = contentKey
-    book.on("flip", (event) => {
+    book.on('flip', (event) => {
       fromBookRef.current = true
-      reportPageChange(typeof event.data === "number" ? event.data : pageIndexRef.current)
+      reportPageChange(
+        typeof event.data === 'number' ? event.data : pageIndexRef.current,
+      )
     })
-    book.on("changeState", (event) => {
+    book.on('changeState', (event) => {
       const state = String(event.data)
-      const turning = state === "flipping" || state === "user_fold"
+      const turning = state === 'flipping' || state === 'user_fold'
       flippingRef.current = turning
       interactingRef.current = turning
       setBusy(turning)
-      if (soundRef.current && state === "flipping" && !programmaticRef.current) {
+      if (
+        soundRef.current &&
+        state === 'flipping' &&
+        !programmaticRef.current
+      ) {
         playPageTurnSound()
       }
       if (!turning) programmaticRef.current = false
@@ -376,8 +402,8 @@ function useCurlBook({
       interactingRef.current = false
       detachPointers()
       try {
-        book.off("flip")
-        book.off("changeState")
+        book.off('flip')
+        book.off('changeState')
         book.destroy()
       } catch {
         // PageFlip.remove() can run after the wrapper is already gone.
@@ -403,7 +429,11 @@ function useCurlBook({
     const settings = book.getSettings()
     // Orientation changes rebuild the book above; this only rescales within
     // the current orientation.
-    if (settings.width === pageSize.width && settings.height === pageSize.height) return
+    if (
+      settings.width === pageSize.width &&
+      settings.height === pageSize.height
+    )
+      return
     applyCurlSize(book, host, pageSize, builtSpread)
   }, [pageSize, ready, builtSpread])
 
@@ -416,7 +446,9 @@ function useCurlBook({
     if (pages.length === 0) return
     contentKeyRef.current = contentKey
     try {
-      book.updateFromHtml(pages.map((page) => page.cloneNode(true) as HTMLElement))
+      book.updateFromHtml(
+        pages.map((page) => page.cloneNode(true) as HTMLElement),
+      )
     } catch {
       // Keep the current sheets rather than tearing the book down.
     }
@@ -428,8 +460,8 @@ function useCurlBook({
     const wrap = hostWrapRef.current
     const book = bookRef.current
     if (!source || !wrap) return
-    const liveImgs = source.querySelectorAll("img")
-    const cloneImgs = wrap.querySelectorAll("img")
+    const liveImgs = source.querySelectorAll('img')
+    const cloneImgs = wrap.querySelectorAll('img')
     const cloneMissingPaintedPage = Array.from(liveImgs).some((img, index) => {
       const clone = cloneImgs[index]
       return Boolean(img.src) && !(clone instanceof HTMLImageElement)
@@ -438,7 +470,9 @@ function useCurlBook({
       const pages = htmlPagesFrom(source)
       if (pages.length === 0) return
       try {
-        book.updateFromHtml(pages.map((page) => page.cloneNode(true) as HTMLElement))
+        book.updateFromHtml(
+          pages.map((page) => page.cloneNode(true) as HTMLElement),
+        )
       } catch {
         // Keep the current sheets rather than tearing the book down.
       }
@@ -446,7 +480,11 @@ function useCurlBook({
     }
     liveImgs.forEach((img, index) => {
       const clone = cloneImgs[index]
-      if (clone instanceof HTMLImageElement && img.src && clone.src !== img.src) {
+      if (
+        clone instanceof HTMLImageElement &&
+        img.src &&
+        clone.src !== img.src
+      ) {
         clone.src = img.src
       }
     })
@@ -495,7 +533,7 @@ export function CurlStage({
 
   useEffect(() => {
     const node = stageRef.current
-    if (!node || typeof ResizeObserver === "undefined") return
+    if (!node || typeof ResizeObserver === 'undefined') return
     let frame = 0
     const update = () => {
       if (frame) return
@@ -507,14 +545,21 @@ export function CurlStage({
     const measure = () => {
       const wantsSpread = curlSpreadFitsStage(node.clientWidth)
       const next = quantizeCurlPageSize(
-        curlPageSizeForStage(node.clientWidth, node.clientHeight, pageRatio, wantsSpread),
-        pageRatio
+        curlPageSizeForStage(
+          node.clientWidth,
+          node.clientHeight,
+          pageRatio,
+          wantsSpread,
+        ),
+        pageRatio,
       )
       setSpread(wantsSpread)
       setPageSize((current) =>
-        current && current.width === next.width && current.height === next.height
+        current &&
+        current.width === next.width &&
+        current.height === next.height
           ? current
-          : next
+          : next,
       )
     }
     measure()
@@ -526,18 +571,19 @@ export function CurlStage({
     }
   }, [pageRatio])
 
-  const { sourceRef, hostWrapRef, bookRef, ready, busy, builtSpread } = useCurlBook({
-    pageIndex,
-    pageRatio,
-    pageSize,
-    spread,
-    pageCount,
-    reducedMotion,
-    soundEnabled,
-    contentKey,
-    onPageChange,
-    onEngineError,
-  })
+  const { sourceRef, hostWrapRef, bookRef, ready, busy, builtSpread } =
+    useCurlBook({
+      pageIndex,
+      pageRatio,
+      pageSize,
+      spread,
+      pageCount,
+      reducedMotion,
+      soundEnabled,
+      contentKey,
+      onPageChange,
+      onEngineError,
+    })
 
   return (
     <div
@@ -556,7 +602,10 @@ export function CurlStage({
       >
         <IconChevronLeft />
       </Button>
-      <div data-book-preview-curl className="relative max-h-full max-w-full min-w-0">
+      <div
+        data-book-preview-curl
+        className="relative max-h-full max-w-full min-w-0"
+      >
         <div
           ref={sourceRef}
           hidden
@@ -591,18 +640,21 @@ export function CurlStage({
           // book overflowing its own container instead of sitting centred.
           style={
             pageSize
-              ? { width: pageSize.width * (builtSpread ? 2 : 1), height: pageSize.height }
+              ? {
+                  width: pageSize.width * (builtSpread ? 2 : 1),
+                  height: pageSize.height,
+                }
               : { width: 280, height: Math.round(280 * pageRatio) }
           }
         />
         {!ready ? (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <div className="text-muted-foreground absolute inset-0 flex items-center justify-center gap-2 text-sm">
             <Spinner />
             Loading curl engine…
           </div>
         ) : null}
         {ready ? (
-          <p className="pointer-events-none absolute inset-x-0 bottom-1 text-center font-mono text-xs text-muted-foreground">
+          <p className="text-muted-foreground pointer-events-none absolute inset-x-0 bottom-1 text-center font-mono text-xs">
             {curlPageLabel(pageIndex, pageCount, builtSpread)}
           </p>
         ) : null}

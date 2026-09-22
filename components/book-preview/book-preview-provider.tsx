@@ -1,14 +1,19 @@
-"use client"
+'use client'
 
-import { createContext, useContext, type ReactNode, type RefObject } from "react"
-import type { BookPreviewState } from "./reducer"
+import {
+  createContext,
+  useContext,
+  type ReactNode,
+  type RefObject,
+} from 'react'
+import type { BookPreviewState } from './reducer'
 import type {
   BookPreviewAppearance,
   BookPreviewEngine,
   BookPreviewMode,
   BookPreviewNavigationBehavior,
   NormalizedBookSource,
-} from "./types"
+} from './types'
 
 /** An engine registers the shortcuts it owns (zoom, search focus) here while
     mounted; the shell's keydown handler invokes them so keys like +, -, 0 and
@@ -35,7 +40,10 @@ export type BookPreviewContextValue = {
   canGoPrev: boolean
   canGoNext: boolean
   setMode: (mode: BookPreviewMode) => void
-  goToPage: (pageIndex: number, behavior?: BookPreviewNavigationBehavior) => void
+  goToPage: (
+    pageIndex: number,
+    behavior?: BookPreviewNavigationBehavior,
+  ) => void
   nextPage: () => void
   prevPage: () => void
   setAppearance: (appearance: BookPreviewAppearance) => void
@@ -64,13 +72,17 @@ export function BookPreviewProvider({
   value: BookPreviewContextValue
   children: ReactNode
 }) {
-  return <BookPreviewContext.Provider value={value}>{children}</BookPreviewContext.Provider>
+  return (
+    <BookPreviewContext.Provider value={value}>
+      {children}
+    </BookPreviewContext.Provider>
+  )
 }
 
 export function useBookPreview(): BookPreviewContextValue {
   const value = useContext(BookPreviewContext)
   if (!value) {
-    throw new Error("useBookPreview must be used within BookPreview")
+    throw new Error('useBookPreview must be used within BookPreview')
   }
   return value
 }

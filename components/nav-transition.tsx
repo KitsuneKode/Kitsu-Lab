@@ -1,17 +1,17 @@
-import { ViewTransition, type ReactNode } from "react"
+import { ViewTransition, type ReactNode } from 'react'
 
 export function NavTransition({ children }: { children: ReactNode }) {
   return (
     <ViewTransition
       enter={{
-        "nav-forward": "nav-forward",
-        "nav-back": "nav-back",
-        default: "none",
+        'nav-forward': 'nav-forward',
+        'nav-back': 'nav-back',
+        default: 'none',
       }}
       exit={{
-        "nav-forward": "nav-forward",
-        "nav-back": "nav-back",
-        default: "none",
+        'nav-forward': 'nav-forward',
+        'nav-back': 'nav-back',
+        default: 'none',
       }}
       default="none"
     >

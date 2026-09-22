@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 /**
  * One rasterized PDF page inside the flip book.
@@ -11,10 +11,10 @@
  */
 export function CurlPdfSheet({ src }: { src: string }) {
   return (
-    <div className="relative h-full w-full bg-background">
+    <div className="bg-background relative h-full w-full">
       <div
         data-book-preview-sheet-skeleton
-        className="absolute inset-0 animate-pulse bg-muted/50"
+        className="bg-muted/50 absolute inset-0 animate-pulse"
         aria-hidden
       />
       {/* Object URLs are generated locally and cannot be optimized by next/image. */}

@@ -27,19 +27,26 @@ npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-webgl.json
 ## Core usage
 
 ```tsx
-import { BookPreview } from "@/components/book-preview"
+import { BookPreview } from '@/components/book-preview'
 
 const source = {
-  title: "Field Notes",
-  author: "A. Reader",
+  title: 'Field Notes',
+  author: 'A. Reader',
   pages: [
-    { id: "cover", pageNumber: 1, title: "Field Notes", isCover: true },
-    { id: "p-2", pageNumber: 2, paragraphs: ["The first entry."] },
+    { id: 'cover', pageNumber: 1, title: 'Field Notes', isCover: true },
+    { id: 'p-2', pageNumber: 2, paragraphs: ['The first entry.'] },
   ],
 }
 
 export function Reader() {
-  return <BookPreview source={source} persistPage persistPreferences pageParam="page" />
+  return (
+    <BookPreview
+      source={source}
+      persistPage
+      persistPreferences
+      pageParam="page"
+    />
+  )
 }
 ```
 
@@ -50,18 +57,18 @@ export function Reader() {
 Engine descriptors are deliberately separate from their implementation. Importing a descriptor does not eagerly import its renderer or heavyweight dependency.
 
 ```tsx
-import { BookPreview, pageEngine } from "@/components/book-preview"
-import { curlEngine } from "@/components/book-preview/engines/curl-engine.meta"
-import { pdfEngine } from "@/components/book-preview/engines/pdf-engine.meta"
+import { BookPreview, pageEngine } from '@/components/book-preview'
+import { curlEngine } from '@/components/book-preview/engines/curl-engine.meta'
+import { pdfEngine } from '@/components/book-preview/engines/pdf-engine.meta'
 
 const engines = [pageEngine, curlEngine, pdfEngine]
 
 export function DocumentReader() {
   return (
     <BookPreview
-      source={{ pdfUrl: "/manual.pdf", allowPdfUpload: true }}
+      source={{ pdfUrl: '/manual.pdf', allowPdfUpload: true }}
       engines={engines}
-      enabledModes={["curl", "pdf"]}
+      enabledModes={['curl', 'pdf']}
       defaultMode="pdf"
     />
   )

@@ -40,7 +40,7 @@ The primary public component is `BookPreview`. It accepts a normalized book sour
 <BookPreview
   source={book}
   defaultMode="page"
-  enabledModes={["page", "curl", "pdf"]}
+  enabledModes={['page', 'curl', 'pdf']}
   appearance="system"
   sound={false}
 />

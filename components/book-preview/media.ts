@@ -1,22 +1,28 @@
-"use client"
+'use client'
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react"
-import { hasFullscreenSupport } from "./capabilities"
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { hasFullscreenSupport } from './capabilities'
 
 function useMediaQuery(query: string): boolean {
   const subscribe = useCallback(
     (onChange: () => void) => {
-      if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      if (
+        typeof window === 'undefined' ||
+        typeof window.matchMedia !== 'function'
+      ) {
         return () => {}
       }
       const media = window.matchMedia(query)
-      media.addEventListener("change", onChange)
-      return () => media.removeEventListener("change", onChange)
+      media.addEventListener('change', onChange)
+      return () => media.removeEventListener('change', onChange)
     },
-    [query]
+    [query],
   )
   const getSnapshot = useCallback(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    ) {
       return false
     }
     return window.matchMedia(query).matches
@@ -25,27 +31,27 @@ function useMediaQuery(query: string): boolean {
 }
 
 export function usePrefersReducedMotion(): boolean {
-  return useMediaQuery("(prefers-reduced-motion: reduce)")
+  return useMediaQuery('(prefers-reduced-motion: reduce)')
 }
 
 export function usePrefersReducedTransparency(): boolean {
-  return useMediaQuery("(prefers-reduced-transparency: reduce)")
+  return useMediaQuery('(prefers-reduced-transparency: reduce)')
 }
 
 export function usePrefersMoreContrast(): boolean {
-  return useMediaQuery("(prefers-contrast: more)")
+  return useMediaQuery('(prefers-contrast: more)')
 }
 
 export function useFinePointer(): boolean {
-  return useMediaQuery("(hover: hover) and (pointer: fine)")
+  return useMediaQuery('(hover: hover) and (pointer: fine)')
 }
 
 export function useNarrowLayout(): boolean {
-  return useMediaQuery("(max-width: 40rem)")
+  return useMediaQuery('(max-width: 40rem)')
 }
 
 export function useCoarsePointer(): boolean {
-  return useMediaQuery("(pointer: coarse)")
+  return useMediaQuery('(pointer: coarse)')
 }
 
 export function useFullscreenSupport(): boolean {
@@ -54,7 +60,7 @@ export function useFullscreenSupport(): boolean {
   return useSyncExternalStore(
     () => () => {},
     () => hasFullscreenSupport(),
-    () => false
+    () => false,
   )
 }
 
@@ -62,10 +68,10 @@ export function useDocumentVisible(): boolean {
   const [visible, setVisible] = useState(true)
 
   useEffect(() => {
-    const update = () => setVisible(document.visibilityState === "visible")
+    const update = () => setVisible(document.visibilityState === 'visible')
     update()
-    document.addEventListener("visibilitychange", update)
-    return () => document.removeEventListener("visibilitychange", update)
+    document.addEventListener('visibilitychange', update)
+    return () => document.removeEventListener('visibilitychange', update)
   }, [])
 
   return visible

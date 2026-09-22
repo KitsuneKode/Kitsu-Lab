@@ -1,27 +1,28 @@
-"use client"
+'use client'
 
-import { useState } from "react"
-import { IconChevronDown } from "@tabler/icons-react"
-import { Button } from "@/components/ui/button"
+import { useState } from 'react'
+import { IconChevronDown } from '@tabler/icons-react'
+import { Button } from '@/components/ui/button'
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { useBookPreview } from "./book-preview-provider"
-import type { BookPreviewMode } from "./types"
+} from '@/components/ui/sheet'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { useBookPreview } from './book-preview-provider'
+import type { BookPreviewMode } from './types'
 
 export function BookPreviewModePicker() {
-  const { enabledEngines, state, setMode, prefetchMode, finePointer } = useBookPreview()
+  const { enabledEngines, state, setMode, prefetchMode, finePointer } =
+    useBookPreview()
   const [sheetOpen, setSheetOpen] = useState(false)
 
   if (enabledEngines.length <= 1) return null
 
   const currentLabel =
-    enabledEngines.find((engine) => engine.id === state.mode)?.label ?? "Mode"
+    enabledEngines.find((engine) => engine.id === state.mode)?.label ?? 'Mode'
 
   return (
     <>
@@ -41,14 +42,16 @@ export function BookPreviewModePicker() {
           <SheetContent side="bottom" className="gap-4">
             <SheetHeader>
               <SheetTitle>Choose a reader</SheetTitle>
-              <SheetDescription>Only installed and compatible engines are listed.</SheetDescription>
+              <SheetDescription>
+                Only installed and compatible engines are listed.
+              </SheetDescription>
             </SheetHeader>
             <div className="grid gap-2 pb-4">
               {enabledEngines.map((engine) => (
                 <Button
                   key={engine.id}
                   type="button"
-                  variant={engine.id === state.mode ? "secondary" : "outline"}
+                  variant={engine.id === state.mode ? 'secondary' : 'outline'}
                   className="h-11 justify-start"
                   onClick={() => {
                     setMode(engine.id)
@@ -58,7 +61,7 @@ export function BookPreviewModePicker() {
                 >
                   <span className="flex flex-col items-start">
                     <span>{engine.label}</span>
-                    <span className="text-xs font-normal text-muted-foreground">
+                    <span className="text-muted-foreground text-xs font-normal">
                       {engine.description}
                     </span>
                   </span>

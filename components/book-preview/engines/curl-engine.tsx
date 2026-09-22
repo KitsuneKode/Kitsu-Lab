@@ -1,18 +1,22 @@
-"use client"
+'use client'
 
-import { useEffect } from "react"
-import { BookPreviewPageView } from "../book-preview-page"
-import { DEFAULT_CAPABILITIES } from "../capabilities"
-import { usePdfSheets } from "../hooks/use-pdf-sheets"
-import { useStableHandler } from "../hooks/use-stable-handler"
-import type { BookPreviewEngineProps } from "../types"
-import { CURL_MAX_PAGES, CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from "./curl-geometry"
-import { CurlStage } from "./curl-stage"
-import { CurlPdfSheet } from "./curl-pdf-sheet"
-import { PdfPasswordGate } from "./pdf-password-gate"
-import { PdfPreparingBadge } from "./pdf-preparing-badge"
-import { resolvePdfOutline } from "../pdf-runtime"
-import { FlipSheet } from "./flip-sheet"
+import { useEffect } from 'react'
+import { BookPreviewPageView } from '../book-preview-page'
+import { DEFAULT_CAPABILITIES } from '../capabilities'
+import { usePdfSheets } from '../hooks/use-pdf-sheets'
+import { useStableHandler } from '../hooks/use-stable-handler'
+import type { BookPreviewEngineProps } from '../types'
+import {
+  CURL_MAX_PAGES,
+  CURL_PAGE_RATIO,
+  CURL_RASTER_WIDTH,
+} from './curl-geometry'
+import { CurlStage } from './curl-stage'
+import { CurlPdfSheet } from './curl-pdf-sheet'
+import { PdfPasswordGate } from './pdf-password-gate'
+import { PdfPreparingBadge } from './pdf-preparing-badge'
+import { resolvePdfOutline } from '../pdf-runtime'
+import { FlipSheet } from './flip-sheet'
 
 export default function CurlEngine({
   source,
@@ -30,20 +34,28 @@ export default function CurlEngine({
   const reportReady = useStableHandler(onReady)
   const reportError = useStableHandler(onError)
 
-  const { sheets, ratio, prepared, preparing, doc, passwordRequest, submitPassword, cancelPassword } =
-    usePdfSheets({
-      pdfUrl,
-      enabled: usePdf,
-      pageIndex,
-      rasterWidth: CURL_RASTER_WIDTH,
-      sizing: "uniform",
-      maxPages: CURL_MAX_PAGES,
-      maxPagesMessage: `This document is longer than ${CURL_MAX_PAGES} pages — too heavy for the page-flip reader, which paints every page up front. Scroll or PDF mode handles it instead.`,
-      onError: reportError,
-      errorMessage: "This PDF could not be opened for curl.",
-    })
+  const {
+    sheets,
+    ratio,
+    prepared,
+    preparing,
+    doc,
+    passwordRequest,
+    submitPassword,
+    cancelPassword,
+  } = usePdfSheets({
+    pdfUrl,
+    enabled: usePdf,
+    pageIndex,
+    rasterWidth: CURL_RASTER_WIDTH,
+    sizing: 'uniform',
+    maxPages: CURL_MAX_PAGES,
+    maxPagesMessage: `This document is longer than ${CURL_MAX_PAGES} pages — too heavy for the page-flip reader, which paints every page up front. Scroll or PDF mode handles it instead.`,
+    onError: reportError,
+    errorMessage: 'This PDF could not be opened for curl.',
+  })
 
-  const totalPages = usePdf ? sheets?.length ?? 0 : pages.length
+  const totalPages = usePdf ? (sheets?.length ?? 0) : pages.length
 
   useEffect(() => {
     if (usePdf) {
@@ -61,7 +73,10 @@ export default function CurlEngine({
       return
     }
     if (pages.length === 0) {
-      reportError({ kind: "empty", message: "The curl reader needs page data or a PDF." })
+      reportError({
+        kind: 'empty',
+        message: 'The curl reader needs page data or a PDF.',
+      })
       return
     }
     reportReady({
@@ -73,7 +88,15 @@ export default function CurlEngine({
         download: Boolean(source.downloadUrl),
       },
     })
-  }, [pages.length, reportError, reportReady, sheets, source.downloadUrl, source.pdfUrl, usePdf])
+  }, [
+    pages.length,
+    reportError,
+    reportReady,
+    sheets,
+    source.downloadUrl,
+    source.pdfUrl,
+    usePdf,
+  ])
 
   // A password prompt still counts as "open": reporting a zero-page ready
   // unblocks the viewport so the gate is visible, and pagination stays off
@@ -130,7 +153,7 @@ export default function CurlEngine({
       )
     }
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
         Opening PDF…
       </div>
     )
@@ -140,7 +163,7 @@ export default function CurlEngine({
     <div className="relative h-full w-full">
       <CurlStage
         pageIndex={pageIndex}
-        pageRatio={usePdf ? ratio ?? CURL_PAGE_RATIO : CURL_PAGE_RATIO}
+        pageRatio={usePdf ? (ratio ?? CURL_PAGE_RATIO) : CURL_PAGE_RATIO}
         canGoPrev={pageIndex > 0}
         canGoNext={pageIndex < Math.max(totalPages, 1) - 1}
         reducedMotion={reducedMotion}
@@ -151,10 +174,12 @@ export default function CurlEngine({
         contentKey={
           usePdf
             ? `pdf:${sheets?.length ?? 0}`
-            : `${appearance}:${pages.map((page) => page.id).join(",")}`
+            : `${appearance}:${pages.map((page) => page.id).join(',')}`
         }
         onPageChange={onPageChange}
-        onEngineError={(message) => reportError({ kind: "engine-load", message })}
+        onEngineError={(message) =>
+          reportError({ kind: 'engine-load', message })
+        }
       >
         {usePdf && sheets
           ? sheets.map((sheet) => (

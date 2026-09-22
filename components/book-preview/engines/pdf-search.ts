@@ -1,4 +1,4 @@
-import { extractPdfPageText, type PdfDocumentProxy } from "../pdf-runtime"
+import { extractPdfPageText, type PdfDocumentProxy } from '../pdf-runtime'
 
 export type PdfSearchHit = {
   /** 1-based page number. */
@@ -36,14 +36,14 @@ export function createPdfSearchIndex(doc: PdfDocumentProxy) {
     const task = doc
       .getPage(pageNumber)
       .then((page) => extractPdfPageText(page))
-      .catch(() => "")
+      .catch(() => '')
     cache.set(pageNumber, task)
     return task
   }
 
   const search = async (
     query: string,
-    isCancelled: () => boolean
+    isCancelled: () => boolean,
   ): Promise<PdfSearchHit[]> => {
     const needle = query.trim().toLowerCase()
     if (!needle) return []
@@ -61,7 +61,7 @@ export function createPdfSearchIndex(doc: PdfDocumentProxy) {
   return { search, pageText }
 }
 
-export const PDF_SEARCH_HIT_ATTR = "data-pdf-search-hit"
+export const PDF_SEARCH_HIT_ATTR = 'data-pdf-search-hit'
 
 /**
  * Marks every text-layer span intersecting a query match. Spans carry one
@@ -69,19 +69,26 @@ export const PDF_SEARCH_HIT_ATTR = "data-pdf-search-hit"
  * accumulated over the concatenated text so all of them light up, the same
  * way the browser's own find highlights a range.
  */
-export function highlightTextLayer(container: HTMLElement, query: string): number {
+export function highlightTextLayer(
+  container: HTMLElement,
+  query: string,
+): number {
   const needle = query.trim().toLowerCase()
   const spans = Array.from(
-    container.querySelectorAll<HTMLElement>("span:not(.markedContent)")
+    container.querySelectorAll<HTMLElement>('span:not(.markedContent)'),
   )
   for (const span of spans) span.removeAttribute(PDF_SEARCH_HIT_ATTR)
   if (!needle) return 0
 
-  let text = ""
+  let text = ''
   const offsets: { start: number; end: number; el: HTMLElement }[] = []
   for (const span of spans) {
-    const content = span.textContent ?? ""
-    offsets.push({ start: text.length, end: text.length + content.length, el: span })
+    const content = span.textContent ?? ''
+    offsets.push({
+      start: text.length,
+      end: text.length + content.length,
+      el: span,
+    })
     text += content
   }
   const haystack = text.toLowerCase()
@@ -93,7 +100,7 @@ export function highlightTextLayer(container: HTMLElement, query: string): numbe
     if (hit === -1) break
     const hitEnd = hit + needle.length
     for (const { start, end, el } of offsets) {
-      if (end > hit && start < hitEnd) el.setAttribute(PDF_SEARCH_HIT_ATTR, "")
+      if (end > hit && start < hitEnd) el.setAttribute(PDF_SEARCH_HIT_ATTR, '')
     }
     total += 1
     from = hitEnd

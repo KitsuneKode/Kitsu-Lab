@@ -1281,6 +1281,8 @@ export default function PdfEngine({
                 ref={textLayerRef}
                 className="textLayer"
                 data-book-preview-text-layer
+                data-bp-annotatable
+                data-page-index={pageIndex}
               />
               {links && links.key === linkKey && links.items.length > 0 ? (
                 <div

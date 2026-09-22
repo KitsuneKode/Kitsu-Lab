@@ -1,5 +1,7 @@
 import type { BookPreviewUrlKeys } from './url-state'
 import type { BookPreviewTypography } from './typography'
+import type { BookPreviewAiAdapter } from './ai'
+import type { BookPreviewAnnotation } from './annotations'
 import type { ComponentType, ReactNode } from 'react'
 
 export const BOOK_PREVIEW_MODES = [
@@ -209,6 +211,22 @@ export type BookPreviewProps = {
       across visits with `persistPreferences`. */
   defaultTypography?: Partial<BookPreviewTypography>
   onTypographyChange?: (typography: BookPreviewTypography) => void
+  /** Select text to highlight it, add notes, and bookmark pages. On by
+      default; set false for a read-only preview. */
+  annotate?: boolean
+  /** Controlled notebook — pair with `onAnnotationsChange` to sync highlights,
+      notes and bookmarks to your own backend (they carry ids and timestamps
+      for last-write-wins merging). */
+  annotations?: BookPreviewAnnotation[]
+  defaultAnnotations?: BookPreviewAnnotation[]
+  onAnnotationsChange?: (annotations: BookPreviewAnnotation[]) => void
+  /** Remember the notebook per document in localStorage (uncontrolled only),
+      kept in step across open tabs. */
+  persistAnnotations?: boolean
+  /** Put a model next to the page: "Ask" on a selection or the current
+      page. See ai.ts for the on-device, OpenAI-compatible (Ollama), and
+      server-route adapters. */
+  ai?: BookPreviewAiAdapter
   /** Called when the requested mode cannot render this source and another
       compatible engine takes over (e.g. "webgl" requested for a PDF). */
   onModeFallback?: (requested: BookPreviewMode, actual: BookPreviewMode) => void

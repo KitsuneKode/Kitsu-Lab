@@ -2,7 +2,10 @@
 
 import { spreadSlots, spreadStep } from './premier-math'
 import { usePageArrival } from '../hooks/use-page-arrival'
-import type { BookPreviewNavigationBehavior } from '../types'
+import type {
+  BookPreviewAppearance,
+  BookPreviewNavigationBehavior,
+} from '../types'
 import { useStableHandler } from '../hooks/use-stable-handler'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FALLBACK_ASPECT, type PremierFace } from './premier-faces'
@@ -179,11 +182,15 @@ function fitHeight(aspect: number): string {
     stage, width-bounded so a tall page never overflows narrow screens. */
 function FaceBox({
   face,
+  index,
   className,
   arrival,
   children,
 }: {
   face: PremierFace
+  /** The face's page index — marks it as highlightable text for the
+      reader's annotation layer. */
+  index: number
   className?: string
   arrival?: Record<string, unknown>
   children?: ReactNode
@@ -191,6 +198,8 @@ function FaceBox({
   return (
     <div
       {...arrival}
+      data-bp-annotatable
+      data-page-index={index}
       className={
         'bg-card relative h-full max-w-full shrink-0 overflow-hidden rounded-md border shadow-sm ' +
         (className ?? '')
@@ -432,6 +441,10 @@ function useSwipeTurn({
         suppressClick.current = false
         return
       }
+      // A drag that selected text ends in a click — that is highlighting,
+      // not asking for the next page.
+      const selection = window.getSelection()
+      if (selection && !selection.isCollapsed) return
       if ((event.target as HTMLElement).closest('a,button,input,[role=button]'))
         return
       const rect = host.getBoundingClientRect()
@@ -531,7 +544,12 @@ export function PremierSingleView({
           className="m-auto"
         >
           {face ? (
-            <FaceBox face={face} arrival={arrival} key={face.key}>
+            <FaceBox
+              face={face}
+              index={Math.min(pageIndex, faces.length - 1)}
+              arrival={arrival}
+              key={face.key}
+            >
               {doc && face.pageNumber !== null ? (
                 <PdfFaceOverlay
                   doc={doc}
@@ -617,7 +635,12 @@ export function PremierSpreadView({
           className="m-auto flex items-stretch gap-0.5"
         >
           {leftFace ? (
-            <FaceBox face={leftFace} arrival={arrival} key={leftFace.key}>
+            <FaceBox
+              face={leftFace}
+              index={left}
+              arrival={arrival}
+              key={leftFace.key}
+            >
               {doc && leftFace.pageNumber !== null ? (
                 <PdfFaceOverlay
                   doc={doc}
@@ -630,7 +653,12 @@ export function PremierSpreadView({
             </FaceBox>
           ) : null}
           {rightFace ? (
-            <FaceBox face={rightFace} arrival={arrival} key={rightFace.key}>
+            <FaceBox
+              face={rightFace}
+              index={right}
+              arrival={arrival}
+              key={rightFace.key}
+            >
               {doc && rightFace.pageNumber !== null ? (
                 <PdfFaceOverlay
                   doc={doc}
@@ -682,6 +710,10 @@ function useScrollPageSync({
   const faceEls = useRef(new Map<number, HTMLElement>())
   const ratios = useRef(new Map<number, number>())
   const dominantRef = useRef(pageIndex)
+  // While a programmatic scroll is travelling to a page, the faces it passes
+  // are not "where the reader is" — reporting them would pull the reader back
+  // (a ?page=12 link or a contents jump landing on page 3 instead).
+  const travelRef = useRef<{ target: number; until: number } | null>(null)
   const report = useStableHandler(onPageChange)
 
   useEffect(() => {
@@ -706,6 +738,14 @@ function useScrollPageSync({
             bestRatio = ratio
           }
         }
+        const travel = travelRef.current
+        if (travel) {
+          if (best === travel.target || performance.now() > travel.until) {
+            travelRef.current = null
+          } else {
+            return
+          }
+        }
         if (best >= 0 && best < count && best !== dominantRef.current) {
           dominantRef.current = best
           report(best, 'instant')
@@ -722,6 +762,7 @@ function useScrollPageSync({
     const el = faceEls.current.get(pageIndex)
     if (!el) return
     dominantRef.current = pageIndex
+    travelRef.current = { target: pageIndex, until: performance.now() + 1200 }
     el.scrollIntoView({
       block: 'start',
       behavior: reducedMotion ? 'auto' : 'smooth',
@@ -786,6 +827,8 @@ export function PremierScrollView({
           <div
             key={face.key}
             data-face-index={index}
+            data-bp-annotatable
+            data-page-index={index}
             ref={registerFace(index)}
             className="bg-card relative w-full overflow-hidden rounded-md border shadow-sm"
             style={{ aspectRatio: `${face.aspect ?? FALLBACK_ASPECT}` }}
@@ -816,10 +859,14 @@ export function PremierTextView({
   pageIndex,
   zoom,
   reducedMotion,
+  appearance,
   onZoom,
   onPageChange,
 }: {
   faces: PremierFace[]
+  /** The reader's paper — text view is pure type, so it wears the paper
+      directly (sepia, night) the way an e-reader does. */
+  appearance: BookPreviewAppearance
   pageIndex: number
   zoom: number
   reducedMotion: boolean
@@ -849,6 +896,7 @@ export function PremierTextView({
   return (
     <div
       ref={scrollerRef}
+      data-bp-paper={appearance}
       className="h-full w-full overflow-auto overscroll-contain"
     >
       <div
@@ -861,11 +909,16 @@ export function PremierTextView({
           <section
             key={face.key}
             data-face-index={index}
+            data-bp-annotatable
+            data-page-index={index}
             ref={registerFace(index)}
             aria-label={`Page ${index + 1}`}
             className="scroll-mt-4"
           >
-            <p className="text-muted-foreground mb-2 font-mono text-[11px] tracking-widest uppercase">
+            <p
+              data-bp-annotate-skip
+              className="text-muted-foreground mb-2 font-mono text-[11px] tracking-widest uppercase"
+            >
               Page {index + 1}
             </p>
             {face.text ? (

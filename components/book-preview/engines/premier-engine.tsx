@@ -405,6 +405,7 @@ export default function PremierEngine({
   useEffect(() => {
     const ref = engineShortcutsRef
     ref.current = {
+      pageText: textFor,
       search: openSearch,
       zoomIn,
       zoomOut,
@@ -429,6 +430,7 @@ export default function PremierEngine({
     engineShortcutsRef,
     openSearch,
     searchOpen,
+    textFor,
     thumbsOpen,
     zoomIn,
     zoomOut,
@@ -530,7 +532,7 @@ export default function PremierEngine({
 
   const controls = (
     <div className="flex flex-wrap items-center justify-center gap-2">
-      <p className="text-muted-foreground max-w-[10rem] truncate text-xs sm:max-w-none">
+      <p className="text-muted-foreground hidden max-w-[10rem] truncate text-xs sm:block sm:max-w-none">
         {source.pdfFileName ?? source.title ?? 'Document'}
       </p>
       <ToggleGroup
@@ -650,42 +652,61 @@ export default function PremierEngine({
           <IconSearch />
         </Button>
       )}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Zoom out"
-        aria-keyshortcuts="-"
-        onClick={zoomOut}
-        disabled={zoom <= 0.6}
-        data-book-preview-press
-        className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
-      >
-        <IconZoomOut />
-      </Button>
-      <button
-        type="button"
-        aria-label="Reset zoom"
-        aria-keyshortcuts="0"
-        onClick={zoomReset}
-        data-book-preview-press
-        className="text-muted-foreground hover:text-foreground min-w-[5ch] text-center font-mono text-xs transition-colors"
-      >
-        {Math.round(zoom * 100)}%
-      </button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Zoom in"
-        aria-keyshortcuts="+"
-        onClick={zoomIn}
-        disabled={zoom >= 2.4}
-        data-book-preview-press
-        className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
-      >
-        <IconZoomIn />
-      </Button>
+      {/* Phones pinch to zoom, so the buttons would only crowd the bar —
+          the percentage stays as a one-tap reset once the page is zoomed. */}
+      {narrow ? (
+        zoom !== 1 ? (
+          <button
+            type="button"
+            aria-label="Reset zoom"
+            aria-keyshortcuts="0"
+            onClick={zoomReset}
+            data-book-preview-press
+            className="text-muted-foreground hover:text-foreground min-w-[5ch] text-center font-mono text-xs transition-colors"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+        ) : null
+      ) : (
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Zoom out"
+            aria-keyshortcuts="-"
+            onClick={zoomOut}
+            disabled={zoom <= 0.6}
+            data-book-preview-press
+            className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+          >
+            <IconZoomOut />
+          </Button>
+          <button
+            type="button"
+            aria-label="Reset zoom"
+            aria-keyshortcuts="0"
+            onClick={zoomReset}
+            data-book-preview-press
+            className="text-muted-foreground hover:text-foreground min-w-[5ch] text-center font-mono text-xs transition-colors"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Zoom in"
+            aria-keyshortcuts="+"
+            onClick={zoomIn}
+            disabled={zoom >= 2.4}
+            data-book-preview-press
+            className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+          >
+            <IconZoomIn />
+          </Button>
+        </>
+      )}
       <Button
         type="button"
         variant={speaking ? 'secondary' : 'ghost'}
@@ -864,6 +885,7 @@ export default function PremierEngine({
               pageIndex={pageIndex}
               zoom={zoom}
               reducedMotion={reducedMotion}
+              appearance={appearance}
               onZoom={setZoom}
               onPageChange={reportPageChange}
             />

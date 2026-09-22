@@ -42,6 +42,33 @@
   line-height: var(--bp-type-leading);
 }
 
+/* Paper for pure-type surfaces (the premier Text view). */
+.book-preview [data-bp-paper='light'] {
+  background: #fdfdfc;
+  color: #1c1917;
+}
+.book-preview [data-bp-paper='sepia'] {
+  background: #fbf0d9;
+  color: #2c2523;
+}
+.book-preview [data-bp-paper='dark'] {
+  background: #27272a;
+  color: #f4f4f5;
+}
+.book-preview [data-bp-paper='oled'] {
+  background: #000;
+  color: #e4e4e7;
+}
+.book-preview [data-bp-paper]:not([data-bp-paper='system']) [data-bp-reflow] {
+  color: inherit;
+}
+.book-preview
+  [data-bp-paper]:not([data-bp-paper='system'])
+  [data-bp-annotate-skip] {
+  color: inherit;
+  opacity: 0.55;
+}
+
 .book-preview [data-book-preview-press]:not(:disabled):active {
   transform: scale(var(--book-preview-press-scale));
 }
@@ -419,6 +446,83 @@ html[data-book-preview-immersive] body > [data-base-ui-portal] {
 @media (prefers-reduced-motion: reduce) {
   .book-preview [data-book-preview-thumb] {
     animation: none;
+  }
+}
+
+/* Highlight inks (::highlight rules) are injected at runtime by
+   annotation-dom.ts — the build's CSS parser does not know the pseudo-element
+   yet and would warn on every build. */
+
+/* The selection card grows out of the passage it belongs to: anchored at
+   the passage's centre, origin on the side facing the text, 160ms ease-out
+   in. It is dismissed instantly — leaving should never make you wait. */
+.book-preview [data-book-preview-annotation-card] {
+  translate: -50% -100%;
+  transform-origin: bottom center;
+  transition:
+    opacity 160ms var(--book-preview-ease-out),
+    scale 160ms var(--book-preview-ease-out);
+}
+
+.book-preview [data-book-preview-annotation-card][data-placement='below'] {
+  translate: -50% 0;
+  transform-origin: top center;
+}
+
+@starting-style {
+  .book-preview [data-book-preview-annotation-card] {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-annotation-card] {
+    transition: opacity 120ms linear;
+  }
+  @starting-style {
+    .book-preview [data-book-preview-annotation-card] {
+      scale: 1;
+    }
+  }
+}
+
+/* Notebook entries settle in with a short stagger the first time the sheet
+   opens. The sheet portals out of the reader, so these are unscoped. */
+[data-book-preview-notebook-item] {
+  transition:
+    opacity 200ms cubic-bezier(0.23, 1, 0.32, 1) var(--bp-stagger, 0ms),
+    translate 200ms cubic-bezier(0.23, 1, 0.32, 1) var(--bp-stagger, 0ms);
+}
+
+@starting-style {
+  [data-book-preview-notebook-item] {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-book-preview-notebook-item] {
+    transition: opacity 120ms linear;
+    translate: none;
+  }
+}
+
+/* A bookmarked page wears a ribbon that drops in from the top edge. */
+.book-preview [data-book-preview-ribbon] {
+  transition: translate 220ms var(--book-preview-ease-out);
+}
+
+@starting-style {
+  .book-preview [data-book-preview-ribbon] {
+    translate: 0 -100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-ribbon] {
+    transition: none;
   }
 }
 

@@ -12,6 +12,8 @@ import {
   IconLetterCase,
   IconMinus,
   IconPlus,
+  IconVolume,
+  IconVolumeOff,
 } from '@tabler/icons-react'
 import {
   Popover,
@@ -77,7 +79,8 @@ const WIDTHS: { value: TypographyWidth; label: string }[] = [
  * live behind one quiet button instead of five always-on toggles.
  */
 export function BookPreviewReadingSettings() {
-  const { state, setAppearance, typography, setTypography } = useBookPreview()
+  const { state, setAppearance, setSound, typography, setTypography } =
+    useBookPreview()
   const patch = (next: Partial<BookPreviewTypography>) =>
     setTypography({ ...typography, ...next })
 
@@ -275,6 +278,31 @@ export function BookPreviewReadingSettings() {
             </Button>
           </div>
         </section>
+        {state.capabilities.sound ? (
+          <>
+            <Separator />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-muted-foreground text-xs font-medium">
+                Page-turn sound
+              </p>
+              <Button
+                type="button"
+                variant={state.sound ? 'secondary' : 'outline'}
+                size="sm"
+                aria-pressed={state.sound}
+                onClick={() => setSound(!state.sound)}
+                data-book-preview-press
+              >
+                {state.sound ? (
+                  <IconVolume data-icon="inline-start" />
+                ) : (
+                  <IconVolumeOff data-icon="inline-start" />
+                )}
+                {state.sound ? 'On' : 'Off'}
+              </Button>
+            </div>
+          </>
+        ) : null}
       </PopoverContent>
     </Popover>
   )

@@ -182,6 +182,7 @@ function BookPreviewTextPage({
         }}
       />
       <header
+        data-bp-annotate-skip
         className={cn(
           'flex items-center justify-between border-b pb-2 text-[11px] tracking-wider uppercase',
           theme.border,
@@ -227,6 +228,7 @@ function BookPreviewTextPage({
         ) : null}
       </div>
       <footer
+        data-bp-annotate-skip
         className={cn(
           'text-center font-mono text-[10px] tracking-widest',
           theme.muted,

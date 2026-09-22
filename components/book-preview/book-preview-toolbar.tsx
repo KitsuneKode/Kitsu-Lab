@@ -2,13 +2,14 @@
 
 import { useRef } from 'react'
 import {
+  IconBookmark,
+  IconBookmarkFilled,
   IconDownload,
+  IconHighlight,
   IconList,
   IconMaximize,
   IconMinimize,
   IconUpload,
-  IconVolume,
-  IconVolumeOff,
 } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,12 +24,12 @@ import { BookPreviewIconButton } from './book-preview-icon-button'
 import { BookPreviewModePicker } from './book-preview-mode-picker'
 import { BookPreviewReadingSettings } from './book-preview-reading-settings'
 import { useBookPreview } from './book-preview-provider'
+import { findBookmark, toggleBookmark } from './annotations'
 
 export function BookPreviewToolbar() {
   const {
     state,
     source,
-    setSound,
     toggleFullscreen,
     fullscreen,
     goToPage,
@@ -67,13 +68,12 @@ export function BookPreviewToolbar() {
       <div ref={setChromeHost} className="contents" />
       <div className="flex flex-wrap items-center gap-2">
         <BookPreviewReadingSettings />
+        <MarksControls />
         <Separator orientation="vertical" className="hidden h-6 sm:block" />
         {contents.length > 1 ? (
           <ContentsMenu contents={contents} goToPage={goToPage} />
         ) : null}
         <ToolbarActions
-          soundCapable={state.capabilities.sound}
-          sound={state.sound}
           fullscreenCapable={state.capabilities.fullscreen}
           fullscreen={fullscreen}
           downloadCapable={state.capabilities.download}
@@ -81,7 +81,6 @@ export function BookPreviewToolbar() {
           downloadFileName={source.downloadFileName}
           uploadCapable={source.allowPdfUpload}
           onUploadPdf={uploadPdf}
-          onSetSound={setSound}
           onToggleFullscreen={toggleFullscreen}
         />
       </div>
@@ -89,9 +88,47 @@ export function BookPreviewToolbar() {
   )
 }
 
+/** Bookmark the page, and open the notebook — with a live count, so a reader
+    can see at a glance that their marks are there. */
+function MarksControls() {
+  const { annotate, annotations, updateAnnotations, openCompanion, state } =
+    useBookPreview()
+  if (!annotate || state.status !== 'ready' || state.totalPages === 0) {
+    return null
+  }
+  const bookmarked = Boolean(findBookmark(annotations, state.pageIndex))
+  return (
+    <>
+      <BookPreviewIconButton
+        label={bookmarked ? 'Remove bookmark (B)' : 'Bookmark this page (B)'}
+        pressed={bookmarked}
+        onClick={() =>
+          updateAnnotations((list) => toggleBookmark(list, state.pageIndex))
+        }
+      >
+        {bookmarked ? <IconBookmarkFilled /> : <IconBookmark />}
+      </BookPreviewIconButton>
+      <span className="relative inline-flex">
+        <BookPreviewIconButton
+          label="Notebook and Ask"
+          onClick={() => openCompanion('notes')}
+        >
+          <IconHighlight />
+        </BookPreviewIconButton>
+        {annotations.length > 0 ? (
+          <span
+            aria-hidden
+            className="bg-primary text-primary-foreground pointer-events-none absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-[10px] leading-none tabular-nums"
+          >
+            {annotations.length > 99 ? '99+' : annotations.length}
+          </span>
+        ) : null}
+      </span>
+    </>
+  )
+}
+
 function ToolbarActions({
-  soundCapable,
-  sound,
   fullscreenCapable,
   fullscreen,
   downloadCapable,
@@ -99,11 +136,8 @@ function ToolbarActions({
   downloadFileName,
   uploadCapable,
   onUploadPdf,
-  onSetSound,
   onToggleFullscreen,
 }: {
-  soundCapable: boolean
-  sound: boolean
   fullscreenCapable: boolean
   fullscreen: boolean
   downloadCapable: boolean
@@ -111,7 +145,6 @@ function ToolbarActions({
   downloadFileName?: string
   uploadCapable: boolean
   onUploadPdf: (file: File) => void
-  onSetSound: (sound: boolean) => void
   onToggleFullscreen: () => void
 }) {
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
@@ -140,15 +173,6 @@ function ToolbarActions({
             <IconUpload />
           </BookPreviewIconButton>
         </>
-      ) : null}
-      {soundCapable ? (
-        <BookPreviewIconButton
-          label={sound ? 'Mute page sounds' : 'Enable page sounds'}
-          pressed={sound}
-          onClick={() => onSetSound(!sound)}
-        >
-          {sound ? <IconVolume /> : <IconVolumeOff />}
-        </BookPreviewIconButton>
       ) : null}
       {fullscreenCapable ? (
         <BookPreviewIconButton

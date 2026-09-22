@@ -10,6 +10,11 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { optionalBookPreviewEngines } from '@/components/book-preview/optional-engines'
 import { useUrlParam } from '@/components/book-preview/hooks/use-url-param'
 import {
+  chainAiAdapters,
+  createBuiltInAiAdapter,
+  createOpenAICompatibleAdapter,
+} from '@/components/book-preview/ai'
+import {
   pickAllowed,
   writeUrlParams,
 } from '@/components/book-preview/url-state'
@@ -57,6 +62,18 @@ const DEMO_DOCUMENTS = [
 ] as const
 
 type DemoDocument = (typeof DEMO_DOCUMENTS)[number]['value']
+
+// Ask runs on the reader's own machine: the browser's built-in model when it
+// has one, otherwise a local Ollama server (`OLLAMA_ORIGINS=* ollama serve`).
+// Nothing is sent to a hosted API from this demo.
+const DEMO_AI = chainAiAdapters(
+  createBuiltInAiAdapter(),
+  createOpenAICompatibleAdapter({
+    baseUrl: 'http://localhost:11434/v1',
+    model: 'llama3.2',
+    label: 'Ollama · llama3.2 (local)',
+  }),
+)
 
 const engineLabel = (id: BookPreviewMode) =>
   optionalBookPreviewEngines.find((engine) => engine.id === id)?.label ?? id
@@ -170,7 +187,8 @@ export function BookPreviewDemo() {
           select them. Drop a PDF anywhere on the reader to open it, search the
           whole document, browse its outline or thumbnails, swipe or drag to
           turn and pan, and pick up where you left off &mdash; even across
-          visits.
+          visits. Select any passage to highlight it, add a note, or ask about
+          it; the link in your address bar reopens exactly this view.
         </p>
       </div>
       <ToggleGroup
@@ -240,6 +258,8 @@ export function BookPreviewDemo() {
         }
         persistPage
         persistPreferences
+        persistAnnotations
+        ai={DEMO_AI}
         urlState
         prefetchModes={['scroll', 'spread', 'curl']}
         defaultAppearance="system"

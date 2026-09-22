@@ -21,6 +21,11 @@ import { createInitialState, type BookPreviewAction } from './reducer'
 import { isInteractiveTarget, isReaderKeyboardEvent } from './keyboard'
 import { BookPreviewEngineBoundary } from './book-preview-engine-boundary'
 import { useImmersiveChrome } from './hooks/use-immersive-chrome'
+import { useAnnotations } from './hooks/use-annotations'
+import { toggleBookmark } from './annotations'
+import { BookPreviewCompanion } from './book-preview-companion'
+import { BookPreviewBookmarkRibbon } from './book-preview-bookmark-ribbon'
+import { BookPreviewAnnotationLayer } from './book-preview-annotation-layer'
 import {
   DEFAULT_TYPOGRAPHY,
   typographyVariables,
@@ -30,6 +35,7 @@ import {
   clampPageIndex,
   isEmptySource,
   normalizeSource,
+  pageSearchText,
   sourceIdentity,
 } from './normalize'
 import {
@@ -40,6 +46,8 @@ import {
 } from './media'
 import {
   BookPreviewProvider,
+  type BookPreviewAskSeed,
+  type BookPreviewCompanionTab,
   type BookPreviewContextValue,
   type BookPreviewEngineShortcuts,
 } from './book-preview-provider'
@@ -792,6 +800,12 @@ export function BookPreview({
   prefetchModes,
   defaultTypography,
   onTypographyChange,
+  annotate = true,
+  annotations: annotationsProp,
+  defaultAnnotations,
+  onAnnotationsChange,
+  persistAnnotations = false,
+  ai,
   onModeFallback,
   onCapabilitiesChange,
   onError,
@@ -1007,6 +1021,64 @@ export function BookPreview({
 
   const engineShortcutsRef = useRef<BookPreviewEngineShortcuts>({})
 
+  const { annotations, updateAnnotations } = useAnnotations({
+    sourceKey,
+    annotations: annotationsProp,
+    defaultAnnotations,
+    onAnnotationsChange,
+    persist: persistAnnotations,
+  })
+
+  // The companion sheet: the notebook (highlights, notes, bookmarks) and Ask.
+  const [companion, setCompanion] = useState<{
+    open: boolean
+    tab: BookPreviewCompanionTab
+    askSeed: BookPreviewAskSeed | null
+  }>({ open: false, tab: 'notes', askSeed: null })
+  const openCompanion = useCallback(
+    (
+      tab: BookPreviewCompanionTab,
+      askSeed?: Omit<BookPreviewAskSeed, 'nonce'>,
+    ) =>
+      setCompanion((current) => ({
+        open: true,
+        tab,
+        askSeed: askSeed
+          ? { ...askSeed, nonce: (current.askSeed?.nonce ?? 0) + 1 }
+          : current.askSeed,
+      })),
+    [],
+  )
+  const setCompanionOpen = useCallback(
+    (open: boolean) => setCompanion((current) => ({ ...current, open })),
+    [],
+  )
+  const setCompanionTab = useCallback(
+    (tab: BookPreviewCompanionTab) =>
+      setCompanion((current) => ({ ...current, tab })),
+    [],
+  )
+
+  const getPageText = useCallback(
+    (index: number) => {
+      const fromEngine = engineShortcutsRef.current.pageText?.(index)
+      if (fromEngine) return fromEngine
+      const root = rootRef.current
+      const surfaces = root
+        ? root.querySelectorAll<HTMLElement>(
+            `[data-bp-annotatable][data-page-index="${index}"]`,
+          )
+        : []
+      const fromDom = Array.from(surfaces, (el) => el.textContent ?? '')
+        .join(' ')
+        .trim()
+      if (fromDom) return fromDom
+      const page = normalized.pages[index]
+      return page ? pageSearchText(page) : ''
+    },
+    [normalized.pages],
+  )
+
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!isReaderKeyboardEvent(event.nativeEvent, rootRef.current)) return
@@ -1093,6 +1165,16 @@ export function BookPreview({
           shortcuts.zoomReset()
         }
       }
+      if (
+        (event.key === 'b' || event.key === 'B') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        state.totalPages > 0
+      ) {
+        event.preventDefault()
+        updateAnnotations((list) => toggleBookmark(list, activePage))
+      }
       if (event.key === 'Escape') {
         // Overlays first (engine search/thumbnail sheets), then immersive.
         if (shortcuts.dismiss?.()) {
@@ -1112,6 +1194,7 @@ export function BookPreview({
       setCssImmersive,
       state.totalPages,
       toggleFullscreen,
+      updateAnnotations,
     ],
   )
 
@@ -1138,6 +1221,9 @@ export function BookPreview({
       )
     ) {
       requestAnimationFrame(() => {
+        // A trigger that just opened a popover or menu owns focus now —
+        // pulling it back to the root would dismiss what it opened.
+        if (target.closest('[aria-expanded="true"], [data-popup-open]')) return
         const root = rootRef.current
         // Only reclaim focus that stayed inside the reader — a click that
         // deliberately moved it elsewhere (dialog, external focus) wins.
@@ -1240,10 +1326,29 @@ export function BookPreview({
       fullscreen,
       chromeHost,
       setChromeHost,
+      rootRef,
+      annotate,
+      annotations,
+      updateAnnotations,
+      ai,
+      companion,
+      openCompanion,
+      setCompanionOpen,
+      setCompanionTab,
+      getPageText,
     }),
     [
       activeAppearance,
+      ai,
+      annotate,
+      annotations,
+      companion,
       compatibleEngines,
+      getPageText,
+      openCompanion,
+      setCompanionOpen,
+      setCompanionTab,
+      updateAnnotations,
       effectiveMode,
       activePage,
       activeSound,
@@ -1283,7 +1388,7 @@ export function BookPreview({
           style={rootStyle}
           tabIndex={0}
           aria-label={label}
-          aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f / + - 0 Escape"
+          aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f b / + - 0 Escape"
           data-reduced-motion={reducedMotion || undefined}
           data-reduced-transparency={reducedTransparency || undefined}
           data-more-contrast={moreContrast || undefined}
@@ -1332,13 +1437,17 @@ export function BookPreview({
               onReady={handleEngineReady}
               onError={handleEngineError}
             />
+            <BookPreviewBookmarkRibbon />
           </BookPreviewViewport>
           <BookPreviewNavigation />
+          <BookPreviewAnnotationLayer />
+          <BookPreviewCompanion />
           <p className="sr-only">
             Arrow keys, Page Up and Page Down turn pages while this reader is
-            focused. Space moves forward, F toggles fullscreen, slash or Control
-            F opens search when the active reader supports it, and plus, minus
-            and zero control zoom. Typing in fields is ignored.
+            focused. Space moves forward, F toggles fullscreen, B bookmarks the
+            page, slash or Control F opens search when the active reader
+            supports it, and plus, minus and zero control zoom. Select text to
+            highlight it. Typing in fields is ignored.
           </p>
           {dropActive ? (
             <div

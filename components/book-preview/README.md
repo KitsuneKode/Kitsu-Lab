@@ -52,6 +52,70 @@ export function Reader() {
 
 `persistPage` remembers the reading position per source, `persistPreferences` remembers appearance, reader mode, and engine-level settings like PDF zoom, and `pageParam="page"` deep-links `?page=12` — applied once per source on open, then kept current with `history.replaceState`. All three are opt-in and inert while the matching prop is controlled.
 
+## Shareable links
+
+`urlState` mirrors the reader into the query string — `?page=12&mode=premier&view=spread&theme=sepia` — so a copied link or a refresh reopens exactly the same view. Writes use `history.replaceState` (no back-stack spam). Pass an object to rename or pick keys: `urlState={{ page: 'p', mode: 'reader' }}`. The older `pageParam` prop still works.
+
+## Fullscreen and layout
+
+Fullscreen floats the toolbar and pager over the page and fades them out after a short idle. Moving the mouse, nearing an edge, tabbing, or tapping the middle of the page brings them back; page turns never do. Native fullscreen targets the document, so menus, sheets and tooltips keep working inside it. `layout="fill"` stretches the reader to its parent's height for app shells and dedicated reader routes.
+
+## Reading settings
+
+One "Aa" popover holds paper (match site, paper, sepia, dusk, night), type size, typeface (serif, sans, a legibility face, mono), line spacing, measure, justification and page-turn sound. Size, spacing and measure reflow text pages and the premier Text view; PDF scans keep their own type. `defaultTypography` seeds it, `persistPreferences` remembers it, `onTypographyChange` reports it.
+
+## Highlights, notes and bookmarks
+
+Select any passage on a text surface to highlight it in one of four inks, add a note, copy it, or ask about it. Tap a highlight to recolour, annotate or delete it. `B` bookmarks the page (a ribbon marks it). The notebook sheet lists everything by page, filters by ink, notes or bookmarks, and exports Markdown.
+
+Highlights are anchored by text quote (the exact words plus a little context, W3C TextQuoteSelector style), not DOM positions, so they survive zoom, view switches, reloads and devices. They are painted with the CSS Custom Highlight API, which never touches the engine's DOM.
+
+```tsx
+// Local only — remembered per document, kept in step across tabs.
+<BookPreview source={source} persistAnnotations />
+
+// Synced — you own storage. Every record has an id and createdAt/updatedAt
+// for last-write-wins merging.
+<BookPreview
+  source={source}
+  annotations={annotations}
+  onAnnotationsChange={(next) => {
+    setAnnotations(next)
+    void saveToServer(documentId, next)
+  }}
+/>
+```
+
+`annotate={false}` turns highlighting off for read-only previews. Engines opt page surfaces in with `data-bp-annotatable` + `data-page-index` (premier faces, the PDF text layer and page leaves already do).
+
+## Ask (AI)
+
+Pass an `ai` adapter and the selection card and companion sheet gain **Ask**: questions about a passage or the page, grounded in the page text, streamed back. The reader never calls a vendor itself — adapters decide where the question goes.
+
+```tsx
+import {
+  chainAiAdapters,
+  createBuiltInAiAdapter,
+  createFetchAiAdapter,
+  createOpenAICompatibleAdapter,
+} from '@/components/book-preview'
+
+// On-device first (Chrome's built-in model: private, free, offline), then a
+// local Ollama server, then your own route for everyone else.
+const ai = chainAiAdapters(
+  createBuiltInAiAdapter(),
+  createOpenAICompatibleAdapter({
+    baseUrl: 'http://localhost:11434/v1', // OLLAMA_ORIGINS=* ollama serve
+    model: 'llama3.2',
+  }),
+  createFetchAiAdapter({ url: '/api/ask' }),
+)
+
+<BookPreview source={source} ai={ai} />
+```
+
+`createFetchAiAdapter` POSTs `{ question, selection, pageIndex, pageText, title, author, prompt: { system, user } }` to your route and streams the plain-text response body back — the route holds the API key and picks the model. Write any adapter by implementing `{ label, isAvailable?, ask(request, { signal }) }` returning a string promise or an async iterable of chunks.
+
 ## Compose optional engines
 
 Engine descriptors are deliberately separate from their implementation. Importing a descriptor does not eagerly import its renderer or heavyweight dependency.
@@ -97,6 +161,7 @@ When pages use custom `render` functions, pass `source.revision` and change it w
 - The premier engine is the flagship book: five remembered views — the full curl stage (corner drag, tap zones, edge stacks, page-turn sound), a single-page view, a two-page spread, a continuous scroll, and a bitmap-free text flow — plus whole-document search (a background pass indexes page text even outside the raster window), zoom, thumbnails, the PDF outline as contents, and continuous read-aloud that turns its own pages and skips silent leaves. PDF faces in the flat views wear a live overlay — pdf.js's selectable text layer plus link annotations at the measured display scale — so a document copy stays selectable and linked without a live canvas. Page data and PDFs alike; the flat views rasterize only a window around the reading position, so documents past `CURL_MAX_PAGES` still read there while the flip book bows out.
 - Curl engines paint every leaf up front, so PDFs over `CURL_MAX_PAGES` (160) fail with a message pointing at the bounded modes instead of hanging the tab. The resting book sits on a soft shadow with fore-edge page stacks that thin as leaves move to the other side, corners lift on hover to teach the drag, and tap zones flip from either edge.
 - PDF raster density is capped to avoid high-DPR memory spikes; object URLs, PDF workers, and password-pending load tasks are released on teardown.
+- The premier flat views fit each face to both axes of the stage with container units, so pages use the full height in fullscreen and never overflow narrow screens. A programmatic jump in the continuous views (deep link, contents, search) is not undone by the faces the smooth scroll passes on the way.
 - Escape closes the reader's own overlays (search, thumbnails) before it exits immersive mode, and pointer clicks on reader controls return focus to the reader so arrow keys keep working.
 - WebGL pauses when the document is hidden or the reader is offscreen and releases renderer, textures, geometry, and context on teardown.
 - Reduced-motion disables travel, shadows, page-corner flourishes, and continuous WebGL animation.

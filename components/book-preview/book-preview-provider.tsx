@@ -8,6 +8,8 @@ import {
 } from 'react'
 import type { BookPreviewState } from './reducer'
 import type { BookPreviewTypography } from './typography'
+import type { BookPreviewAiAdapter } from './ai'
+import type { BookPreviewAnnotation } from './annotations'
 import type {
   BookPreviewAppearance,
   BookPreviewEngine,
@@ -27,6 +29,21 @@ export type BookPreviewEngineShortcuts = {
   /** Escape is offered to the engine first: returning true means it closed
       its own overlay (search, thumbnails) and the shell should stay put. */
   dismiss?: () => boolean
+  /** Plain text of a page, for Ask and exports. Engines that extract text
+      (the premier reader) register it; otherwise the shell reads the DOM. */
+  pageText?: (pageIndex: number) => string
+}
+
+export type BookPreviewCompanionTab = 'notes' | 'ask'
+
+/** What the Ask tab opens with — the passage and, optionally, a question. */
+export type BookPreviewAskSeed = {
+  selection?: string
+  question?: string
+  pageIndex: number
+  /** Changes on every request so asking about the same passage twice
+      still restarts the conversation. */
+  nonce: number
 }
 
 export type BookPreviewContextValue = {
@@ -64,6 +81,28 @@ export type BookPreviewContextValue = {
       stage. Null until the toolbar mounts its slot. */
   chromeHost: HTMLElement | null
   setChromeHost: (el: HTMLElement | null) => void
+  rootRef: RefObject<HTMLElement | null>
+  /** Highlights and notes are on (the `annotate` prop). Bookmarks follow. */
+  annotate: boolean
+  annotations: BookPreviewAnnotation[]
+  updateAnnotations: (
+    fn: (list: BookPreviewAnnotation[]) => BookPreviewAnnotation[],
+  ) => void
+  ai: BookPreviewAiAdapter | undefined
+  companion: {
+    open: boolean
+    tab: BookPreviewCompanionTab
+    askSeed: BookPreviewAskSeed | null
+  }
+  openCompanion: (
+    tab: BookPreviewCompanionTab,
+    askSeed?: Omit<BookPreviewAskSeed, 'nonce'>,
+  ) => void
+  setCompanionOpen: (open: boolean) => void
+  setCompanionTab: (tab: BookPreviewCompanionTab) => void
+  /** Text of a page for Ask/export — engine-provided, else read from DOM,
+      else the page data. */
+  getPageText: (pageIndex: number) => string
 }
 
 const BookPreviewContext = createContext<BookPreviewContextValue | null>(null)

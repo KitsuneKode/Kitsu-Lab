@@ -24,7 +24,7 @@
 .DS_Store
 *.pem
 
-# Local-only reader specimens (not part of the published lab)
+# Reader specimens — fetched from public sources by scripts/fetch-specimens.mjs at build time
 /public/specimens/
 
 # debug

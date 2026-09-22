@@ -17,7 +17,7 @@ Run the full gate before committing: `npm run check` (typecheck + oxlint + oxfmt
 - `npm run test` — bun test (book-preview suites).
 - `npm run registry:build` — `shadcn build` regenerates `public/r/*.json` from `registry.json` + source. Keep artifacts in sync: `npm run registry:check` fails if the built output drifts from what's committed.
 - `npx react-doctor` — occasional health audits (score lives at react.doctor). Intentional patterns it flags: serialized awaits in raster/text drains (bounded worker load), setState-after-await behind `cancelled` guards, big orchestrator engines.
-- Large demo PDFs live in `public/specimens/` (gitignored, local-only). Tracked samples: `public/sample-*.pdf`.
+- Large demo PDFs live in `public/specimens/` (gitignored) — `prebuild` fetches them from public sources via `scripts/fetch-specimens.mjs`, so deploys get them without committing binaries. The script never fails the build; the demo hides unreachable specimens. Tracked samples: `public/sample-*.pdf`.
 
 ## Conventions
 

@@ -20,8 +20,12 @@ export type PdfSheet = {
   /** Plain page text, when extraction is enabled. Empty for image-only pages. */
   text: string
   /** True once extraction ran for this page — distinguishes "no text" from
-      "not read yet", which windowed search needs. */
+      "not read yet", which windowed search needs. A page whose extraction
+      permanently fails is also marked, so the search-index signal settles. */
   textExtracted: boolean
+  /** The page's raster failed after all retries — stays blank, and stops
+      counting as pending so the preparing state can clear. */
+  failed?: boolean
 }
 
 type UsePdfSheetsOptions = {
@@ -155,6 +159,14 @@ export function usePdfSheets({
     // Pages already tried — attempted failures stay blank rather than
     // re-failing on every pass, matching the old once-only queue.
     const attempted = new Set<number>()
+    // Per-page failure count — a transient hiccup (render cancelled under
+    // worker churn, canvas/context pressure) gets a retry budget before the
+    // page is declared dead. Without this a single transient failure pinned
+    // the "preparing" state forever until refresh.
+    const failures = new Map<number, number>()
+    const MAX_PAGE_FAILURES = 3
+    // Text-index retries share the failures map keyed above the page range.
+    const TEXT_KEY_OFFSET = 1_000_000
     // Pages whose text has been read — the background index drain fills this
     // behind the raster window so search covers the whole document.
     const textDone = new Set<number>()
@@ -214,7 +226,28 @@ export function usePdfSheets({
             : current,
         )
       } catch {
-        // A single bad page stays blank instead of failing the document.
+        if (cancelled) return
+        const count = (failures.get(pageNumber) ?? 0) + 1
+        failures.set(pageNumber, count)
+        if (count < MAX_PAGE_FAILURES) {
+          // Transient — let the drain re-pick it after a beat.
+          attempted.delete(pageNumber)
+          await new Promise((resolve) => setTimeout(resolve, 300))
+          return
+        }
+        // Dead for good — a single bad page stays blank instead of failing
+        // the document, and stops counting toward "preparing".
+        const id = `pdf-${pageNumber}`
+        setDoc((current) =>
+          current && current.url === url && current.sheets
+            ? {
+                ...current,
+                sheets: current.sheets.map((sheet) =>
+                  sheet.id === id ? { ...sheet, failed: true } : sheet,
+                ),
+              }
+            : current,
+        )
       }
     }
 
@@ -226,6 +259,7 @@ export function usePdfSheets({
         if (inWindow(pageNumber, priority)) continue
         rendered.delete(pageNumber)
         attempted.delete(pageNumber)
+        failures.delete(pageNumber)
         releaseRasterUrl(src)
         const id = `pdf-${pageNumber}`
         setDoc((current) =>
@@ -233,7 +267,9 @@ export function usePdfSheets({
             ? {
                 ...current,
                 sheets: current.sheets.map((sheet) =>
-                  sheet.id === id ? { ...sheet, src: '' } : sheet,
+                  sheet.id === id
+                    ? { ...sheet, src: '', failed: false }
+                    : sheet,
                 ),
               }
             : current,
@@ -276,6 +312,7 @@ export function usePdfSheets({
       pageNumber: number,
     ): Promise<void> {
       if (cancelled || !loaded) return
+      const failuresTextKey = pageNumber + TEXT_KEY_OFFSET
       textDone.add(pageNumber)
       try {
         const page = await loaded.doc.getPage(pageNumber)
@@ -295,7 +332,28 @@ export function usePdfSheets({
             : current,
         )
       } catch {
-        // A page that will not yield text simply stays unsearchable.
+        if (cancelled) return
+        const count = (failures.get(failuresTextKey) ?? 0) + 1
+        failures.set(failuresTextKey, count)
+        if (count < MAX_PAGE_FAILURES) {
+          // Transient — let the index drain re-pick it after a beat.
+          textDone.delete(pageNumber)
+          await new Promise((resolve) => setTimeout(resolve, 300))
+          return
+        }
+        // Permanently unreadable — mark settled so the search-index signal
+        // clears; the page simply stays unsearchable.
+        const id = `pdf-${pageNumber}`
+        setDoc((current) =>
+          current && current.url === url && current.sheets
+            ? {
+                ...current,
+                sheets: current.sheets.map((sheet) =>
+                  sheet.id === id ? { ...sheet, textExtracted: true } : sheet,
+                ),
+              }
+            : current,
+        )
       }
     }
 
@@ -352,6 +410,8 @@ export function usePdfSheets({
       try {
         passwordCancelledRef.current = false
         const result = await loadPdfDocument(url, {
+          // A stalled fetch or dead worker must not spin the loader forever.
+          timeoutMs: 60_000,
           onTask: (task) => {
             taskRef.current = task
           },
@@ -455,6 +515,7 @@ export function usePdfSheets({
     activeSheets?.some(
       (sheet, index) =>
         !sheet.src &&
+        !sheet.failed &&
         (windowRadius === undefined ||
           Math.abs(index + 1 - (pageIndex + 1)) <= windowRadius),
     ) ?? false

@@ -78,6 +78,9 @@ export async function loadPdfDocument(
     /** Fires synchronously with the task so callers can destroy a document
         that never resolves (e.g. abandoned password prompt). */
     onTask?: (task: PdfLoadingTask) => void
+    /** Give up after this many ms — a stalled fetch/worker otherwise leaves
+        task.promise pending forever and the reader spins indefinitely. */
+    timeoutMs?: number
   },
 ): Promise<PdfLoadResult> {
   const pdfjs = await import('pdfjs-dist')
@@ -93,20 +96,54 @@ export async function loadPdfDocument(
   const source = typeof src === 'string' ? { url: src } : src
   const task = pdfjs.getDocument(source) as unknown as PdfLoadingTask
   options?.onTask?.(task)
+  // A parked password prompt is a user wait, not a stalled load — the
+  // timeout must not fire while one is outstanding.
+  let passwordPending = false
   if (options?.onPassword) {
     const responses = (
       pdfjs as { PasswordResponses?: { INCORRECT_PASSWORD?: number } }
     ).PasswordResponses
     const onPassword = options.onPassword
     task.onPassword = (updatePassword, reason) => {
+      passwordPending = true
       onPassword({
         incorrect: reason === (responses?.INCORRECT_PASSWORD ?? 2),
-        submit: updatePassword,
+        submit: (password: string) => {
+          passwordPending = false
+          updatePassword(password)
+        },
       })
     }
   }
-  const doc = (await task.promise) as PdfDocumentProxy
-  return { task, doc }
+  const timeoutMs = options?.timeoutMs
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    const doc = timeoutMs
+      ? await Promise.race([
+          task.promise as Promise<PdfDocumentProxy>,
+          new Promise<never>((_, reject) => {
+            const arm = () => {
+              timer = setTimeout(() => {
+                if (passwordPending) {
+                  arm()
+                  return
+                }
+                reject(new Error(`PDF load timed out after ${timeoutMs}ms`))
+              }, timeoutMs)
+            }
+            arm()
+          }),
+        ])
+      : ((await task.promise) as PdfDocumentProxy)
+    return { task, doc }
+  } catch (error) {
+    // A timed-out task is dead weight — destroy it so the worker is freed
+    // instead of leaving a zombie load running in the background.
+    await task.destroy().catch(() => {})
+    throw error
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
 
 // Uncapped devicePixelRatio turns a page into a ~30MP canvas on 3x phones;

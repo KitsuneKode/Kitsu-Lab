@@ -39,6 +39,16 @@ export function engineIsCompatible(
   ) {
     return false
   }
+  // The flagship renders its own upload affordance, so like the pdf engine it
+  // stays compatible on an upload-only source.
+  if (
+    engine.id === "premier" &&
+    source.pages.length === 0 &&
+    !source.pdfUrl &&
+    !source.allowPdfUpload
+  ) {
+    return false
+  }
   return true
 }
 

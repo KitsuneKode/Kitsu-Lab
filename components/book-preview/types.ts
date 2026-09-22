@@ -8,6 +8,7 @@ export const BOOK_PREVIEW_MODES = [
   "archival-curl",
   "webgl",
   "pdf",
+  "premier",
 ] as const
 
 export type BookPreviewMode = (typeof BOOK_PREVIEW_MODES)[number]

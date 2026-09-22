@@ -12,6 +12,7 @@ import { DEMO_BOOK_PAGES } from "./sample-pages"
 
 const DEMO_MODES: BookPreviewMode[] = [
   "page",
+  "premier",
   "curl",
   "scroll",
   "spread",

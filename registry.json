@@ -25,7 +25,7 @@
       "dependencies": [
         "lucide-react"
       ],
-      "docs": "The default installation includes the lightweight page engine only. Optional engines (scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require page-flip, pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, scalar Slider values, and array-valued ToggleGroup state. Do not treat qualitative capability labels as measured performance guarantees.",
+      "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require page-flip, pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, scalar Slider values, and array-valued ToggleGroup state. Do not treat qualitative capability labels as measured performance guarantees.",
       "files": [
         {
           "path": "components/book-preview/index.ts",
@@ -251,6 +251,26 @@
       ]
     },
     {
+      "name": "book-preview-premier",
+      "type": "registry:component",
+      "title": "Book preview - Premier",
+      "description": "Flagship reader: page curl, page-level search, continuous read-aloud, and thumbnails for page data or a PDF. Requires the curl engine.",
+      "files": [
+        {
+          "path": "components/book-preview/engines/premier-engine.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/premier-engine.meta.ts",
+          "type": "registry:component"
+        }
+      ],
+      "registryDependencies": [
+        "https://kitsulab.vercel.app/r/book-preview-curl.json",
+        "input"
+      ]
+    },
+    {
       "name": "book-preview-scroll",
       "type": "registry:component",
       "title": "Book preview - Scroll",
@@ -330,6 +350,7 @@
         "https://kitsulab.vercel.app/r/book-preview-pdf.json",
         "https://kitsulab.vercel.app/r/book-preview-curl.json",
         "https://kitsulab.vercel.app/r/book-preview-archival-curl.json",
+        "https://kitsulab.vercel.app/r/book-preview-premier.json",
         "https://kitsulab.vercel.app/r/book-preview-scroll.json",
         "https://kitsulab.vercel.app/r/book-preview-spread.json",
         "https://kitsulab.vercel.app/r/book-preview-webgl.json"

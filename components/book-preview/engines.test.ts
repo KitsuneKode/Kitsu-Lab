@@ -189,6 +189,50 @@ describe("engine resolution", () => {
     ).toEqual(["pdf"])
   })
 
+  test("premier stays available on an upload-only source", () => {
+    const premierEngine: BookPreviewEngine = {
+      ...pageEngine,
+      id: "premier",
+      label: "Premier",
+      requiresPages: false,
+      load: pageEngine.load,
+    }
+    const source = normalizeSource({ allowPdfUpload: true })
+    expect(
+      resolveCompatibleEngines([pageEngine, premierEngine], source).map(
+        (engine) => engine.id
+      )
+    ).toEqual(["premier"])
+  })
+
+  test("premier renders both page data and PDFs", () => {
+    const premierEngine: BookPreviewEngine = {
+      ...pageEngine,
+      id: "premier",
+      label: "Premier",
+      requiresPages: false,
+      load: pageEngine.load,
+    }
+    const paged = normalizeSource({
+      pages: [{ id: "1", pageNumber: 1, title: "Cover" }],
+    })
+    const document = normalizeSource({ pdfUrl: "/sample-book.pdf" })
+    expect(
+      resolveActiveEngine({
+        requestedMode: "premier",
+        engines: [pageEngine, premierEngine],
+        source: paged,
+      }).engine?.id
+    ).toBe("premier")
+    expect(
+      resolveActiveEngine({
+        requestedMode: "premier",
+        engines: [pageEngine, premierEngine],
+        source: document,
+      }).engine?.id
+    ).toBe("premier")
+  })
+
   test("filters mode choices to engines that can render the current source", () => {
     const source = normalizeSource({
       pages: [{ id: "1", pageNumber: 1, title: "Cover" }],

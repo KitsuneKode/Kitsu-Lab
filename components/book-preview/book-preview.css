@@ -381,3 +381,27 @@
   background: color-mix(in oklab, var(--primary) 18%, transparent);
   outline: 1px solid color-mix(in oklab, var(--primary) 45%, transparent);
 }
+
+/* Read-aloud speaking indicator — three staggered bars. Frozen under
+   prefers-reduced-motion (the icon still communicates state). */
+@keyframes book-preview-speaking {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.book-preview .bp-speaking-bar {
+  height: 11px;
+  transform-origin: bottom;
+  animation: book-preview-speaking 0.9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview .bp-speaking-bar {
+    animation: none;
+  }
+}

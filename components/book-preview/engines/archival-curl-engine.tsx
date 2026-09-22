@@ -12,8 +12,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { PdfPasswordGate } from './pdf-password-gate'
 import { PdfPreparingBadge } from './pdf-preparing-badge'
 import { useBookPreview } from '../book-preview-provider'
+import { SpeakingBars } from '../speaking-bars'
 import { BookPreviewPageView } from '../book-preview-page'
-import { IconPlayerPause, IconPlayerPlay, IconSearch } from '@tabler/icons-react'
+import { IconPlayerPlay, IconSearch } from '@tabler/icons-react'
 import { useStableHandler } from '../hooks/use-stable-handler'
 import { usePdfSheets, type PdfSheet } from '../hooks/use-pdf-sheets'
 import type { BookPreviewEngineProps, BookPreviewPage } from '../types'
@@ -110,7 +111,7 @@ function ArchivalSearchControls({
         data-book-preview-press
       >
         {speaking ? (
-          <IconPlayerPause data-icon="inline-start" />
+          <SpeakingBars data-icon="inline-start" className="mr-1" />
         ) : (
           <IconPlayerPlay data-icon="inline-start" />
         )}

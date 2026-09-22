@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { resolvePdfOutline } from '../pdf-runtime'
 import { buildPremierFaces } from './premier-faces'
+import { SpeakingBars } from '../speaking-bars'
 import { PdfPasswordGate } from './pdf-password-gate'
 import { PdfPreparingBadge } from './pdf-preparing-badge'
 import { useBookPreview } from '../book-preview-provider'
@@ -53,7 +54,6 @@ import {
   IconLayoutList,
   IconSearch,
   IconSpeakerphone,
-  IconPlayerStop,
   IconTypography,
   IconX,
   IconZoomIn,
@@ -691,7 +691,7 @@ export default function PremierEngine({
         data-book-preview-press
         className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
       >
-        {speaking ? <IconPlayerStop /> : <IconSpeakerphone />}
+        {speaking ? <SpeakingBars /> : <IconSpeakerphone />}
       </Button>
       {usePdf && doc && doc.numPages > 1 ? (
         <Button

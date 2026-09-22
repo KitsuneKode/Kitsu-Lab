@@ -114,6 +114,10 @@
           "type": "registry:component"
         },
         {
+          "path": "components/book-preview/speaking-bars.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "components/book-preview/book-preview-page.tsx",
           "type": "registry:component"
         },

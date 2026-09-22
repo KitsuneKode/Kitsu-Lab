@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test"
-import { resolvePdfOutline, type PdfDocumentProxy, type PdfOutlineNode } from "./pdf-runtime"
+import {
+  resolvePdfOutline,
+  resolvePdfPageLinks,
+  sanitizePdfLinkUrl,
+  type PdfAnnotation,
+  type PdfDocumentProxy,
+  type PdfOutlineNode,
+  type PdfPageProxy,
+} from "./pdf-runtime"
 import { countOccurrences, createPdfSearchIndex } from "./engines/pdf-search"
 
 function mockDoc(
@@ -108,5 +116,89 @@ describe("resolvePdfOutline", () => {
   test("drops destinations outside the document", async () => {
     const doc = mockDoc(["only page"], [{ title: "Far away", dest: [{ num: 99, gen: 0 }], items: [] }])
     expect(await resolvePdfOutline(doc)).toEqual([])
+  })
+
+  test("resolves a bare numeric destination", async () => {
+    const doc = mockDoc(["x", "y", "z"], [{ title: "Direct", dest: [2], items: [] }])
+    expect(await resolvePdfOutline(doc)).toEqual([
+      { title: "Direct", pageIndex: 2, depth: 0 },
+    ])
+  })
+})
+
+function mockPageWithLinks(annotations: PdfAnnotation[]): PdfPageProxy {
+  return {
+    getViewport: ({ scale }: { scale: number }) => ({
+      width: 612 * scale,
+      height: 792 * scale,
+      // Viewport mapping: scale each coordinate (rotation ignored — the real
+      // viewport handles it; tests only need a deterministic transform).
+      convertToViewportRectangle: (rect: number[]) =>
+        rect.map((value) => value * scale),
+    }),
+    getTextContent: async () => ({ items: [] }),
+    render: () => ({ promise: Promise.resolve(), cancel: () => {} }),
+    getAnnotations: async () => annotations,
+  }
+}
+
+describe("sanitizePdfLinkUrl", () => {
+  test("keeps safe protocols", () => {
+    // new URL normalizes — a bare host gains a trailing slash.
+    expect(sanitizePdfLinkUrl("https://example.com/x")).toBe("https://example.com/x")
+    expect(sanitizePdfLinkUrl("mailto:a@b.c")).toBe("mailto:a@b.c")
+    expect(sanitizePdfLinkUrl("tel:+15551234")).toBe("tel:+15551234")
+  })
+
+  test("rejects unsafe or malformed urls", () => {
+    expect(sanitizePdfLinkUrl("javascript:alert(1)")).toBeNull()
+    expect(sanitizePdfLinkUrl("data:text/html,<b>x</b>")).toBeNull()
+    expect(sanitizePdfLinkUrl("file:///etc/passwd")).toBeNull()
+    expect(sanitizePdfLinkUrl("not a url")).toBeNull()
+    expect(sanitizePdfLinkUrl(null)).toBeNull()
+    expect(sanitizePdfLinkUrl("")).toBeNull()
+  })
+})
+
+describe("resolvePdfPageLinks", () => {
+  test("maps external urls to sanitized link targets", async () => {
+    const page = mockPageWithLinks([
+      { subtype: "Link", rect: [10, 20, 110, 40], url: "https://example.com" },
+    ])
+    const links = await resolvePdfPageLinks({ page, doc: mockDoc(["x"]), scale: 2 })
+    expect(links).toEqual([
+      {
+        left: 20,
+        top: 40,
+        width: 200,
+        height: 40,
+        target: { kind: "url", url: "https://example.com/" },
+      },
+    ])
+  })
+
+  test("resolves internal destinations to page indexes", async () => {
+    const page = mockPageWithLinks([
+      { subtype: "Link", rect: [0, 0, 50, 10], dest: [{ num: 3, gen: 0 }] },
+      { subtype: "Link", rect: [0, 0, 50, 10], dest: "p2" },
+      { subtype: "Link", rect: [0, 0, 50, 10], dest: [0] },
+    ])
+    const links = await resolvePdfPageLinks({ page, doc: mockDoc(["a", "b", "c"]), scale: 1 })
+    expect(links.map((link) => link.target)).toEqual([
+      { kind: "page", pageIndex: 2 },
+      { kind: "page", pageIndex: 1 },
+      { kind: "page", pageIndex: 0 },
+    ])
+  })
+
+  test("drops unsafe urls, dead destinations, and non-link annotations", async () => {
+    const page = mockPageWithLinks([
+      { subtype: "Link", rect: [0, 0, 50, 10], unsafeUrl: "javascript:alert(1)" },
+      { subtype: "Link", rect: [0, 0, 50, 10], dest: [{ num: 99, gen: 0 }] },
+      { subtype: "Link", rect: null },
+      { subtype: "Text", rect: [0, 0, 50, 10], url: "https://example.com" },
+    ])
+    const links = await resolvePdfPageLinks({ page, doc: mockDoc(["a"]), scale: 1 })
+    expect(links).toEqual([])
   })
 })

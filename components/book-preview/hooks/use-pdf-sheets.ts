@@ -7,6 +7,8 @@ import {
   pdfPageAspectRatio,
   rasterizePdfPage,
   releaseRasterUrl,
+  type PdfDocumentProxy,
+  type PdfLoadingTask,
 } from "../pdf-runtime"
 import type { BookPreviewError } from "../types"
 
@@ -56,10 +58,18 @@ type UsePdfSheetsOptions = {
 
 type UsePdfSheetsResult = {
   sheets: PdfSheet[] | null
+  /** The open document, once loaded — engines use it for outlines etc. */
+  doc: PdfDocumentProxy | null
   /** height / width of page 1, once known. Null until the document opens. */
   ratio: number | null
   prepared: number
   preparing: boolean
+  /** Set while the document waits on a password. `incorrect` means the last
+      answer was rejected. */
+  passwordRequest: { incorrect: boolean } | null
+  submitPassword: (password: string) => void
+  /** Abandon the prompt — the document load is destroyed and reported. */
+  cancelPassword: () => void
 }
 
 /**
@@ -89,13 +99,35 @@ export function usePdfSheets({
   // needed and a superseded load can never publish its pages.
   const [doc, setDoc] = useState<{
     url: string
+    proxy: PdfDocumentProxy
     ratio: number | null
     sheets: PdfSheet[] | null
+  } | null>(null)
+  const [passwordRequest, setPasswordRequest] = useState<{
+    incorrect: boolean
   } | null>(null)
   const priorityRef = useRef(pageIndex + 1)
   const wakeRef = useRef<(() => void) | null>(null)
   const reportError = useRef(onError)
   const message = useRef(errorMessage)
+  // The loading task is tracked from the moment it exists — a document that
+  // is parked on a password prompt must still be destroyable on teardown.
+  const taskRef = useRef<PdfLoadingTask | null>(null)
+  const passwordSubmitRef = useRef<((password: string) => void) | null>(null)
+  const passwordCancelledRef = useRef(false)
+
+  const submitPassword = (password: string) => {
+    passwordSubmitRef.current?.(password)
+  }
+
+  const cancelPassword = () => {
+    passwordCancelledRef.current = true
+    passwordSubmitRef.current = null
+    setPasswordRequest(null)
+    // Destroying the pending task rejects its promise; the open() catch turns
+    // it into a "password required" error the reader can retry from.
+    void taskRef.current?.destroy().catch(() => {})
+  }
 
   useEffect(() => {
     priorityRef.current = pageIndex + 1
@@ -241,8 +273,21 @@ export function usePdfSheets({
 
     async function open(url: string) {
       try {
-        const result = await loadPdfDocument(url)
+        passwordCancelledRef.current = false
+        const result = await loadPdfDocument(url, {
+          onTask: (task) => {
+            taskRef.current = task
+          },
+          onPassword: (request) => {
+            if (cancelled) return
+            passwordSubmitRef.current = request.submit
+            setPasswordRequest({ incorrect: request.incorrect })
+          },
+        })
         loaded = result
+        taskRef.current = result.task
+        passwordSubmitRef.current = null
+        setPasswordRequest(null)
         if (cancelled) {
           await result.task.destroy()
           return
@@ -271,6 +316,7 @@ export function usePdfSheets({
 
         setDoc({
           url,
+          proxy: result.doc,
           ratio: baseRatio,
           sheets: Array.from({ length: count }, (_, index) => ({
             id: `pdf-${index + 1}`,
@@ -284,7 +330,12 @@ export function usePdfSheets({
         await drain(url)
       } catch {
         if (!cancelled) {
-          reportError.current({ kind: "pdf-render", message: message.current })
+          reportError.current({
+            kind: "pdf-render",
+            message: passwordCancelledRef.current
+              ? "This PDF is password-protected. Retry to enter its password."
+              : message.current,
+          })
         }
       }
     }
@@ -292,10 +343,15 @@ export function usePdfSheets({
     void open(pdfUrl)
     return () => {
       cancelled = true
+      passwordSubmitRef.current = null
+      setPasswordRequest(null)
       // Unpark the drain so it sees `cancelled` and exits.
       wakeRef.current?.()
       wakeRef.current = null
-      if (loaded) void loaded.task.destroy()
+      // Destroy whichever task handle we hold — a password-pending document
+      // never reached `loaded` but still owns a worker.
+      void (taskRef.current ?? loaded?.task)?.destroy()
+      taskRef.current = null
       for (const src of rendered.values()) releaseRasterUrl(src)
       rendered.clear()
     }
@@ -315,8 +371,12 @@ export function usePdfSheets({
     ) ?? false
   return {
     sheets: activeSheets,
+    doc: active?.proxy ?? null,
     ratio: active?.ratio ?? null,
     prepared,
     preparing: enabled && activeSheets !== null && pendingInWindow,
+    passwordRequest: enabled && pdfUrl ? passwordRequest : null,
+    submitPassword,
+    cancelPassword,
   }
 }

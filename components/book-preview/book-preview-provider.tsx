@@ -18,6 +18,9 @@ export type BookPreviewEngineShortcuts = {
   zoomOut?: () => void
   zoomReset?: () => void
   search?: () => void
+  /** Escape is offered to the engine first: returning true means it closed
+      its own overlay (search, thumbnails) and the shell should stay put. */
+  dismiss?: () => boolean
 }
 
 export type BookPreviewContextValue = {

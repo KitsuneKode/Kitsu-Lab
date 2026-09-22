@@ -20,6 +20,11 @@ export function BookPreviewNavigation() {
     setJumpDraft(null)
   }
 
+  // A non-paginated engine (the 3D book counts spreads, not pages) would show
+  // a counter and slider whose numbers mean nothing — keyboard navigation
+  // still drives it through the shell.
+  if (state.capabilities.pagination === false) return null
+
   return (
     <div className="flex w-full flex-col gap-3" data-book-preview-chrome>
       <div className="flex items-center justify-between gap-3">

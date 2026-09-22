@@ -11,6 +11,7 @@ import {
   type CSSProperties,
   type Dispatch,
   type DragEvent,
+  type MouseEvent,
   type KeyboardEvent,
   type PointerEvent,
   type RefObject,
@@ -92,7 +93,11 @@ function BookPreviewActiveEngine({
   if (!loadedEngine || loadedEngine.id !== activeEngineId) return null
   const EngineComponent = loadedEngine.Component
   return (
+    // The key carries the engine epoch: a retry must remount the engine so a
+    // dead document load (parse failure, cancelled password prompt) actually
+    // starts over instead of sitting inert under the loading surface.
     <BookPreviewEngineBoundary
+      key={resetKey}
       engineId={activeEngineId ?? "none"}
       resetKey={resetKey}
       onError={onError}
@@ -294,7 +299,10 @@ function usePersistedPageIndex({
   // while the consumer controls pageIndex.
   useEffect(() => {
     if (pageControlled || (!persistPage && !pageParam)) return
-    if (status !== "ready" || restoredKeyRef.current === sourceKey) return
+    // totalPages===0 gates this too: a password prompt reports a zero-page
+    // ready state that must not consume the deep link before the document
+    // is actually open.
+    if (status !== "ready" || totalPages === 0 || restoredKeyRef.current === sourceKey) return
     restoredKeyRef.current = sourceKey
     try {
       let target: number | null = null
@@ -317,18 +325,18 @@ function usePersistedPageIndex({
   }, [persistPage, pageParam, pageControlled, sourceKey, persistKey, status, totalPages, goToPage])
 
   useEffect(() => {
-    if (!persistPage || pageControlled || status !== "ready") return
+    if (!persistPage || pageControlled || status !== "ready" || totalPages === 0) return
     try {
       window.localStorage.setItem(persistKey, String(activePage))
     } catch {
       // localStorage may be unavailable.
     }
-  }, [persistPage, pageControlled, status, persistKey, activePage])
+  }, [persistPage, pageControlled, status, totalPages, persistKey, activePage])
 
   // Keep the deep link current as the reader moves. replaceState only —
   // turning pages must never spam the back stack.
   useEffect(() => {
-    if (!pageParam || status !== "ready") return
+    if (!pageParam || status !== "ready" || totalPages === 0) return
     try {
       const url = new URL(window.location.href)
       const next = String(activePage + 1)
@@ -823,9 +831,16 @@ export function BookPreview({
           shortcuts.zoomReset()
         }
       }
-      if (event.key === "Escape" && cssImmersive) {
-        event.preventDefault()
-        setCssImmersive(false)
+      if (event.key === "Escape") {
+        // Overlays first (engine search/thumbnail sheets), then immersive.
+        if (shortcuts.dismiss?.()) {
+          event.preventDefault()
+          return
+        }
+        if (cssImmersive) {
+          event.preventDefault()
+          setCssImmersive(false)
+        }
       }
     },
     [activePage, cssImmersive, goToPage, setCssImmersive, state.totalPages, toggleFullscreen]
@@ -837,6 +852,38 @@ export function BookPreview({
     if (event.button !== 0) return
     if (isInteractiveTarget(event.nativeEvent.target)) return
     rootRef.current?.focus({ preventScroll: true })
+  }, [])
+
+  // A pointer click leaves focus on the activated control, where arrow keys
+  // would stop working — clicking Next then pressing → must turn the page.
+  // Return focus to the reader root on the next frame: detail===0 means a
+  // keyboard-driven activation (focus must stay), and menus restore focus to
+  // their trigger after the click, which the deferral wins.
+  const onClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    if (event.detail === 0) return
+    const target = event.target
+    if (!(target instanceof HTMLElement)) return
+    if (
+      target.closest(
+        "button, a[href], [role='menuitem'], [data-book-preview-press]"
+      )
+    ) {
+      requestAnimationFrame(() => {
+        const root = rootRef.current
+        // Only reclaim focus that stayed inside the reader — a click that
+        // deliberately moved it elsewhere (dialog, external focus) wins.
+        const active = document.activeElement
+        if (
+          root &&
+          active instanceof HTMLElement &&
+          active !== document.body &&
+          !root.contains(active)
+        ) {
+          return
+        }
+        root?.focus({ preventScroll: true })
+      })
+    }
   }, [])
 
   const [dropActive, setDropActive] = useState(false)
@@ -957,13 +1004,14 @@ export function BookPreview({
           tabIndex={0}
           role="region"
           aria-label={label}
-          aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f / + - 0"
+          aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f / + - 0 Escape"
           data-reduced-motion={reducedMotion || undefined}
           data-reduced-transparency={reducedTransparency || undefined}
           data-more-contrast={moreContrast || undefined}
           data-book-preview-immersive={fullscreen || undefined}
           onKeyDown={onKeyDown}
           onPointerDown={onPointerDown}
+          onClick={onClick}
           onDragEnter={onDragEnter}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
@@ -974,7 +1022,7 @@ export function BookPreview({
             <BookPreviewActiveEngine
               loadedEngine={loadedEngine}
               activeEngineId={activeEngine?.id}
-              resetKey={sourceKey}
+              resetKey={`${sourceKey}:${state.engineEpoch}`}
               source={normalized}
               pageIndex={activePage}
               appearance={activeAppearance}

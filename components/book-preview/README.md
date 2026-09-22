@@ -83,10 +83,12 @@ When pages use custom `render` functions, pass `source.revision` and change it w
 
 - The page engine is the default and has no PDF, page-flip, or Three.js dependency.
 - Optional engines use dynamic imports and production-only idle prefetching.
-- The pdf engine opens at fit-width, renders only the current page, and keeps a selectable text layer over the canvas. It adds whole-document search (`/` or `mod+F`, matches highlighted in the text layer), the document outline as the contents menu, a lazy thumbnail rail, pinch zoom, and `+`/`-`/`0` zoom keys.
-- The scroll engine keeps a bounded raster window around the reading position; pages that fall behind are revoked and re-rendered on return, so long documents do not hold every bitmap at once.
+- The pdf engine opens at fit-width, renders only the current page, and keeps a selectable text layer over the canvas. It adds whole-document search (`/` or `mod+F`, matches highlighted in the text layer), the document outline as the contents menu, a lazy thumbnail rail (bottom sheet on narrow screens), pinch zoom, rotation, a fit-width/fit-page toggle, cursor-centered double-click zoom, `+`/`-`/`0` zoom keys, and clickable in-document links — internal destinations turn pages, external urls are protocol-sanitized and opened in a new tab.
+- Password-protected PDFs prompt in place rather than erroring; a wrong password retries, and cancelling reports a retryable state. The same gate covers scroll, curl, and archival-curl modes.
+- The scroll engine keeps a bounded raster window around the reading position; pages that fall behind are revoked and re-rendered on return, so long documents do not hold every bitmap at once. Scroll, curl, and archival-curl all surface the document outline in the contents menu.
 - Curl engines paint every leaf up front, so PDFs over `CURL_MAX_PAGES` (160) fail with a message pointing at the bounded modes instead of hanging the tab.
-- PDF raster density is capped to avoid high-DPR memory spikes; object URLs and PDF workers are released on teardown.
+- PDF raster density is capped to avoid high-DPR memory spikes; object URLs, PDF workers, and password-pending load tasks are released on teardown.
+- Escape closes the reader's own overlays (search, thumbnails) before it exits immersive mode, and pointer clicks on reader controls return focus to the reader so arrow keys keep working.
 - WebGL pauses when the document is hidden or the reader is offscreen and releases renderer, textures, geometry, and context on teardown.
 - Reduced-motion disables travel, shadows, page-corner flourishes, and continuous WebGL animation.
 

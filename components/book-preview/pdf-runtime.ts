@@ -6,13 +6,28 @@ export type PdfTextItem = { str?: string }
 export type PdfTextContent = { items: PdfTextItem[] }
 
 export type PdfPageProxy = {
-  getViewport: (options: { scale: number }) => { width: number; height: number }
+  getViewport: (options: { scale: number; rotation?: number }) => {
+    width: number
+    height: number
+    /** Maps a PDF user-space rect to CSS pixels for this viewport. */
+    convertToViewportRectangle?: (rect: number[]) => number[]
+  }
   getTextContent?: () => Promise<PdfTextContent>
+  getAnnotations?: (options?: { intent?: string }) => Promise<PdfAnnotation[]>
   render: (options: {
     canvasContext: CanvasRenderingContext2D
     viewport: { width: number; height: number }
     transform?: number[]
   }) => { promise: Promise<void>; cancel: () => void }
+}
+
+export type PdfAnnotation = {
+  subtype?: string
+  /** [x1, y1, x2, y2] in PDF user space — null on malformed annotations. */
+  rect?: number[] | null
+  url?: string
+  unsafeUrl?: string
+  dest?: PdfOutlineNode["dest"]
 }
 
 export type PdfDestinationRef = { num: number; gen: number }
@@ -32,13 +47,39 @@ export type PdfDocumentProxy = {
 }
 
 export type PdfLoadResult = {
-  task: { destroy: () => Promise<void> }
+  task: PdfLoadingTask
   doc: PdfDocumentProxy
 }
 
 export type PdfSource = string | { data: ArrayBuffer }
 
-export async function loadPdfDocument(src: PdfSource): Promise<PdfLoadResult> {
+/** The pdf.js loading task, typed loosely — engines need it to destroy a
+    document that is still waiting on a password prompt. */
+export type PdfLoadingTask = {
+  promise: Promise<unknown>
+  destroy: () => Promise<void>
+  onPassword?: (
+    updatePassword: (password: string) => void,
+    reason: number
+  ) => void
+}
+
+/** pdf.js asks for a password through this bridge: `submit` answers the
+    prompt, and an `incorrect` re-ask means the last answer was rejected. */
+export type PdfPasswordRequest = {
+  incorrect: boolean
+  submit: (password: string) => void
+}
+
+export async function loadPdfDocument(
+  src: PdfSource,
+  options?: {
+    onPassword?: (request: PdfPasswordRequest) => void
+    /** Fires synchronously with the task so callers can destroy a document
+        that never resolves (e.g. abandoned password prompt). */
+    onTask?: (task: PdfLoadingTask) => void
+  }
+): Promise<PdfLoadResult> {
   const pdfjs = await import("pdfjs-dist")
   if (!pdfjs.GlobalWorkerOptions.workerSrc && !pdfjs.GlobalWorkerOptions.workerPort) {
     pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -47,8 +88,21 @@ export async function loadPdfDocument(src: PdfSource): Promise<PdfLoadResult> {
     ).toString()
   }
   const source = typeof src === "string" ? { url: src } : src
-  const task = pdfjs.getDocument(source)
-  const doc = (await task.promise) as unknown as PdfDocumentProxy
+  const task = pdfjs.getDocument(source) as unknown as PdfLoadingTask
+  options?.onTask?.(task)
+  if (options?.onPassword) {
+    const responses = (
+      pdfjs as { PasswordResponses?: { INCORRECT_PASSWORD?: number } }
+    ).PasswordResponses
+    const onPassword = options.onPassword
+    task.onPassword = (updatePassword, reason) => {
+      onPassword({
+        incorrect: reason === (responses?.INCORRECT_PASSWORD ?? 2),
+        submit: updatePassword,
+      })
+    }
+  }
+  const doc = (await task.promise) as PdfDocumentProxy
   return { task, doc }
 }
 
@@ -65,10 +119,12 @@ export function renderPdfPageToCanvas(input: {
   page: PdfPageProxy
   canvas: HTMLCanvasElement
   scale: number
+  /** Extra rotation in degrees (0/90/180/270) on top of the page's own. */
+  rotation?: number
   pixelRatio?: number
 }): { promise: Promise<void>; cancel: () => void } {
   const pixelRatio = input.pixelRatio ?? defaultPixelRatio()
-  const viewport = input.page.getViewport({ scale: input.scale })
+  const viewport = input.page.getViewport({ scale: input.scale, rotation: input.rotation })
   const context = input.canvas.getContext("2d")
   if (!context) {
     throw new Error("Could not create a canvas for this PDF page.")
@@ -113,12 +169,13 @@ export async function renderPdfTextLayer(input: {
   page: PdfPageProxy
   container: HTMLElement
   scale: number
+  rotation?: number
 }): Promise<{ cancel: () => void }> {
   if (typeof input.page.getTextContent !== "function") {
     return { cancel: () => {} }
   }
   const pdfjs = await import("pdfjs-dist")
-  const viewport = input.page.getViewport({ scale: input.scale })
+  const viewport = input.page.getViewport({ scale: input.scale, rotation: input.rotation })
   const textContentSource = await input.page.getTextContent()
   const layer = new pdfjs.TextLayer({
     textContentSource: textContentSource as never,
@@ -167,10 +224,14 @@ export function releaseRasterUrl(src: string | undefined | null): void {
 const OUTLINE_MAX_ENTRIES = 300
 const OUTLINE_MAX_DEPTH = 4
 
-function outlineDestinationRef(dest: PdfOutlineNode["dest"]): PdfDestinationRef | string | null {
+function outlineDestinationRef(
+  dest: PdfOutlineNode["dest"]
+): PdfDestinationRef | string | number | null {
   if (typeof dest === "string") return dest
   if (Array.isArray(dest)) {
-    const first = dest[0] as Partial<PdfDestinationRef> | null | undefined
+    const first = dest[0] as Partial<PdfDestinationRef> | number | null | undefined
+    // Some writers emit a bare zero-based page index instead of a reference.
+    if (typeof first === "number") return first
     if (first && typeof first.num === "number") return first as PdfDestinationRef
   }
   return null
@@ -195,7 +256,7 @@ export async function resolvePdfOutline(
   }
   if (!outline || outline.length === 0) return []
 
-  const flat: { title: string; depth: number; ref: PdfDestinationRef | string | null }[] = []
+  const flat: { title: string; depth: number; ref: PdfDestinationRef | string | number | null }[] = []
   const walk = (nodes: PdfOutlineNode[], depth: number) => {
     for (const node of nodes) {
       if (flat.length >= OUTLINE_MAX_ENTRIES) return
@@ -211,21 +272,127 @@ export async function resolvePdfOutline(
   const entries = await Promise.all(
     flat.map(async (item) => {
       if (!item.ref) return null
-      try {
-        const ref =
-          typeof item.ref === "string"
-            ? outlineDestinationRef(((await doc.getDestination?.(item.ref)) ?? null) as PdfOutlineNode["dest"])
-            : item.ref
-        if (!ref || typeof ref === "string") return null
-        const pageIndex = await doc.getPageIndex!(ref)
-        if (!Number.isFinite(pageIndex) || pageIndex < 0 || pageIndex >= doc.numPages) return null
-        return { title: item.title, pageIndex, depth: item.depth }
-      } catch {
-        return null
-      }
+      const pageIndex = await resolvePdfDestPageIndex(doc, item.ref)
+      return pageIndex === null
+        ? null
+        : { title: item.title, pageIndex, depth: item.depth }
     })
   )
   return entries.filter((entry): entry is BookPreviewContentsEntry => entry !== null)
+}
+
+/**
+ * Resolves an explicit or named PDF destination to a zero-based page index.
+ * Explicit arrays carry a page reference ({num, gen}) or, in some files, a
+ * bare page index; named destinations go through getDestination first.
+ * Anything that cannot be resolved inside this document returns null.
+ */
+async function resolvePdfDestPageIndex(
+  doc: PdfDocumentProxy,
+  dest: PdfDestinationRef | string | number | null | undefined
+): Promise<number | null> {
+  if (dest === null || dest === undefined || typeof doc.getPageIndex !== "function") {
+    return null
+  }
+  // A bare number is already a zero-based page index.
+  if (typeof dest === "number") {
+    return dest >= 0 && dest < doc.numPages ? dest : null
+  }
+  try {
+    let ref: PdfDestinationRef | string = dest
+    if (typeof ref === "string") {
+      const resolved = ((await doc.getDestination?.(ref)) ?? null) as PdfOutlineNode["dest"]
+      const inner = outlineDestinationRef(resolved)
+      if (typeof inner === "number") {
+        return inner >= 0 && inner < doc.numPages ? inner : null
+      }
+      if (!inner || typeof inner === "string") return null
+      ref = inner
+    }
+    const pageIndex = await doc.getPageIndex(ref)
+    if (!Number.isFinite(pageIndex) || pageIndex < 0 || pageIndex >= doc.numPages) return null
+    return pageIndex
+  } catch {
+    return null
+  }
+}
+
+// Link annotations may carry unsanitized URLs (unsafeUrl). Only schemes that
+// are safe to navigate to pass through — javascript: and friends are dropped.
+const LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"])
+
+export function sanitizePdfLinkUrl(raw: string | undefined | null): string | null {
+  if (!raw) return null
+  try {
+    const url = new URL(raw)
+    return LINK_PROTOCOLS.has(url.protocol) ? url.href : null
+  } catch {
+    return null
+  }
+}
+
+export type PdfPageLink = {
+  /** CSS-pixel rect within the rendered page box at the given scale. */
+  left: number
+  top: number
+  width: number
+  height: number
+  target: { kind: "page"; pageIndex: number } | { kind: "url"; url: string }
+}
+
+/**
+ * Resolves a page's link annotations into positioned click targets. Internal
+ * document links become page indexes for the reader to navigate; external
+ * links become sanitized URLs. Anything else (named actions, attachments,
+ * malformed rects) is dropped — a dead annotation is better than a wrong one.
+ */
+export async function resolvePdfPageLinks(input: {
+  page: PdfPageProxy
+  doc: PdfDocumentProxy
+  scale: number
+  rotation?: number
+}): Promise<PdfPageLink[]> {
+  if (typeof input.page.getAnnotations !== "function") return []
+  let annotations: PdfAnnotation[]
+  try {
+    annotations = await input.page.getAnnotations({ intent: "display" })
+  } catch {
+    return []
+  }
+  const viewport = input.page.getViewport({ scale: input.scale, rotation: input.rotation })
+  const convert = viewport.convertToViewportRectangle
+  if (!convert) return []
+
+  const links: PdfPageLink[] = []
+  for (const annotation of annotations) {
+    if (annotation.subtype !== "Link") continue
+    const rect = annotation.rect
+    if (!rect || rect.length < 4) continue
+    const mapped = convert.call(viewport, rect)
+    if (!mapped || mapped.length < 4) continue
+    const left = Math.min(mapped[0], mapped[2])
+    const top = Math.min(mapped[1], mapped[3])
+    const width = Math.abs(mapped[2] - mapped[0])
+    const height = Math.abs(mapped[3] - mapped[1])
+    if (width < 1 || height < 1) continue
+
+    const url = sanitizePdfLinkUrl(annotation.url ?? annotation.unsafeUrl)
+    if (url) {
+      links.push({ left, top, width, height, target: { kind: "url", url } })
+      continue
+    }
+    const dest = annotation.dest
+    // Array destinations carry the target in their first slot (a page ref or
+    // a bare page index); strings are named destinations.
+    const target = Array.isArray(dest)
+      ? (dest[0] as PdfDestinationRef | number | undefined)
+      : dest
+    const pageIndex = await resolvePdfDestPageIndex(input.doc, target)
+    if (pageIndex !== null) {
+      links.push({ left, top, width, height, target: { kind: "page", pageIndex } })
+    }
+  }
+  return links
 }
 
 export async function rasterizePdfPage(input: {
@@ -233,16 +400,18 @@ export async function rasterizePdfPage(input: {
   cssWidth: number
   cssHeight: number
   pixelRatio?: number
+  rotation?: number
 }): Promise<{ src: string; width: number; height: number }> {
   const pixelRatio = input.pixelRatio ?? defaultPixelRatio()
-  const base = input.page.getViewport({ scale: 1 })
+  const base = input.page.getViewport({ scale: 1, rotation: input.rotation })
   const fit = Math.min(input.cssWidth / base.width, input.cssHeight / base.height)
-  const viewport = input.page.getViewport({ scale: fit })
+  const viewport = input.page.getViewport({ scale: fit, rotation: input.rotation })
   const canvas = document.createElement("canvas")
   await renderPdfPageToCanvas({
     page: input.page,
     canvas,
     scale: fit,
+    rotation: input.rotation,
     pixelRatio,
   }).promise
   const src = await canvasToObjectUrl(canvas)

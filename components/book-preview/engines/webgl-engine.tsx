@@ -259,6 +259,9 @@ export default function WebGLEngine({
       capabilities: {
         ...DEFAULT_CAPABILITIES,
         webgl: true,
+        // Position is in spreads — a page counter would lie, so the pager
+        // chrome hides. Arrow keys still drive the turn animation.
+        pagination: false,
         appearance: false,
         sound: false,
       },

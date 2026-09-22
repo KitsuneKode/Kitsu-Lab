@@ -3,6 +3,12 @@
 import { useEffect, useRef, useState, type RefObject } from "react"
 import { cn } from "@/lib/utils"
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import {
   pdfPageAspectRatio,
   rasterizePdfPage,
   releaseRasterUrl,
@@ -127,17 +133,71 @@ export function PdfThumbRail({
   onSelect: (pageIndex: number) => void
 }) {
   if (!doc || !open) return null
-  return <ThumbRailBody doc={doc} pageIndex={pageIndex} onSelect={onSelect} />
+  return (
+    <ThumbList
+      doc={doc}
+      pageIndex={pageIndex}
+      onSelect={onSelect}
+      className="hidden w-28 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain border-r pr-2 sm:flex"
+    />
+  )
 }
 
-function ThumbRailBody({
+/** Bottom-sheet thumbnail grid for narrow layouts, where a side rail would
+ *  eat most of the reading width. Selecting a page closes the sheet. */
+export function PdfThumbSheet({
+  doc,
+  pageIndex,
+  open,
+  onOpenChange,
+  onSelect,
+}: {
+  doc: PdfDocumentProxy | null
+  pageIndex: number
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSelect: (pageIndex: number) => void
+}) {
+  if (!doc) return null
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="max-h-[70dvh] gap-2 rounded-t-xl"
+        aria-label="Page thumbnails"
+      >
+        <SheetHeader className="pb-0">
+          <SheetTitle>Pages</SheetTitle>
+        </SheetHeader>
+        {open ? (
+          <ThumbList
+            doc={doc}
+            pageIndex={pageIndex}
+            onSelect={(index) => {
+              onSelect(index)
+              onOpenChange(false)
+            }}
+            grid
+            className="grid min-h-0 flex-1 grid-cols-3 content-start gap-2 overflow-y-auto overscroll-contain pb-2"
+          />
+        ) : null}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+function ThumbList({
   doc,
   pageIndex,
   onSelect,
+  className,
+  grid,
 }: {
   doc: PdfDocumentProxy
   pageIndex: number
   onSelect: (pageIndex: number) => void
+  className?: string
+  grid?: boolean
 }) {
   const railRef = useRef<HTMLDivElement | null>(null)
   const thumbs = usePdfThumbnails({ doc, railRef })
@@ -149,12 +209,7 @@ function ThumbRailBody({
   }, [pageIndex])
 
   return (
-    <div
-      ref={railRef}
-      className="hidden w-28 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain border-r pr-2 sm:flex"
-      role="navigation"
-      aria-label="Page thumbnails"
-    >
+    <div ref={railRef} className={className} role="navigation" aria-label="Page thumbnails">
       {Array.from({ length: doc.numPages }, (_, index) => {
         const page = index + 1
         const src = thumbs.get(page)
@@ -170,6 +225,7 @@ function ThumbRailBody({
             onClick={() => onSelect(index)}
             className={cn(
               "flex flex-col items-center gap-1 rounded-md p-1 outline-none transition-colors",
+              grid && "min-h-11",
               current
                 ? "bg-accent ring-1 ring-foreground/30"
                 : "hover:bg-muted/60 focus-visible:bg-muted/60"

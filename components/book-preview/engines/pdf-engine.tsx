@@ -11,7 +11,9 @@ import {
 import {
   ChevronDownIcon,
   ChevronUpIcon,
+  FileUpIcon,
   PanelLeftIcon,
+  RotateCwIcon,
   SearchIcon,
   XIcon,
   ZoomInIcon,
@@ -23,14 +25,17 @@ import { Spinner } from "@/components/ui/spinner"
 import { DEFAULT_CAPABILITIES } from "../capabilities"
 import { useStableHandler } from "../hooks/use-stable-handler"
 import { useBookPreview } from "../book-preview-provider"
+import { useNarrowLayout } from "../media"
 import { readBookPreviewPrefs, writeBookPreviewPrefs } from "../prefs"
 import {
   loadPdfDocument,
   renderPdfPageToCanvas,
   renderPdfTextLayer,
   resolvePdfOutline,
+  resolvePdfPageLinks,
   type PdfDocumentProxy,
-  type PdfLoadResult,
+  type PdfLoadingTask,
+  type PdfPageLink,
 } from "../pdf-runtime"
 import type { BookPreviewCapabilities, BookPreviewEngineProps, NormalizedBookSource } from "../types"
 import {
@@ -39,12 +44,14 @@ import {
   PDF_SEARCH_HIT_ATTR,
   type PdfSearchHit,
 } from "./pdf-search"
-import { PdfThumbRail } from "./pdf-thumb-rail"
+import { PdfPasswordGate } from "./pdf-password-gate"
+import { PdfThumbRail, PdfThumbSheet } from "./pdf-thumb-rail"
 
 // A zoom of 0 is the fit-width sentinel: the real scale is derived per page
 // from the live scroller width, so phones and mixed-orientation documents
-// open readable instead of pre-panned.
+// open readable instead of pre-panned. -1 is fit-page (whole page visible).
 const PDF_FIT_ZOOM = 0
+const PDF_FIT_PAGE = -1
 const PDF_MIN_ZOOM = 0.5
 const PDF_MAX_ZOOM = 4
 const PDF_STAGE_PAD = 32
@@ -81,19 +88,31 @@ export default function PdfEngine({
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const stageInnerRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const docTaskRef = useRef<PdfLoadResult["task"] | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const docTaskRef = useRef<PdfLoadingTask | null>(null)
   const [pdf, setPdf] = useState<PdfDocumentProxy | null>(null)
   const [zoom, setZoom] = useState(PDF_FIT_ZOOM)
+  const [rotation, setRotation] = useState(0)
+  // Links are keyed to the render that produced them — a stale rect never
+  // overlays a re-rendered page.
+  const [links, setLinks] = useState<{ key: string; items: PdfPageLink[] } | null>(null)
   const [fitted, setFitted] = useState(1)
   const [fitTick, setFitTick] = useState(0)
   const fittedRef = useRef(1)
+  // Both fit scales are kept: toggling between fit-width and fit-page needs
+  // the target's scale, not the current mode's.
+  const fitScalesRef = useRef({ width: 1, page: 1 })
+  // A link overlay only renders for the exact render that produced it —
+  // stale rects must never sit over a re-rendered page.
+  const linkKey = `${pageIndex}:${rotation}:${zoom}:${fitTick}`
   const zoomRef = useRef(PDF_FIT_ZOOM)
   const zoomHydratedRef = useRef(false)
   const pageIndexRef = useRef(pageIndex)
   const reportReady = useStableHandler(onReady)
   const reportError = useStableHandler(onError)
   const reportPageChange = useStableHandler(onPageChange)
-  const { engineShortcutsRef } = useBookPreview()
+  const { engineShortcutsRef, uploadPdf } = useBookPreview()
+  const narrow = useNarrowLayout()
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -101,6 +120,9 @@ export default function PdfEngine({
   const [hitIndex, setHitIndex] = useState(0)
   const [searching, setSearching] = useState(false)
   const [thumbsOpen, setThumbsOpen] = useState(false)
+  const [passwordRequest, setPasswordRequest] = useState<{ incorrect: boolean } | null>(null)
+  const passwordSubmitRef = useRef<((password: string) => void) | null>(null)
+  const passwordCancelledRef = useRef(false)
   const activeQueryRef = useRef("")
   const pendingHitScrollRef = useRef(false)
 
@@ -160,6 +182,9 @@ export default function PdfEngine({
           totalPages: 0,
           capabilities: {
             ...DEFAULT_CAPABILITIES,
+            // No document yet — a "No pages" pager is noise next to the
+            // upload prompt.
+            pagination: false,
             upload: true,
             zoom: true,
             appearance: false,
@@ -169,24 +194,49 @@ export default function PdfEngine({
         return
       }
       try {
-        const loaded = await loadPdfDocument(source.pdfUrl)
+        passwordCancelledRef.current = false
+        const loaded = await loadPdfDocument(source.pdfUrl, {
+          // Track the task from creation so a document parked on the password
+          // prompt is still destroyable on teardown or cancel.
+          onTask: (task) => {
+            docTaskRef.current = task
+          },
+          onPassword: (request) => {
+            if (cancelled) return
+            passwordSubmitRef.current = request.submit
+            setPasswordRequest({ incorrect: request.incorrect })
+            // A zero-page ready unblocks the viewport so the gate is visible;
+            // pagination hides the meaningless "No pages" chrome until the
+            // document actually opens. The real ready report replaces it.
+            reportReady({
+              totalPages: 0,
+              capabilities: { ...engineCapabilities(source), pagination: false },
+            })
+          },
+        })
         if (cancelled) {
           await loaded.task.destroy()
           return
         }
         docTaskRef.current = loaded.task
         doc = loaded.doc
+        passwordSubmitRef.current = null
+        setPasswordRequest(null)
         setPdf(doc)
         // A new document always opens at fit-width unless the reader has a
-        // remembered zoom preference.
+        // remembered zoom preference (fit-width, fit-page, or a fixed zoom).
         if (persistPreferences) {
           const stored = readBookPreviewPrefs().pdfZoom
-          setZoom(
-            typeof stored === "number" && stored > 0 ? clampZoom(stored) : PDF_FIT_ZOOM
-          )
+          const valid =
+            typeof stored === "number" &&
+            Number.isFinite(stored) &&
+            stored >= PDF_FIT_PAGE &&
+            stored <= PDF_MAX_ZOOM
+          setZoom(valid ? (stored > 0 ? clampZoom(stored) : stored) : PDF_FIT_ZOOM)
         } else {
           setZoom(PDF_FIT_ZOOM)
         }
+        setRotation(0)
         zoomHydratedRef.current = true
         reportReady({
           totalPages: doc.numPages,
@@ -194,7 +244,12 @@ export default function PdfEngine({
         })
       } catch {
         if (!cancelled) {
-          reportError({ kind: "pdf-parse", message: "This PDF could not be opened." })
+          reportError({
+            kind: "pdf-parse",
+            message: passwordCancelledRef.current
+              ? "This PDF is password-protected. Retry to enter its password."
+              : "This PDF could not be opened.",
+          })
         }
       }
     }
@@ -202,6 +257,8 @@ export default function PdfEngine({
     void open()
     return () => {
       cancelled = true
+      passwordSubmitRef.current = null
+      setPasswordRequest(null)
       void docTaskRef.current?.destroy()
       docTaskRef.current = null
       setPdf(null)
@@ -308,18 +365,32 @@ export default function PdfEngine({
 
   const openSearch = useCallback(() => setSearchOpen(true), [])
 
+  const submitPassword = useCallback((password: string) => {
+    passwordSubmitRef.current?.(password)
+  }, [])
+
+  const cancelPassword = useCallback(() => {
+    passwordCancelledRef.current = true
+    passwordSubmitRef.current = null
+    setPasswordRequest(null)
+    // Rejecting the pending task surfaces the "password required" error with
+    // a retry path instead of leaving the reader on a dead prompt.
+    void docTaskRef.current?.destroy().catch(() => {})
+    docTaskRef.current = null
+  }, [])
+
   // Focus follows the open state rather than a microtask, which has no
   // ordering guarantee against the render that mounts the input.
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus()
   }, [searchOpen])
 
-  // In fit mode a container resize is a zoom change.
+  // In a fit mode a container resize is a zoom change.
   useEffect(() => {
     const node = scrollRef.current
     if (!node || typeof ResizeObserver === "undefined") return
     const observer = new ResizeObserver(() => {
-      if (zoomRef.current === PDF_FIT_ZOOM) setFitTick((tick) => tick + 1)
+      if (zoomRef.current <= 0) setFitTick((tick) => tick + 1)
     })
     observer.observe(node)
     return () => observer.disconnect()
@@ -334,6 +405,8 @@ export default function PdfEngine({
 
   // The engine owns zoom/search state, so it registers handlers the shell's
   // keydown listener can invoke (+, -, 0, / and mod+F). Cleared on unmount.
+  // `dismiss` answers Escape: it closes this reader's own overlays before the
+  // shell falls back to exiting immersive mode.
   useEffect(() => {
     const ref = engineShortcutsRef
     ref.current = {
@@ -343,11 +416,23 @@ export default function PdfEngine({
         setZoom(clampZoom((zoomRef.current > 0 ? zoomRef.current : fittedRef.current) - 0.25)),
       zoomReset: () => setZoom(PDF_FIT_ZOOM),
       search: openSearch,
+      dismiss: () => {
+        if (searchOpen) {
+          setQuery("")
+          setSearchOpen(false)
+          return true
+        }
+        if (thumbsOpen) {
+          setThumbsOpen(false)
+          return true
+        }
+        return false
+      },
     }
     return () => {
       ref.current = {}
     }
-  }, [engineShortcutsRef, openSearch])
+  }, [engineShortcutsRef, openSearch, searchOpen, thumbsOpen])
 
   // Re-centers the view after a pinch commits: the transform held the pinch
   // point under the fingers while the old render was up; once the new scale
@@ -378,14 +463,21 @@ export default function PdfEngine({
         const page = await documentProxy.getPage(pageIndex + 1)
         if (cancelled || !canvasRef.current) return
         const canvas = canvasRef.current
-        // The fit scale uses this page's own base size, so a landscape figure
-        // inside a portrait document still reads edge to edge.
-        const base = page.getViewport({ scale: 1 })
+        // The fit scale uses this page's own (rotated) base size, so a
+        // landscape figure inside a portrait document still reads edge to edge.
+        const base = page.getViewport({ scale: 1, rotation })
         const hostWidth = Math.max(
           240,
           (scrollRef.current?.clientWidth ?? base.width) - PDF_STAGE_PAD
         )
-        const fit = Math.min(3, Math.max(0.4, hostWidth / base.width))
+        const hostHeight = Math.max(
+          240,
+          (scrollRef.current?.clientHeight ?? base.height) - PDF_STAGE_PAD
+        )
+        const fitWidth = Math.min(3, Math.max(0.4, hostWidth / base.width))
+        const fitPage = Math.min(3, Math.max(0.4, hostHeight / base.height))
+        fitScalesRef.current = { width: fitWidth, page: fitPage }
+        const fit = zoom === PDF_FIT_PAGE ? fitPage : fitWidth
         fittedRef.current = fit
         setFitted(fit)
         const effective = zoom > 0 ? zoom : fit
@@ -393,6 +485,7 @@ export default function PdfEngine({
           page,
           canvas,
           scale: effective,
+          rotation,
           // 3x DPR turns a page into a ~30MP bitmap; 2x is the point of
           // diminishing returns for reading.
           pixelRatio:
@@ -414,8 +507,18 @@ export default function PdfEngine({
         container.style.height = canvas.style.height
         // PDF.js positions every span against this factor.
         container.style.setProperty("--total-scale-factor", String(effective))
-        textLayer = await renderPdfTextLayer({ page, container, scale: effective })
+        textLayer = await renderPdfTextLayer({ page, container, scale: effective, rotation })
         if (cancelled) return
+        // In-document links (TOC entries, citations, urls) become real click
+        // targets over the text layer — internal ones turn pages, external
+        // ones open in a new tab.
+        const pageLinks = await resolvePdfPageLinks({
+          page,
+          doc: documentProxy,
+          scale: effective,
+          rotation,
+        })
+        if (!cancelled) setLinks({ key: linkKey, items: pageLinks })
         const needle = activeQueryRef.current
         if (needle) {
           highlightTextLayer(container, needle)
@@ -441,7 +544,7 @@ export default function PdfEngine({
       textLayer?.cancel()
       textLayerEl?.replaceChildren()
     }
-  }, [applyPinchCommit, pageIndex, pdf, reportError, zoom, fitTick])
+  }, [applyPinchCommit, linkKey, pageIndex, pdf, reportError, rotation, zoom, fitTick])
 
   // A page change invalidates an uncommitted pinch — declared before the
   // gesture reset so the commit is already gone when that cleanup runs and
@@ -477,7 +580,8 @@ export default function PdfEngine({
   }, [])
 
   const onStagePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "touch") return
+    // Touch and pen both drive pan/pinch; only the mouse keeps drag-to-select.
+    if (event.pointerType === "mouse") return
     event.currentTarget.setPointerCapture(event.pointerId)
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
     if (pointersRef.current.size === 2) {
@@ -570,6 +674,47 @@ export default function PdfEngine({
 
   const effectiveZoom = zoom > 0 ? zoom : fitted
   const hitCount = activeHits?.length ?? 0
+
+  // Double-click zooms around the clicked point, reusing the pinch commit
+  // path: record where the point sits in the current layout, re-render, then
+  // scroll it back under the cursor.
+  const onStageDoubleClick = (event: {
+    clientX: number
+    clientY: number
+    target: EventTarget | null
+  }) => {
+    // A double-click that selected a word is a selection gesture, not a zoom
+    // request — the text layer stays in charge. Links and controls keep their
+    // own double-click meaning too.
+    if (typeof window !== "undefined" && window.getSelection()?.toString()) return
+    if (
+      event.target instanceof HTMLElement &&
+      event.target.closest("[data-book-preview-link], button, a, input")
+    ) {
+      return
+    }
+    const inner = stageInnerRef.current
+    const scroller = scrollRef.current
+    if (!inner || !scroller || !pdf) return
+    const nextZoom = zoom <= 0 ? clampZoom(effectiveZoom * 1.75) : PDF_FIT_ZOOM
+    const nextEffective =
+      nextZoom > 0
+        ? nextZoom
+        : nextZoom === PDF_FIT_PAGE
+          ? fitScalesRef.current.page
+          : fitScalesRef.current.width
+    const rect = inner.getBoundingClientRect()
+    pinchCommitRef.current = {
+      scale: nextEffective / effectiveZoom,
+      m: { x: event.clientX - rect.left, y: event.clientY - rect.top },
+      target: { x: event.clientX, y: event.clientY },
+    }
+    if (Math.abs(nextEffective - effectiveZoom) < 0.001) {
+      applyPinchCommit()
+    } else {
+      setZoom(nextZoom)
+    }
+  }
 
   return (
     <div className="flex h-full w-full flex-col gap-3 p-4">
@@ -666,10 +811,12 @@ export default function PdfEngine({
         >
           <ZoomOutIcon />
         </Button>
-        <span className="font-mono text-xs text-muted-foreground">
+        <span className="min-w-[5.5ch] text-center font-mono text-xs text-muted-foreground">
           {zoom === PDF_FIT_ZOOM
             ? `Fit ${Math.round(effectiveZoom * 100)}%`
-            : `${Math.round(zoom * 100)}%`}
+            : zoom === PDF_FIT_PAGE
+              ? `Page ${Math.round(effectiveZoom * 100)}%`
+              : `${Math.round(zoom * 100)}%`}
         </span>
         <Button
           type="button"
@@ -684,14 +831,31 @@ export default function PdfEngine({
         </Button>
         <Button
           type="button"
-          variant={zoom === PDF_FIT_ZOOM ? "secondary" : "ghost"}
+          variant={zoom <= 0 ? "secondary" : "ghost"}
           size="sm"
-          aria-pressed={zoom === PDF_FIT_ZOOM}
-          aria-label="Fit page width"
-          onClick={() => setZoom(PDF_FIT_ZOOM)}
+          aria-pressed={zoom <= 0}
+          aria-label={
+            zoom === PDF_FIT_PAGE ? "Fit entire page" : "Fit page width"
+          }
+          title="Cycle fit width / fit page"
+          onClick={() =>
+            setZoom(zoom === PDF_FIT_ZOOM ? PDF_FIT_PAGE : PDF_FIT_ZOOM)
+          }
           data-book-preview-press
         >
-          Fit
+          {zoom === PDF_FIT_PAGE ? "Page" : "Fit"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Rotate clockwise"
+          disabled={!pdf}
+          onClick={() => setRotation((current) => (current + 90) % 360)}
+          data-book-preview-press
+          className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+        >
+          <RotateCwIcon />
         </Button>
         {pdf && docHasMultiplePages(pdf) ? (
           <Button
@@ -709,29 +873,75 @@ export default function PdfEngine({
         ) : null}
       </div>
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border bg-muted/30">
-        <PdfThumbRail
-          doc={pdf}
-          pageIndex={pageIndex}
-          open={thumbsOpen}
-          onSelect={(index) => reportPageChange(index, "instant")}
-        />
+        {narrow ? (
+          <PdfThumbSheet
+            doc={pdf}
+            pageIndex={pageIndex}
+            open={thumbsOpen}
+            onOpenChange={setThumbsOpen}
+            onSelect={(index) => reportPageChange(index, "instant")}
+          />
+        ) : (
+          <PdfThumbRail
+            doc={pdf}
+            pageIndex={pageIndex}
+            open={thumbsOpen}
+            onSelect={(index) => reportPageChange(index, "instant")}
+          />
+        )}
         <div
           ref={scrollRef}
           className="flex min-h-0 flex-1 overflow-auto p-4"
-          onDoubleClick={() => {
-            // A double-click that selected a word is a selection gesture,
-            // not a zoom request — the text layer stays in charge.
-            if (typeof window !== "undefined" && window.getSelection()?.toString()) return
-            setZoom((current) =>
-              current === PDF_FIT_ZOOM ? clampZoom(fittedRef.current * 1.75) : PDF_FIT_ZOOM
-            )
-          }}
+          onDoubleClick={onStageDoubleClick}
         >
           {!pdf ? (
-            <div className="m-auto flex items-center gap-2 text-sm text-muted-foreground">
-              <Spinner />
-              {source.allowPdfUpload ? "Upload or drop a PDF to begin" : "Waiting for a document"}
-            </div>
+            passwordRequest ? (
+              <div className="m-auto">
+                <PdfPasswordGate
+                  fileName={source.pdfFileName}
+                  incorrect={passwordRequest.incorrect}
+                  onSubmit={submitPassword}
+                  onCancel={cancelPassword}
+                />
+              </div>
+            ) : source.pdfUrl ? (
+              <div className="m-auto flex items-center gap-2 text-sm text-muted-foreground">
+                <Spinner />
+                Opening PDF…
+              </div>
+            ) : source.allowPdfUpload ? (
+              <div className="m-auto flex flex-col items-center gap-3 text-center">
+                <FileUpIcon className="size-8 text-muted-foreground/60" />
+                <p className="max-w-52 text-sm text-muted-foreground">
+                  Upload or drop a PDF to begin
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  data-book-preview-press
+                >
+                  Choose file
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="hidden"
+                  aria-label="Upload PDF"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (file) uploadPdf(file)
+                    event.target.value = ""
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="m-auto flex items-center gap-2 text-sm text-muted-foreground">
+                Waiting for a document
+              </div>
+            )
           ) : (
             /* Auto margins center a page that fits and let a zoomed page scroll
                to every edge — justify-center would clip the start side. The
@@ -756,6 +966,51 @@ export default function PdfEngine({
                 className="block rounded bg-background shadow"
               />
               <div ref={textLayerRef} className="textLayer" data-book-preview-text-layer />
+              {links && links.key === linkKey && links.items.length > 0 ? (
+                <div
+                  data-book-preview-links
+                  className="pointer-events-none absolute inset-0 z-20"
+                >
+                  {links.items.map((link, index) => {
+                    const target = link.target
+                    return target.kind === "page" ? (
+                      <button
+                        key={index}
+                        type="button"
+                        className="absolute cursor-pointer rounded-sm"
+                        style={{
+                          left: link.left,
+                          top: link.top,
+                          width: link.width,
+                          height: link.height,
+                        }}
+                        aria-label={`Go to page ${target.pageIndex + 1}`}
+                        title={`Go to page ${target.pageIndex + 1}`}
+                        data-book-preview-link
+                        data-book-preview-press
+                        onClick={() => reportPageChange(target.pageIndex, "instant")}
+                      />
+                    ) : (
+                      <a
+                        key={index}
+                        className="absolute cursor-pointer rounded-sm"
+                        style={{
+                          left: link.left,
+                          top: link.top,
+                          width: link.width,
+                          height: link.height,
+                        }}
+                        href={target.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Open link: ${target.url}`}
+                        title={target.url}
+                        data-book-preview-link
+                      />
+                    )
+                  })}
+                </div>
+              ) : null}
             </div>
           )}
         </div>

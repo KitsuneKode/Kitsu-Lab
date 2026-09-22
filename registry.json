@@ -164,6 +164,10 @@
           "type": "registry:component"
         },
         {
+          "path": "components/book-preview/engines/pdf-password-gate.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "components/book-preview/engines/pdf-engine.tsx",
           "type": "registry:component"
         },
@@ -179,7 +183,9 @@
         "https://kitsulab.vercel.app/r/book-preview.json",
         "badge",
         "spinner",
-        "button"
+        "button",
+        "input",
+        "sheet"
       ]
     },
     {

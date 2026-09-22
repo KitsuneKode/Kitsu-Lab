@@ -310,3 +310,17 @@
     background: hsl(48 96% 62% / 0.7);
   }
 }
+
+/* In-document link annotations sit above the text layer (pdf.js puts its
+   annotationLayer there too). Invisible at rest like a real PDF; hover and
+   keyboard focus get a quiet affordance so links are discoverable. The parent
+   layer is pointer-events:none, so each rect re-enables hit-testing. */
+.book-preview [data-book-preview-link] {
+  pointer-events: auto;
+  background: transparent;
+}
+.book-preview [data-book-preview-link]:hover,
+.book-preview [data-book-preview-link]:focus-visible {
+  background: color-mix(in oklab, var(--primary) 18%, transparent);
+  outline: 1px solid color-mix(in oklab, var(--primary) 45%, transparent);
+}

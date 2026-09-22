@@ -7,6 +7,14 @@ export const CURL_RASTER_HEIGHT = Math.round(
 )
 export const CURL_SIZE_QUANTUM = 16
 export const CURL_CLICK_SLOP_PX = 24
+/** Touch jitter is looser than a mouse click — but the first pixels of a
+    flick should already be turning the page, not sitting in a dead zone. */
+export const CURL_TOUCH_SLOP_PX = 10
+/** Mirrors page-flip's own swipe heuristic: a fast, mostly-horizontal flick
+    turns the page even when it never reached the fold midpoint. */
+export const CURL_SWIPE_MIN_PX = 30
+export const CURL_SWIPE_MAX_OFF_AXIS_PX = 60
+export const CURL_SWIPE_MAX_MS = 250
 /** A spread is only worth showing if each leaf stays comfortably readable. */
 export const CURL_SPREAD_MIN_PAGE_WIDTH = 260
 export const CURL_STAGE_PAD_X = 24
@@ -82,29 +90,36 @@ export function curlPageSizeForStage(
   const padY = 36
   // A spread holds two leaves side by side, so each gets half the stage.
   const usable = spread ? (clientWidth - padX) / 2 : clientWidth - padX
-  const availW = Math.max(CURL_MIN_PAGE_WIDTH, Math.floor(usable))
+  const availW = Math.max(1, Math.floor(usable))
   if (clientHeight < 80) {
     const width = Math.min(availW, 360)
     return { width, height: Math.round(width * ratio) }
   }
-  const availH = Math.max(
-    Math.round(CURL_MIN_PAGE_WIDTH * ratio),
-    Math.floor(clientHeight - padY),
+  const availH = Math.max(1, Math.floor(clientHeight - padY))
+  const width = Math.min(
+    CURL_MAX_PAGE_WIDTH,
+    availW,
+    Math.floor(availH / ratio),
   )
-  const width = Math.max(
-    CURL_MIN_PAGE_WIDTH,
-    Math.min(CURL_MAX_PAGE_WIDTH, availW, Math.floor(availH / ratio)),
-  )
-  return { width, height: Math.round(width * ratio) }
+  // Floor at the readable minimum only when it still fits both axes — a
+  // clipped page reads as broken, a small one just reads small.
+  const minFits =
+    CURL_MIN_PAGE_WIDTH <= availW &&
+    Math.round(CURL_MIN_PAGE_WIDTH * ratio) <= availH
+  const finalWidth =
+    width < CURL_MIN_PAGE_WIDTH && minFits ? CURL_MIN_PAGE_WIDTH : width
+  return { width: finalWidth, height: Math.round(finalWidth * ratio) }
 }
 
 export function quantizeCurlPageSize(
   size: CurlPageSize,
   ratio: number = CURL_PAGE_RATIO,
 ): CurlPageSize {
+  // Floor, never round up: a width snapped past the measured stage would
+  // overflow the viewport and clip the page edge.
   const width = Math.max(
-    CURL_MIN_PAGE_WIDTH,
-    Math.round(size.width / CURL_SIZE_QUANTUM) * CURL_SIZE_QUANTUM,
+    1,
+    Math.floor(size.width / CURL_SIZE_QUANTUM) * CURL_SIZE_QUANTUM,
   )
   return { width, height: Math.round(width * ratio) }
 }

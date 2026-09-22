@@ -20,6 +20,10 @@ import {
   CURL_MAX_PAGE_WIDTH,
   CURL_MIN_PAGE_WIDTH,
   CURL_PAGE_RATIO,
+  CURL_SWIPE_MAX_MS,
+  CURL_SWIPE_MAX_OFF_AXIS_PX,
+  CURL_SWIPE_MIN_PX,
+  CURL_TOUCH_SLOP_PX,
   curlClickIntent,
   curlDragOrigin,
   curlPageLabel,
@@ -144,6 +148,9 @@ function attachCurlPointers(
     pointerId: -1,
     startX: 0,
     startY: 0,
+    startTime: 0,
+    slop: CURL_CLICK_SLOP_PX,
+    isTouch: false,
     dragging: false,
   }
 
@@ -155,6 +162,9 @@ function attachCurlPointers(
     press.pointerId = event.pointerId
     press.startX = pos.x
     press.startY = pos.y
+    press.startTime = Date.now()
+    press.isTouch = event.pointerType === 'touch'
+    press.slop = press.isTouch ? CURL_TOUCH_SLOP_PX : CURL_CLICK_SLOP_PX
     press.dragging = false
     interacting.current = true
     try {
@@ -169,9 +179,15 @@ function attachCurlPointers(
     if (press.pointerId !== event.pointerId) return
     event.preventDefault()
     const pos = pointIn(dist, event.clientX, event.clientY)
-    const distance = Math.hypot(pos.x - press.startX, pos.y - press.startY)
     if (!press.dragging) {
-      if (distance < CURL_CLICK_SLOP_PX) return
+      // Touch folds need horizontal intent: with pan-y touch-action a
+      // mostly-vertical gesture belongs to the page scroller, not the fold —
+      // starting one here would snap back on the inevitable pointercancel.
+      // Mouse has no competing gesture, so any direction can peel a corner.
+      const distance = press.isTouch
+        ? Math.abs(pos.x - press.startX)
+        : Math.hypot(pos.x - press.startX, pos.y - press.startY)
+      if (distance < press.slop) return
       press.dragging = true
       book.startUserTouch(
         curlDragOrigin(
@@ -199,7 +215,27 @@ function attachCurlPointers(
       return
     }
     if (dragging) {
-      book.userStop({ x: pos.x, y: pos.y })
+      // Flick: a fast mostly-horizontal release turns the page even though
+      // the fold never crossed the midpoint. Same heuristic page-flip's own
+      // touch UI uses — without it every quick swipe snaps back.
+      const dx = pos.x - press.startX
+      const swiped =
+        Math.abs(dx) > CURL_SWIPE_MIN_PX &&
+        Math.abs(pos.y - press.startY) < CURL_SWIPE_MAX_OFF_AXIS_PX &&
+        Date.now() - press.startTime < CURL_SWIPE_MAX_MS
+      book.userStop({ x: pos.x, y: pos.y }, swiped)
+      if (swiped) {
+        const corner = press.startY < pos.height / 2 ? 'top' : 'bottom'
+        interacting.current = false
+        if (dx > 0) book.flipPrev(corner)
+        else book.flipNext(corner)
+      }
+      return
+    }
+    // A tap only counts if the pointer barely moved at all — a mostly
+    // vertical release is a scroll gesture, not a turn request.
+    if (Math.hypot(pos.x - press.startX, pos.y - press.startY) >= press.slop) {
+      interacting.current = false
       return
     }
     const intent = curlClickIntent(
@@ -213,6 +249,7 @@ function attachCurlPointers(
       return
     }
     const corner = pos.y < pos.height / 2 ? 'top' : 'bottom'
+    interacting.current = false
     if (intent === 'prev') book.flipPrev(corner)
     else book.flipNext(corner)
   }
@@ -588,7 +625,7 @@ export function CurlStage({
   return (
     <div
       ref={stageRef}
-      className="relative flex h-full w-full min-w-0 touch-none items-center justify-center p-3 select-none sm:p-4"
+      className="relative flex h-full w-full min-w-0 touch-pan-y items-center justify-center p-3 select-none sm:p-4"
     >
       <Button
         type="button"
@@ -635,7 +672,7 @@ export function CurlStage({
         <div
           ref={hostWrapRef}
           data-book-preview-curl-book
-          className="relative cursor-grab touch-none active:cursor-grabbing"
+          className="relative cursor-grab touch-pan-y active:cursor-grabbing"
           // A spread is two leaves wide. Sizing this box for one leaf leaves the
           // book overflowing its own container instead of sitting centred.
           style={

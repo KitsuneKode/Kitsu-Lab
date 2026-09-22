@@ -307,10 +307,30 @@ describe('curl stage sizing', () => {
     expect(size.width).toBeLessThanOrEqual(360)
   })
 
+  test('never emits a page taller than a short stage', () => {
+    // Landscape phones and split panes: the readable-size floor used to
+    // push the page past the stage height and clip it. Fitting beats
+    // flooring — a small page reads small, a clipped one reads broken.
+    const size = curlPageSizeForStage(900, 200)
+    expect(size.height).toBeLessThanOrEqual(200)
+  })
+
+  test('never emits a page wider than a narrow stage', () => {
+    const size = curlPageSizeForStage(200, 700)
+    expect(size.width).toBeLessThanOrEqual(200)
+  })
+
   test('quantizes width so tiny resizes do not rebuild the book', () => {
     const size = quantizeCurlPageSize({ width: 403, height: 577 })
     expect(size.width % CURL_SIZE_QUANTUM).toBe(0)
     expect(size.height / size.width).toBeCloseTo(CURL_PAGE_RATIO, 2)
+  })
+
+  test('quantizing never rounds a page past the stage', () => {
+    // A width snapped up over the measured size overflows the viewport.
+    const size = quantizeCurlPageSize({ width: 351, height: 0 })
+    expect(size.width).toBeLessThanOrEqual(351)
+    expect(size.width % CURL_SIZE_QUANTUM).toBe(0)
   })
 })
 

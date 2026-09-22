@@ -70,7 +70,10 @@
 .book-preview [data-book-preview-curl] .stf__parent,
 .book-preview [data-book-preview-curl] .stf__block,
 .book-preview [data-book-preview-curl] .stf__item {
-  touch-action: none;
+  /* pan-y, not none: vertical gestures scroll the page past the reader,
+     horizontal ones stay ours for the fold. With none, a phone-sized stage
+     traps the scroll entirely. */
+  touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;

@@ -17,7 +17,7 @@ export function BookPreviewViewport({ children }: { children?: ReactNode }) {
 
   return (
     <div
-      className="bg-card relative isolate min-h-[min(22rem,68svh)] w-full min-w-0 overflow-hidden rounded-xl border sm:min-h-[min(32rem,74svh)] lg:min-h-[min(40rem,80svh)] xl:min-h-[min(48rem,84svh)]"
+      className="bg-card relative isolate min-h-[min(30rem,80svh)] w-full min-w-0 overflow-hidden rounded-xl border sm:min-h-[min(32rem,74svh)] lg:min-h-[min(40rem,80svh)] xl:min-h-[min(48rem,84svh)]"
       data-book-preview-surface
       data-book-preview-viewport
     >

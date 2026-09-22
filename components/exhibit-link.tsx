@@ -21,7 +21,7 @@ export function ExhibitLink({
       href={`/exhibition/${path}`}
       prefetch
       transitionTypes={['nav-forward']}
-      className="group hover:bg-accent/50 focus-visible:ring-ring/50 active:bg-accent flex items-baseline gap-5 px-2 py-6 transition-all duration-200 outline-none focus-visible:ring-[3px] active:scale-[0.995] sm:gap-8 sm:px-4"
+      className="group hover:bg-accent/50 focus-visible:ring-ring/50 active:bg-accent flex items-baseline gap-5 px-2 py-6 transition-[background-color,transform] duration-200 outline-none focus-visible:ring-[3px] active:scale-[0.995] sm:gap-8 sm:px-4"
     >
       <span className="text-muted-foreground group-hover:text-foreground font-mono text-xs tabular-nums transition-colors">
         {String(index + 1).padStart(2, '0')}
@@ -49,7 +49,7 @@ function ExhibitLinkHint() {
     <span
       aria-hidden
       data-pending={pending ? '' : undefined}
-      className="text-muted-foreground group-hover:text-foreground -translate-x-2 self-center opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 data-[pending]:animate-pulse data-[pending]:opacity-100"
+      className="text-muted-foreground group-hover:text-foreground -translate-x-2 self-center opacity-0 transition-[transform,opacity,color] duration-200 group-hover:translate-x-0 group-hover:opacity-100 data-[pending]:animate-pulse data-[pending]:opacity-100"
     >
       <IconArrowRight className="size-5" />
     </span>

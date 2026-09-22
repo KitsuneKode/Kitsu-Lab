@@ -25,7 +25,7 @@
     },
     {
       "path": "components/book-preview/engines/webgl-engine.meta.ts",
-      "content": "import { DEFAULT_CAPABILITIES, hasWebGLSupport } from \"../capabilities\"\nimport type { BookPreviewEngine } from \"../types\"\n\nexport const webglEngine: BookPreviewEngine = {\n  id: \"webgl\",\n  label: \"WebGL\",\n  description: \"Skinned 3D book mesh\",\n  // A 3D book flips spreads, not pages — a page counter/slider would report\n  // numbers that mean nothing to the reader, so the chrome hides them.\n  capabilities: {\n    ...DEFAULT_CAPABILITIES,\n    webgl: true,\n    pagination: false,\n    appearance: false,\n    sound: false,\n  },\n  requiresPages: true,\n  isSupported: hasWebGLSupport,\n  load: () => import(\"./webgl-engine\"),\n}\n",
+      "content": "import { DEFAULT_CAPABILITIES, hasWebGLSupport } from '../capabilities'\nimport type { BookPreviewEngine } from '../types'\n\nexport const webglEngine: BookPreviewEngine = {\n  id: 'webgl',\n  label: 'WebGL',\n  description: 'Skinned 3D book mesh',\n  // A 3D book flips spreads, not pages — a page counter/slider would report\n  // numbers that mean nothing to the reader, so the chrome hides them.\n  capabilities: {\n    ...DEFAULT_CAPABILITIES,\n    webgl: true,\n    pagination: false,\n    appearance: false,\n    sound: false,\n  },\n  requiresPages: true,\n  isSupported: hasWebGLSupport,\n  load: () => import('./webgl-engine'),\n}\n",
       "type": "registry:component"
     }
   ],

@@ -14,7 +14,7 @@
     },
     {
       "path": "components/book-preview/engines/scroll-engine.meta.ts",
-      "content": "import { DEFAULT_CAPABILITIES } from \"../capabilities\"\nimport type { BookPreviewEngine } from \"../types\"\n\nexport const scrollEngine: BookPreviewEngine = {\n  id: \"scroll\",\n  label: \"Scroll\",\n  description: \"Continuous vertical reading\",\n  capabilities: { ...DEFAULT_CAPABILITIES, pagination: true },\n  load: () => import(\"./scroll-engine\"),\n}\n",
+      "content": "import { DEFAULT_CAPABILITIES } from '../capabilities'\nimport type { BookPreviewEngine } from '../types'\n\nexport const scrollEngine: BookPreviewEngine = {\n  id: 'scroll',\n  label: 'Scroll',\n  description: 'Continuous vertical reading',\n  capabilities: { ...DEFAULT_CAPABILITIES, pagination: true },\n  load: () => import('./scroll-engine'),\n}\n",
       "type": "registry:component"
     }
   ],

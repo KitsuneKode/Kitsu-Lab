@@ -30,7 +30,7 @@
     },
     {
       "path": "components/book-preview/engines/premier-engine.meta.ts",
-      "content": "import { DEFAULT_CAPABILITIES } from \"../capabilities\"\nimport type { BookPreviewEngine } from \"../types\"\n\nexport const premierEngine: BookPreviewEngine = {\n  id: \"premier\",\n  label: \"Premier\",\n  description:\n    \"Flagship reader — flip book, single, spread, scroll & text views with selectable overlays, links, search, read-aloud, zoom, thumbnails\",\n  capabilities: {\n    ...DEFAULT_CAPABILITIES,\n    curl: true,\n    search: true,\n    speech: true,\n    thumbnails: true,\n  },\n  load: () => import(\"./premier-engine\"),\n}\n",
+      "content": "import { DEFAULT_CAPABILITIES } from '../capabilities'\nimport type { BookPreviewEngine } from '../types'\n\nexport const premierEngine: BookPreviewEngine = {\n  id: 'premier',\n  label: 'Premier',\n  description:\n    'Flagship reader — flip book, single, spread, scroll & text views with selectable overlays, links, search, read-aloud, zoom, thumbnails',\n  capabilities: {\n    ...DEFAULT_CAPABILITIES,\n    curl: true,\n    search: true,\n    speech: true,\n    thumbnails: true,\n  },\n  load: () => import('./premier-engine'),\n}\n",
       "type": "registry:component"
     }
   ],

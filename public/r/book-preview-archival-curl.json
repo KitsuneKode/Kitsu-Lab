@@ -15,7 +15,7 @@
     },
     {
       "path": "components/book-preview/engines/archival-curl-engine.meta.ts",
-      "content": "import { DEFAULT_CAPABILITIES } from \"../capabilities\"\nimport type { BookPreviewEngine } from \"../types\"\n\nexport const archivalCurlEngine: BookPreviewEngine = {\n  id: \"archival-curl\",\n  label: \"Archival curl\",\n  description: \"Facsimile pages with curl, search, and speech\",\n  capabilities: {\n    ...DEFAULT_CAPABILITIES,\n    curl: true,\n    search: true,\n    speech: true,\n    thumbnails: true,\n  },\n  load: () => import(\"./archival-curl-engine\"),\n}\n",
+      "content": "import { DEFAULT_CAPABILITIES } from '../capabilities'\nimport type { BookPreviewEngine } from '../types'\n\nexport const archivalCurlEngine: BookPreviewEngine = {\n  id: 'archival-curl',\n  label: 'Archival curl',\n  description: 'Facsimile pages with curl, search, and speech',\n  capabilities: {\n    ...DEFAULT_CAPABILITIES,\n    curl: true,\n    search: true,\n    speech: true,\n    thumbnails: true,\n  },\n  load: () => import('./archival-curl-engine'),\n}\n",
       "type": "registry:component"
     }
   ],

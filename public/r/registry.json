@@ -321,6 +321,10 @@
           "type": "registry:component"
         },
         {
+          "path": "components/book-preview/engines/webgl-geometry.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "components/book-preview/engines/webgl-engine.meta.ts",
           "type": "registry:component"
         }

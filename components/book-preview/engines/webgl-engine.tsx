@@ -1,68 +1,46 @@
-"use client"
+'use client'
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react"
-import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { OrbitControls } from "@react-three/drei/core/OrbitControls"
+import { easing } from 'maath'
+import { useDocumentVisible } from '../media'
+import { useStableHandler } from '../hooks/use-stable-handler'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { OrbitControls } from '@react-three/drei/core/OrbitControls'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import type { BookPreviewEngineProps, BookPreviewPage } from '../types'
+import { DEFAULT_CAPABILITIES, hasWebGLSupport } from '../capabilities'
+import {
+  PAGE_DEPTH,
+  PAGE_SEGMENTS,
+  SEGMENT_WIDTH,
+  createPageGeometry,
+} from './webgl-geometry'
 import {
   Bone,
   BoxGeometry,
   CanvasTexture,
   Color,
-  Float32BufferAttribute,
   Group,
   MathUtils,
   MeshStandardMaterial,
   Skeleton,
   SkinnedMesh,
   SRGBColorSpace,
-  Uint16BufferAttribute,
-  Vector3,
   type WebGLRenderer,
-} from "three"
-import { easing } from "maath"
-import { useDocumentVisible } from "../media"
-import { DEFAULT_CAPABILITIES, hasWebGLSupport } from "../capabilities"
-import { useStableHandler } from "../hooks/use-stable-handler"
-import type { BookPreviewEngineProps, BookPreviewPage } from "../types"
-
-const PAGE_WIDTH = 1.35
-const PAGE_HEIGHT = 1.85
-const PAGE_DEPTH = 0.004
-const PAGE_SEGMENTS = 24
-const SEGMENT_WIDTH = PAGE_WIDTH / PAGE_SEGMENTS
-
-function createPageGeometry() {
-  const geom = new BoxGeometry(PAGE_WIDTH, PAGE_HEIGHT, PAGE_DEPTH, PAGE_SEGMENTS, 2)
-  geom.translate(PAGE_WIDTH / 2, 0, 0)
-  const position = geom.attributes.position
-  const vertex = new Vector3()
-  const skinIndexes: number[] = []
-  const skinWeights: number[] = []
-  for (let i = 0; i < position.count; i += 1) {
-    vertex.fromBufferAttribute(position, i)
-    const skinIndex = Math.max(0, Math.floor(vertex.x / SEGMENT_WIDTH))
-    const skinWeight = (vertex.x % SEGMENT_WIDTH) / SEGMENT_WIDTH
-    skinIndexes.push(skinIndex, skinIndex + 1, 0, 0)
-    skinWeights.push(1 - skinWeight, skinWeight, 0, 0)
-  }
-  geom.setAttribute("skinIndex", new Uint16BufferAttribute(skinIndexes, 4))
-  geom.setAttribute("skinWeight", new Float32BufferAttribute(skinWeights, 4))
-  return geom
-}
+} from 'three'
 
 function createPageTexture(page: BookPreviewPage, isCover: boolean) {
-  const canvas = document.createElement("canvas")
+  const canvas = document.createElement('canvas')
   canvas.width = 512
   canvas.height = 700
-  const ctx = canvas.getContext("2d")
+  const ctx = canvas.getContext('2d')
   if (!ctx) return null
-  ctx.fillStyle = isCover ? "#1c1917" : "#faf5e4"
+  ctx.fillStyle = isCover ? '#1c1917' : '#faf5e4'
   ctx.fillRect(0, 0, 512, 700)
-  ctx.fillStyle = isCover ? "#fafaf9" : "#1c1917"
-  ctx.textAlign = "left"
-  ctx.font = isCover ? "bold 28px Georgia, serif" : "bold 22px Georgia, serif"
+  ctx.fillStyle = isCover ? '#fafaf9' : '#1c1917'
+  ctx.textAlign = 'left'
+  ctx.font = isCover ? 'bold 28px Georgia, serif' : 'bold 22px Georgia, serif'
   ctx.fillText(page.title ?? `Page ${page.pageNumber}`, 40, isCover ? 280 : 110)
-  ctx.font = "16px Georgia, serif"
+  ctx.font = '16px Georgia, serif'
   const lines = page.paragraphs?.slice(0, 8) ?? []
   lines.forEach((line, index) => {
     ctx.fillText(line.slice(0, 42), 40, 160 + index * 28)
@@ -104,17 +82,17 @@ function PageMesh({
     }
     const skeleton = new Skeleton(bones)
     const materials = [
-      new MeshStandardMaterial({ color: new Color("#faf5e4"), roughness: 0.3 }),
-      new MeshStandardMaterial({ color: new Color("#222") }),
-      new MeshStandardMaterial({ color: new Color("#faf5e4"), roughness: 0.3 }),
-      new MeshStandardMaterial({ color: new Color("#faf5e4"), roughness: 0.3 }),
+      new MeshStandardMaterial({ color: new Color('#faf5e4'), roughness: 0.3 }),
+      new MeshStandardMaterial({ color: new Color('#222') }),
+      new MeshStandardMaterial({ color: new Color('#faf5e4'), roughness: 0.3 }),
+      new MeshStandardMaterial({ color: new Color('#faf5e4'), roughness: 0.3 }),
       new MeshStandardMaterial({
-        color: new Color("#fff"),
+        color: new Color('#fff'),
         map: frontTexture ?? undefined,
         roughness: 0.3,
       }),
       new MeshStandardMaterial({
-        color: new Color("#fff"),
+        color: new Color('#fff'),
         map: backTexture ?? undefined,
         roughness: 0.3,
       }),
@@ -131,7 +109,9 @@ function PageMesh({
     const current = mesh
     return () => {
       current.geometry.dispose()
-      const mats = Array.isArray(current.material) ? current.material : [current.material]
+      const mats = Array.isArray(current.material)
+        ? current.material
+        : [current.material]
       mats.forEach((material) => material.dispose())
       current.skeleton.dispose()
     }
@@ -153,13 +133,14 @@ function PageMesh({
       if (!target) continue
       const insideCurve = i < 8 ? Math.sin(i * 0.2 + 0.25) : 0
       const outsideCurve = i >= 8 ? Math.cos(i * 0.3 + 0.09) : 0
-      const turningWave = Math.sin(i * Math.PI * (1 / bones.length)) * turningTime
+      const turningWave =
+        Math.sin(i * Math.PI * (1 / bones.length)) * turningTime
       let rotationAngle =
         0.18 * insideCurve * targetRotation -
         0.05 * outsideCurve * targetRotation +
         0.09 * turningWave * targetRotation
       if (bookClosed) rotationAngle = i === 0 ? targetRotation : 0
-      easing.dampAngle(target.rotation, "y", rotationAngle, 0.5, delta)
+      easing.dampAngle(target.rotation, 'y', rotationAngle, 0.5, delta)
     }
   })
 
@@ -171,7 +152,11 @@ function PageMesh({
         onPageClick()
       }}
     >
-      <primitive object={mesh} ref={skinnedMeshRef} position-z={-number * PAGE_DEPTH} />
+      <primitive
+        object={mesh}
+        ref={skinnedMeshRef}
+        position-z={-number * PAGE_DEPTH}
+      />
     </group>
   )
 }
@@ -204,13 +189,13 @@ export default function WebGLEngine({
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host || typeof IntersectionObserver === "undefined") {
+    if (!host || typeof IntersectionObserver === 'undefined') {
       setInView(true)
       return
     }
     const observer = new IntersectionObserver(
       ([entry]) => setInView(Boolean(entry?.isIntersecting)),
-      { rootMargin: "160px" }
+      { rootMargin: '160px' },
     )
     observer.observe(host)
     return () => observer.disconnect()
@@ -236,7 +221,9 @@ export default function WebGLEngine({
 
   useEffect(() => {
     const created = textures.flatMap((sheet) =>
-      [sheet.front, sheet.back].filter((texture): texture is CanvasTexture => Boolean(texture))
+      [sheet.front, sheet.back].filter((texture): texture is CanvasTexture =>
+        Boolean(texture),
+      ),
     )
     texturesRef.current = created
     return () => {
@@ -247,11 +234,17 @@ export default function WebGLEngine({
 
   useEffect(() => {
     if (!hasWebGLSupport()) {
-      reportError({ kind: "unsupported", message: "WebGL is not available on this device." })
+      reportError({
+        kind: 'unsupported',
+        message: 'WebGL is not available on this device.',
+      })
       return
     }
     if (source.pages.length === 0) {
-      reportError({ kind: "empty", message: "The WebGL reader needs page data." })
+      reportError({
+        kind: 'empty',
+        message: 'The WebGL reader needs page data.',
+      })
       return
     }
     reportReady({
@@ -283,23 +276,21 @@ export default function WebGLEngine({
   return (
     <div
       ref={hostRef}
-      className="relative h-[min(32rem,72svh)] w-full overflow-hidden rounded-xl bg-background"
+      className="bg-background relative h-[min(32rem,72svh)] w-full overflow-hidden rounded-xl"
       role="region"
       aria-label={
-        currentPage?.title
-          ? `3D book on ${currentPage.title}`
-          : "3D book"
+        currentPage?.title ? `3D book on ${currentPage.title}` : '3D book'
       }
     >
       <p className="sr-only">
         {currentPage?.title ?? `Page ${pageIndex + 1}`}.
-        {currentPage?.paragraphs?.[0] ? ` ${currentPage.paragraphs[0]}` : ""}
+        {currentPage?.paragraphs?.[0] ? ` ${currentPage.paragraphs[0]}` : ''}
         Use Next and Previous to turn pages.
       </p>
       <Canvas
         dpr={[1, 1.5]}
         camera={{ fov: 42 }}
-        frameloop={visible && inView && !reducedMotion ? "always" : "demand"}
+        frameloop={visible && inView && !reducedMotion ? 'always' : 'demand'}
         onCreated={({ gl }) => {
           rendererRef.current = gl
         }}
@@ -308,7 +299,11 @@ export default function WebGLEngine({
         <ambientLight intensity={1.1} />
         <directionalLight position={[3, 5, 4]} intensity={1.8} />
         <Suspense fallback={null}>
-          <group position={[0, -0.2, 0]} rotation-y={-Math.PI / 2} rotation-x={-0.45}>
+          <group
+            position={[0, -0.2, 0]}
+            rotation-y={-Math.PI / 2}
+            rotation-x={-0.45}
+          >
             {sheets.map((sheet, index) => (
               <PageMesh
                 key={sheet.front.id}
@@ -318,7 +313,9 @@ export default function WebGLEngine({
                 pageGeometry={geometry}
                 frontTexture={textures[index]?.front ?? null}
                 backTexture={textures[index]?.back ?? null}
-                onPageClick={() => onPageChange(pageIndex > index ? index : index + 1)}
+                onPageClick={() =>
+                  onPageChange(pageIndex > index ? index : index + 1)
+                }
               />
             ))}
           </group>

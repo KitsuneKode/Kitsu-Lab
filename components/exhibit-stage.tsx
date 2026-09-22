@@ -49,7 +49,7 @@ export function ExhibitStage({
         isFullscreen
           ? 'bg-background h-full overflow-auto overscroll-contain py-6'
           : hasIntro
-            ? 'pt-[calc(3.75rem+15vh+1rem)] pb-10'
+            ? 'pt-[calc(3.75rem_+_15vh_+_1rem)] pb-10'
             : 'py-6',
       )}
     >

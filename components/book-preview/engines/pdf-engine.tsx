@@ -32,17 +32,17 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  FileUpIcon,
-  HandIcon,
-  PanelLeftIcon,
-  RotateCwIcon,
-  SearchIcon,
-  XIcon,
-  ZoomInIcon,
-  ZoomOutIcon,
-} from 'lucide-react'
+  IconChevronDown,
+  IconChevronUp,
+  IconFileUpload,
+  IconHandStop,
+  IconLayoutSidebar,
+  IconRotateClockwise,
+  IconSearch,
+  IconX,
+  IconZoomIn,
+  IconZoomOut,
+} from '@tabler/icons-react'
 import {
   BOOK_PREVIEW_BOUNDARY_RESISTANCE,
   BOOK_PREVIEW_COMMIT_RATIO,
@@ -996,7 +996,7 @@ export default function PdfEngine({
       {searchOpen ? (
         <div className="flex items-center gap-1">
           <div className="relative">
-            <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
+            <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
             <Input
               ref={searchInputRef}
               value={query}
@@ -1039,7 +1039,7 @@ export default function PdfEngine({
             onClick={() => stepHit(-1)}
             data-book-preview-press
           >
-            <ChevronUpIcon />
+            <IconChevronUp />
           </Button>
           <Button
             type="button"
@@ -1050,7 +1050,7 @@ export default function PdfEngine({
             onClick={() => stepHit(1)}
             data-book-preview-press
           >
-            <ChevronDownIcon />
+            <IconChevronDown />
           </Button>
           <Button
             type="button"
@@ -1063,7 +1063,7 @@ export default function PdfEngine({
             }}
             data-book-preview-press
           >
-            <XIcon />
+            <IconX />
           </Button>
         </div>
       ) : (
@@ -1078,7 +1078,7 @@ export default function PdfEngine({
           data-book-preview-press
           className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
         >
-          <SearchIcon />
+          <IconSearch />
         </Button>
       )}
       <Button
@@ -1090,7 +1090,7 @@ export default function PdfEngine({
         data-book-preview-press
         className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
       >
-        <ZoomOutIcon />
+        <IconZoomOut />
       </Button>
       <span className="text-muted-foreground min-w-[5.5ch] text-center font-mono text-xs">
         {zoom === PDF_FIT_ZOOM
@@ -1108,7 +1108,7 @@ export default function PdfEngine({
         data-book-preview-press
         className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
       >
-        <ZoomInIcon />
+        <IconZoomIn />
       </Button>
       <Button
         type="button"
@@ -1136,7 +1136,7 @@ export default function PdfEngine({
         data-book-preview-press
         className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
       >
-        <RotateCwIcon />
+        <IconRotateClockwise />
       </Button>
       <Button
         type="button"
@@ -1150,7 +1150,7 @@ export default function PdfEngine({
         data-book-preview-press
         className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
       >
-        <HandIcon />
+        <IconHandStop />
       </Button>
       {pdf && docHasMultiplePages(pdf) ? (
         <Button
@@ -1163,7 +1163,7 @@ export default function PdfEngine({
           data-book-preview-press
           className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
         >
-          <PanelLeftIcon />
+          <IconLayoutSidebar />
         </Button>
       ) : null}
     </div>
@@ -1211,7 +1211,7 @@ export default function PdfEngine({
               </div>
             ) : source.allowPdfUpload ? (
               <div className="m-auto flex flex-col items-center gap-3 text-center">
-                <FileUpIcon className="text-muted-foreground/60 size-8" />
+                <IconFileUpload className="text-muted-foreground/60 size-8" />
                 <p className="text-muted-foreground max-w-52 text-sm">
                   Upload or drop a PDF to begin
                 </p>

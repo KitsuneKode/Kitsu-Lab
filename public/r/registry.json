@@ -22,7 +22,7 @@
         "spinner",
         "input"
       ],
-      "dependencies": ["lucide-react"],
+      "dependencies": ["@tabler/icons-react"],
       "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require page-flip, pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, scalar Slider values, and array-valued ToggleGroup state. Do not treat qualitative capability labels as measured performance guarantees.",
       "files": [
         {
@@ -371,7 +371,7 @@
       "type": "registry:component",
       "title": "Keyboard Button",
       "description": "A tactile keycap with spring press physics, entrance animation, and click sound.",
-      "dependencies": ["motion", "lucide-react"],
+      "dependencies": ["motion", "@tabler/icons-react"],
       "files": [
         {
           "path": "components/keyboard-button.tsx",

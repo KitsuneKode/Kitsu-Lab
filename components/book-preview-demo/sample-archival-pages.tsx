@@ -1,5 +1,3 @@
-"use client"
-
 import type { BookPreviewPage } from "@/components/book-preview"
 import { ARCHIVAL_BIRD_BOOK_PAGES } from "./archival-bird-data"
 import { archivalFilterModeFor } from "./archival-filter-mode"

@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react"
-import { BookOpenIcon, Columns2Icon, GridIcon, SearchIcon, ZoomInIcon } from "lucide-react"
+import { IconBook2, IconColumns2, IconLayoutGrid, IconSearch, IconZoomIn } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -124,15 +124,15 @@ function SpreadControls({
           aria-label="Spread layout"
         >
           <ToggleGroupItem value="spread" aria-label="Two-page spread">
-            <Columns2Icon />
+            <IconColumns2 />
             Spread
           </ToggleGroupItem>
           <ToggleGroupItem value="page" aria-label="Single page">
-            <BookOpenIcon />
+            <IconBook2 />
             Page
           </ToggleGroupItem>
           <ToggleGroupItem value="thumbs" aria-label="Thumbnails">
-            <GridIcon />
+            <IconLayoutGrid />
             Thumbnails
           </ToggleGroupItem>
         </ToggleGroup>
@@ -146,13 +146,13 @@ function SpreadControls({
             onClick={onToggleLoupe}
             data-book-preview-press
           >
-            <ZoomInIcon data-icon="inline-start" />
+            <IconZoomIn data-icon="inline-start" />
             Loupe
           </Button>
         ) : null}
       </div>
       <div className="relative min-w-[12rem] flex-1">
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}

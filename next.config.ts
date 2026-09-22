@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   poweredByHeader: false,
   experimental: {
-    optimizePackageImports: ["lucide-react", "@react-three/drei", "@react-three/fiber"],
+    optimizePackageImports: ["@tabler/icons-react", "@react-three/drei", "@react-three/fiber"],
   },
   async headers() {
     return [

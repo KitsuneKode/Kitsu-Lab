@@ -45,20 +45,20 @@ import type {
   NormalizedBookSource,
 } from '../types'
 import {
-  BookOpenIcon,
-  Columns2Icon,
-  FileUpIcon,
-  PanelLeftIcon,
-  RectangleVerticalIcon,
-  ScrollIcon,
-  SearchIcon,
-  SpeechIcon,
-  SquareIcon,
-  TypeIcon,
-  XIcon,
-  ZoomInIcon,
-  ZoomOutIcon,
-} from 'lucide-react'
+  IconBook2,
+  IconColumns2,
+  IconFileUpload,
+  IconLayoutSidebar,
+  IconRectangleVertical,
+  IconLayoutList,
+  IconSearch,
+  IconSpeakerphone,
+  IconPlayerStop,
+  IconTypography,
+  IconX,
+  IconZoomIn,
+  IconZoomOut,
+} from '@tabler/icons-react'
 
 // Page chips keep search honest in a raster book — there is no text layer to
 // highlight, so results name the pages worth flipping to. Past this count a
@@ -542,41 +542,41 @@ export default function PremierEngine({
               : 'Flip book'
           }
         >
-          <BookOpenIcon />
+          <IconBook2 />
         </ToggleGroupItem>
         <ToggleGroupItem
           value="single"
           aria-label="Single page"
           title="Single page"
         >
-          <RectangleVerticalIcon />
+          <IconRectangleVertical />
         </ToggleGroupItem>
         <ToggleGroupItem
           value="spread"
           aria-label="Two-page spread"
           title="Two-page spread"
         >
-          <Columns2Icon />
+          <IconColumns2 />
         </ToggleGroupItem>
         <ToggleGroupItem
           value="scroll"
           aria-label="Continuous scroll"
           title="Continuous scroll"
         >
-          <ScrollIcon />
+          <IconLayoutList />
         </ToggleGroupItem>
         <ToggleGroupItem
           value="text"
           aria-label="Text only"
           title="Text only — the lightest way to read"
         >
-          <TypeIcon />
+          <IconTypography />
         </ToggleGroupItem>
       </ToggleGroup>
       {searchOpen ? (
         <div className="flex items-center gap-1">
           <div className="relative">
-            <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
+            <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
             <Input
               ref={searchInputRef}
               value={query}
@@ -621,7 +621,7 @@ export default function PremierEngine({
             onClick={closeSearch}
             data-book-preview-press
           >
-            <XIcon />
+            <IconX />
           </Button>
         </div>
       ) : (
@@ -636,7 +636,7 @@ export default function PremierEngine({
           data-book-preview-press
           className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
         >
-          <SearchIcon />
+          <IconSearch />
         </Button>
       )}
       <Button
@@ -650,7 +650,7 @@ export default function PremierEngine({
         data-book-preview-press
         className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
       >
-        <ZoomOutIcon />
+        <IconZoomOut />
       </Button>
       <button
         type="button"
@@ -673,7 +673,7 @@ export default function PremierEngine({
         data-book-preview-press
         className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
       >
-        <ZoomInIcon />
+        <IconZoomIn />
       </Button>
       <Button
         type="button"
@@ -691,7 +691,7 @@ export default function PremierEngine({
         data-book-preview-press
         className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
       >
-        {speaking ? <SquareIcon /> : <SpeechIcon />}
+        {speaking ? <IconPlayerStop /> : <IconSpeakerphone />}
       </Button>
       {usePdf && doc && doc.numPages > 1 ? (
         <Button
@@ -704,7 +704,7 @@ export default function PremierEngine({
           data-book-preview-press
           className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
         >
-          <PanelLeftIcon />
+          <IconLayoutSidebar />
         </Button>
       ) : null}
       <span className="sr-only" role="status" aria-live="polite">
@@ -759,7 +759,7 @@ export default function PremierEngine({
           ) : !usePdf && pages.length === 0 ? (
             source.allowPdfUpload ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 p-4 text-center">
-                <FileUpIcon className="text-muted-foreground/60 size-8" />
+                <IconFileUpload className="text-muted-foreground/60 size-8" />
                 <p className="text-muted-foreground max-w-52 text-sm">
                   Upload or drop a PDF to begin
                 </p>

@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react"
 import { PageFlip } from "page-flip/dist/js/page-flip.module.js"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -554,7 +554,7 @@ export function CurlStage({
         data-book-preview-press
         onClick={() => bookRef.current?.flipPrev()}
       >
-        <ChevronLeftIcon />
+        <IconChevronLeft />
       </Button>
       <div data-book-preview-curl className="relative max-h-full max-w-full min-w-0">
         <div
@@ -617,7 +617,7 @@ export function CurlStage({
         data-book-preview-press
         onClick={() => bookRef.current?.flipNext()}
       >
-        <ChevronRightIcon />
+        <IconChevronRight />
       </Button>
     </div>
   )

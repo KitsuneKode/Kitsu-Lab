@@ -1,7 +1,7 @@
 "use client"
 
 import { useId, useState } from "react"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { useBookPreview } from "./book-preview-provider"
@@ -38,7 +38,7 @@ export function BookPreviewNavigation() {
           data-book-preview-press
           className="min-h-11 min-w-11"
         >
-          <ChevronLeftIcon data-icon="inline-start" />
+          <IconChevronLeft data-icon="inline-start" />
           Previous
         </Button>
         {state.totalPages === 0 ? (
@@ -92,7 +92,7 @@ export function BookPreviewNavigation() {
           className="min-h-11 min-w-11"
         >
           Next
-          <ChevronRightIcon data-icon="inline-end" />
+          <IconChevronRight data-icon="inline-end" />
         </Button>
       </div>
       {state.totalPages > 1 ? (

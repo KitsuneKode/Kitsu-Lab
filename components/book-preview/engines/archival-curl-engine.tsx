@@ -13,7 +13,7 @@ import { PdfPasswordGate } from './pdf-password-gate'
 import { PdfPreparingBadge } from './pdf-preparing-badge'
 import { useBookPreview } from '../book-preview-provider'
 import { BookPreviewPageView } from '../book-preview-page'
-import { PauseIcon, PlayIcon, SearchIcon } from 'lucide-react'
+import { IconPlayerPause, IconPlayerPlay, IconSearch } from '@tabler/icons-react'
 import { useStableHandler } from '../hooks/use-stable-handler'
 import { usePdfSheets, type PdfSheet } from '../hooks/use-pdf-sheets'
 import type { BookPreviewEngineProps, BookPreviewPage } from '../types'
@@ -91,7 +91,7 @@ function ArchivalSearchControls({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative min-w-[12rem] flex-1">
-        <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+        <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
         <Input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
@@ -110,9 +110,9 @@ function ArchivalSearchControls({
         data-book-preview-press
       >
         {speaking ? (
-          <PauseIcon data-icon="inline-start" />
+          <IconPlayerPause data-icon="inline-start" />
         ) : (
-          <PlayIcon data-icon="inline-start" />
+          <IconPlayerPlay data-icon="inline-start" />
         )}
         {speaking ? 'Stop reading' : 'Read page'}
       </Button>

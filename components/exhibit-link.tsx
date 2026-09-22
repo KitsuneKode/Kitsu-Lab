@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useLinkStatus } from "next/link"
-import { ArrowRightIcon } from "lucide-react"
+import { IconArrowRight } from "@tabler/icons-react"
 
 export function ExhibitLink({ path, name }: { path: string; name: string }) {
   return (
@@ -26,7 +26,7 @@ function ExhibitLinkHint() {
       data-pending={pending ? "" : undefined}
       className="ml-2 inline-flex transition-transform duration-200 group-hover:translate-x-0.5 data-[pending]:animate-pulse"
     >
-      <ArrowRightIcon />
+      <IconArrowRight />
     </span>
   )
 }

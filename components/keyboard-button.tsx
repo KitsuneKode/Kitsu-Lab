@@ -1,7 +1,7 @@
 'use client'
 
 import * as m from 'motion/react-m'
-import { LucideArrowDown } from 'lucide-react'
+import { IconArrowDown } from '@tabler/icons-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AnimatePresence,
@@ -128,7 +128,7 @@ export function KeyboardButton() {
                     : { repeat: Infinity, repeatType: 'mirror', duration: 0.8 }
                 }
               >
-                <LucideArrowDown />
+                <IconArrowDown />
               </m.span>
             </m.div>
           )}

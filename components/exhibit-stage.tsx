@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { Maximize2Icon, Minimize2Icon } from 'lucide-react'
+import { IconMaximize, IconMinimize } from '@tabler/icons-react'
 import { useRef, useSyncExternalStore, type ReactNode } from 'react'
 
 const subscribeFullscreen = (onChange: () => void) => {
@@ -63,9 +63,9 @@ export function ExhibitStage({
           className="fixed top-5 right-5 z-50 flex size-9 items-center justify-center rounded-full border border-white/10 bg-neutral-900/80 text-neutral-400 backdrop-blur-xl transition-[background-color,color,scale] hover:scale-105 hover:bg-neutral-800 hover:text-white"
         >
           {isFullscreen ? (
-            <Minimize2Icon className="size-4" aria-hidden />
+            <IconMinimize className="size-4" aria-hidden />
           ) : (
-            <Maximize2Icon className="size-4" aria-hidden />
+            <IconMaximize className="size-4" aria-hidden />
           )}
         </button>
       )}

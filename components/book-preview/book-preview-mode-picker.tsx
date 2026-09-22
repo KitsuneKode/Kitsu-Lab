@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDownIcon } from "lucide-react"
+import { IconChevronDown } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -35,7 +35,7 @@ export function BookPreviewModePicker() {
           data-book-preview-press
         >
           {currentLabel}
-          <ChevronDownIcon data-icon="inline-end" />
+          <IconChevronDown data-icon="inline-end" />
         </Button>
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetContent side="bottom" className="gap-4">

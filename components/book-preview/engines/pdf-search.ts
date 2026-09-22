@@ -1,5 +1,3 @@
-"use client"
-
 import { extractPdfPageText, type PdfDocumentProxy } from "../pdf-runtime"
 
 export type PdfSearchHit = {

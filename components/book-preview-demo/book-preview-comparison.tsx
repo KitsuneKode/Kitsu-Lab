@@ -1,6 +1,6 @@
 "use client"
 
-import { GaugeIcon } from "lucide-react"
+import { IconGauge } from "@tabler/icons-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -76,7 +76,7 @@ export function BookPreviewComparison() {
         }
       >
         <span className="flex items-center gap-2 text-sm font-medium">
-          <GaugeIcon />
+          <IconGauge />
           Compare reader capabilities
           <Badge variant="outline">Qualitative</Badge>
         </span>

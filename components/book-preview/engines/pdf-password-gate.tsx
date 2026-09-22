@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, type FormEvent } from "react"
-import { LockIcon } from "lucide-react"
+import { IconLock } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -38,7 +38,7 @@ export function PdfPasswordGate({
   return (
     <div className="m-auto flex w-full max-w-xs flex-col items-center gap-3 rounded-lg border bg-card p-5 text-center shadow-sm">
       <span className="flex size-10 items-center justify-center rounded-full bg-muted">
-        <LockIcon className="size-4 text-muted-foreground" />
+        <IconLock className="size-4 text-muted-foreground" />
       </span>
       <div className="space-y-1">
         <p className="text-sm font-medium">Password required</p>

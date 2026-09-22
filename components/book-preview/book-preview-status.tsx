@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertCircleIcon, BookOpenIcon, Loader2Icon, ShieldOffIcon } from "lucide-react"
+import { IconAlertCircle, IconBook2, IconLoader2, IconShieldOff } from "@tabler/icons-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -83,7 +83,7 @@ function EmptyStatus() {
     <Empty className="h-full border-dashed">
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <BookOpenIcon />
+          <IconBook2 />
         </EmptyMedia>
         <EmptyTitle>No book to preview</EmptyTitle>
         <EmptyDescription>
@@ -107,7 +107,7 @@ function UnsupportedStatus({
     <Empty className="h-full">
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <ShieldOffIcon />
+          <IconShieldOff />
         </EmptyMedia>
         <EmptyTitle>This mode is unavailable</EmptyTitle>
         <EmptyDescription>
@@ -141,7 +141,7 @@ function ErrorStatus({
   return (
     <div className="flex h-full items-center justify-center p-6">
       <Alert variant="destructive" className="max-w-md">
-        <AlertCircleIcon />
+        <IconAlertCircle />
         <AlertTitle>Unable to open this reader</AlertTitle>
         <AlertDescription>
           <p>{error.message}</p>
@@ -153,7 +153,7 @@ function ErrorStatus({
             ) : null}
             {onRetry ? (
               <Button type="button" size="sm" variant="outline" onClick={onRetry} data-book-preview-press>
-                <Loader2Icon data-icon="inline-start" />
+                <IconLoader2 data-icon="inline-start" />
                 Retry
               </Button>
             ) : null}

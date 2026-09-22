@@ -17,13 +17,13 @@ export function EmailDomainInputDemo() {
       </p>
 
       <EmailDomainInput
-        label="University email"
+        label="Email"
         name="email"
-        domains={['cuchd.in', 'edu.in', 'unimail.in']}
-        defaultDomain="cuchd.in"
+        domains={['gmail.com', 'outlook.com', 'proton.me']}
+        defaultDomain="gmail.com"
         value={email}
         onChange={setEmail}
-        description="Sign in with the official university mail."
+        description="Pick a provider — the domain is appended for you."
         required
       />
       <Button type="submit">Sign in</Button>

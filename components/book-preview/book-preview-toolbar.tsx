@@ -2,15 +2,15 @@
 
 import { useRef } from "react"
 import {
-  ChevronDownIcon,
-  DownloadIcon,
-  ListIcon,
-  Maximize2Icon,
-  Minimize2Icon,
-  UploadIcon,
-  Volume2Icon,
-  VolumeXIcon,
-} from "lucide-react"
+  IconChevronDown,
+  IconDownload,
+  IconList,
+  IconMaximize,
+  IconMinimize,
+  IconUpload,
+  IconVolume,
+  IconVolumeOff,
+} from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -133,7 +133,7 @@ function AppearanceControl({
           }
         >
           {appearanceLabel}
-          <ChevronDownIcon data-icon="inline-end" />
+          <IconChevronDown data-icon="inline-end" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
@@ -219,7 +219,7 @@ function ToolbarActions({
             label="Open a PDF"
             onClick={() => uploadInputRef.current?.click()}
           >
-            <UploadIcon />
+            <IconUpload />
           </BookPreviewIconButton>
         </>
       ) : null}
@@ -229,7 +229,7 @@ function ToolbarActions({
           pressed={sound}
           onClick={() => onSetSound(!sound)}
         >
-          {sound ? <Volume2Icon /> : <VolumeXIcon />}
+          {sound ? <IconVolume /> : <IconVolumeOff />}
         </BookPreviewIconButton>
       ) : null}
       {fullscreenCapable ? (
@@ -238,7 +238,7 @@ function ToolbarActions({
           pressed={fullscreen}
           onClick={onToggleFullscreen}
         >
-          {fullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
+          {fullscreen ? <IconMinimize /> : <IconMaximize />}
         </BookPreviewIconButton>
       ) : null}
       {downloadCapable && downloadUrl ? (
@@ -255,7 +255,7 @@ function ToolbarActions({
           size="icon-sm"
           data-book-preview-press
         >
-          <DownloadIcon />
+          <IconDownload />
           <span className="sr-only">Download document</span>
         </Button>
       ) : null}
@@ -284,7 +284,7 @@ function ContentsMenu({
           />
         }
       >
-        <ListIcon />
+        <IconList />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="max-h-80">
         <DropdownMenuGroup>

@@ -1,5 +1,3 @@
-"use client"
-
 import { ViewTransition, type ReactNode } from "react"
 
 export function NavTransition({ children }: { children: ReactNode }) {

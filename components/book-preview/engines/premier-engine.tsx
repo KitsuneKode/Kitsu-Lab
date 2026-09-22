@@ -1,13 +1,49 @@
-"use client"
+'use client'
 
+import { createPortal } from 'react-dom'
+import { CurlStage } from './curl-stage'
+import { FlipSheet } from './flip-sheet'
+import { useNarrowLayout } from '../media'
+import { pageSearchText } from '../normalize'
+import { Input } from '@/components/ui/input'
+import { CurlPdfSheet } from './curl-pdf-sheet'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { resolvePdfOutline } from '../pdf-runtime'
+import { PdfPasswordGate } from './pdf-password-gate'
+import { PdfPreparingBadge } from './pdf-preparing-badge'
+import { useBookPreview } from '../book-preview-provider'
+import { BookPreviewPageView } from '../book-preview-page'
+import { PdfThumbRail, PdfThumbSheet } from './pdf-thumb-rail'
+import { useStableHandler } from '../hooks/use-stable-handler'
+import { usePdfSheets, type PdfSheet } from '../hooks/use-pdf-sheets'
+import { DEFAULT_CAPABILITIES, hasSpeechSupport } from '../capabilities'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
-import { createPortal } from "react-dom"
+  CURL_MAX_PAGES,
+  CURL_PAGE_RATIO,
+  CURL_RASTER_WIDTH,
+} from './curl-geometry'
+import {
+  readBookPreviewPrefs,
+  writeBookPreviewPrefs,
+  type PremierView,
+} from '../prefs'
+import {
+  PremierScrollView,
+  PremierSingleView,
+  PremierSpreadView,
+  PremierTextView,
+  buildPremierFaces,
+} from './premier-views'
+import type {
+  BookPreviewCapabilities,
+  BookPreviewEngineProps,
+  BookPreviewError,
+  BookPreviewPage,
+  NormalizedBookSource,
+} from '../types'
 import {
   BookOpenIcon,
   Columns2Icon,
@@ -22,45 +58,7 @@ import {
   XIcon,
   ZoomInIcon,
   ZoomOutIcon,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Spinner } from "@/components/ui/spinner"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { BookPreviewPageView } from "../book-preview-page"
-import { DEFAULT_CAPABILITIES, hasSpeechSupport } from "../capabilities"
-import { usePdfSheets, type PdfSheet } from "../hooks/use-pdf-sheets"
-import { useNarrowLayout } from "../media"
-import { pageSearchText } from "../normalize"
-import { resolvePdfOutline } from "../pdf-runtime"
-import {
-  readBookPreviewPrefs,
-  writeBookPreviewPrefs,
-  type PremierView,
-} from "../prefs"
-import { useBookPreview } from "../book-preview-provider"
-import { useStableHandler } from "../hooks/use-stable-handler"
-import type {
-  BookPreviewCapabilities,
-  BookPreviewEngineProps,
-  BookPreviewError,
-  BookPreviewPage,
-  NormalizedBookSource,
-} from "../types"
-import { CURL_MAX_PAGES, CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from "./curl-geometry"
-import { CurlStage } from "./curl-stage"
-import { CurlPdfSheet } from "./curl-pdf-sheet"
-import { FlipSheet } from "./flip-sheet"
-import { PdfPasswordGate } from "./pdf-password-gate"
-import { PdfPreparingBadge } from "./pdf-preparing-badge"
-import { PdfThumbRail, PdfThumbSheet } from "./pdf-thumb-rail"
-import {
-  PremierScrollView,
-  PremierSingleView,
-  PremierSpreadView,
-  PremierTextView,
-  buildPremierFaces,
-} from "./premier-views"
+} from 'lucide-react'
 
 // Page chips keep search honest in a raster book — there is no text layer to
 // highlight, so results name the pages worth flipping to. Past this count a
@@ -74,7 +72,7 @@ const SPEECH_WATCHDOG_SLACK_MS = 8000
 
 function premierCapabilities(
   source: NormalizedBookSource,
-  usePdf: boolean
+  usePdf: boolean,
 ): BookPreviewCapabilities {
   return {
     ...DEFAULT_CAPABILITIES,
@@ -132,7 +130,7 @@ function useReadAloud({
     setSpeaking(false)
     utteranceRef.current = null
     clearWatchdog()
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel()
     }
   }, [clearWatchdog])
@@ -145,7 +143,11 @@ function useReadAloud({
   // Narrate whatever page is current while `speaking` is on — turns arrive
   // here as pageIndex changes, so reading follows the book.
   useEffect(() => {
-    if (!speaking || typeof window === "undefined" || !("speechSynthesis" in window)) {
+    if (
+      !speaking ||
+      typeof window === 'undefined' ||
+      !('speechSynthesis' in window)
+    ) {
       return
     }
     window.speechSynthesis.cancel()
@@ -180,7 +182,7 @@ function useReadAloud({
     // makes the same advance decision so reading never parks on a page.
     watchdogRef.current = window.setTimeout(
       finish,
-      (text.length / SPEECH_CHARS_PER_SECOND) * 1000 + SPEECH_WATCHDOG_SLACK_MS
+      (text.length / SPEECH_CHARS_PER_SECOND) * 1000 + SPEECH_WATCHDOG_SLACK_MS,
     )
     return () => {
       if (utteranceRef.current === utterance) {
@@ -219,7 +221,7 @@ function PremierSheets({
   usePdf: boolean
   sheets: PdfSheet[] | null
   pages: BookPreviewPage[]
-  appearance: BookPreviewEngineProps["appearance"]
+  appearance: BookPreviewEngineProps['appearance']
 }) {
   if (usePdf && sheets) {
     return sheets.map((sheet) => (
@@ -261,22 +263,22 @@ export default function PremierEngine({
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   const [searchOpen, setSearchOpen] = useState(false)
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState('')
   const [thumbsOpen, setThumbsOpen] = useState(false)
 
   // The layout is the reader's setting — a remembered choice wins, then a
   // one-page view on narrow screens, and the flip book everywhere else.
   const [view, setView] = useState<PremierView>(
-    () => readBookPreviewPrefs().premierView ?? (narrow ? "single" : "book")
+    () => readBookPreviewPrefs().premierView ?? (narrow ? 'single' : 'book'),
   )
   const [zoom, setZoom] = useState(1)
   const zoomIn = useCallback(
     () => setZoom((z) => Math.min(2.4, Math.round((z + 0.2) * 10) / 10)),
-    []
+    [],
   )
   const zoomOut = useCallback(
     () => setZoom((z) => Math.max(0.6, Math.round((z - 0.2) * 10) / 10)),
-    []
+    [],
   )
   const zoomReset = useCallback(() => setZoom(1), [])
 
@@ -285,13 +287,13 @@ export default function PremierEngine({
     writeBookPreviewPrefs({ premierView: next })
   }, [])
 
-  const bookView = view === "book"
+  const bookView = view === 'book'
 
   // A pdf-render failure in book view is almost always the flip-book page cap
   // — bounded views still open the document, so drop down instead of failing.
   const reportSheetsError = useStableHandler((error: BookPreviewError) => {
-    if (view === "book" && error.kind === "pdf-render") {
-      setView("single")
+    if (view === 'book' && error.kind === 'pdf-render') {
+      setView('single')
       return
     }
     reportError(error)
@@ -312,7 +314,7 @@ export default function PremierEngine({
     enabled: usePdf,
     pageIndex,
     rasterWidth: CURL_RASTER_WIDTH,
-    sizing: bookView ? "uniform" : "per-page",
+    sizing: bookView ? 'uniform' : 'per-page',
     // Search and read-aloud both need page text; extraction rides the raster.
     extractText: true,
     // The flip book owns every leaf at once, so it keeps the page cap. The
@@ -322,28 +324,32 @@ export default function PremierEngine({
     maxPages: bookView ? CURL_MAX_PAGES : undefined,
     maxPagesMessage: `This document is longer than ${CURL_MAX_PAGES} pages — the flip book can't hold it, but the other premier views can.`,
     onError: reportSheetsError,
-    errorMessage: "This PDF could not be opened for the premier reader.",
+    errorMessage: 'This PDF could not be opened for the premier reader.',
   })
 
   const bookDisabled = usePdf && doc !== null && doc.numPages > CURL_MAX_PAGES
 
   const faces = useMemo(
     () => buildPremierFaces({ usePdf, sheets, pages, appearance }),
-    [appearance, pages, sheets, usePdf]
+    [appearance, pages, sheets, usePdf],
   )
 
-  const totalPages = usePdf ? sheets?.length ?? 0 : pages.length
+  const totalPages = usePdf ? (sheets?.length ?? 0) : pages.length
 
   const textFor = useCallback(
     (index: number) => {
-      if (usePdf) return sheets?.[index]?.text ?? ""
+      if (usePdf) return sheets?.[index]?.text ?? ''
       const page = pages[index]
-      return page ? pageSearchText(page) : ""
+      return page ? pageSearchText(page) : ''
     },
-    [pages, sheets, usePdf]
+    [pages, sheets, usePdf],
   )
 
-  const { speaking, toggle: toggleSpeech, stop: stopSpeech } = useReadAloud({
+  const {
+    speaking,
+    toggle: toggleSpeech,
+    stop: stopSpeech,
+  } = useReadAloud({
     totalPages,
     pageIndex,
     textFor,
@@ -373,7 +379,7 @@ export default function PremierEngine({
 
   const openSearch = useCallback(() => setSearchOpen(true), [])
   const closeSearch = useCallback(() => {
-    setQuery("")
+    setQuery('')
     setSearchOpen(false)
   }, [])
 
@@ -441,21 +447,17 @@ export default function PremierEngine({
         })
         return
       }
-      reportError({ kind: "empty", message: "The premier reader needs page data or a PDF." })
+      reportError({
+        kind: 'empty',
+        message: 'The premier reader needs page data or a PDF.',
+      })
       return
     }
     reportReady({
       totalPages: pages.length,
       capabilities: premierCapabilities(source, false),
     })
-  }, [
-    pages.length,
-    reportError,
-    reportReady,
-    sheets,
-    source,
-    usePdf,
-  ])
+  }, [pages.length, reportError, reportReady, sheets, source, usePdf])
 
   // A password prompt still counts as "open": reporting a zero-page ready
   // unblocks the viewport so the gate is visible, and pagination stays off
@@ -505,7 +507,7 @@ export default function PremierEngine({
   if (prevSheets !== sheets || prevPages !== pages) {
     setPrevSheets(sheets)
     setPrevPages(pages)
-    setQuery("")
+    setQuery('')
     setSearchOpen(false)
     setThumbsOpen(false)
   }
@@ -515,8 +517,8 @@ export default function PremierEngine({
 
   const controls = (
     <div className="flex flex-wrap items-center justify-center gap-2">
-      <p className="max-w-[10rem] truncate text-xs text-muted-foreground sm:max-w-none">
-        {source.pdfFileName ?? source.title ?? "Document"}
+      <p className="text-muted-foreground max-w-[10rem] truncate text-xs sm:max-w-none">
+        {source.pdfFileName ?? source.title ?? 'Document'}
       </p>
       <ToggleGroup
         value={[view]}
@@ -535,18 +537,30 @@ export default function PremierEngine({
           title={
             bookDisabled
               ? `The flip book holds up to ${CURL_MAX_PAGES} pages — this document is longer`
-              : "Flip book"
+              : 'Flip book'
           }
         >
           <BookOpenIcon />
         </ToggleGroupItem>
-        <ToggleGroupItem value="single" aria-label="Single page" title="Single page">
+        <ToggleGroupItem
+          value="single"
+          aria-label="Single page"
+          title="Single page"
+        >
           <RectangleVerticalIcon />
         </ToggleGroupItem>
-        <ToggleGroupItem value="spread" aria-label="Two-page spread" title="Two-page spread">
+        <ToggleGroupItem
+          value="spread"
+          aria-label="Two-page spread"
+          title="Two-page spread"
+        >
           <Columns2Icon />
         </ToggleGroupItem>
-        <ToggleGroupItem value="scroll" aria-label="Continuous scroll" title="Continuous scroll">
+        <ToggleGroupItem
+          value="scroll"
+          aria-label="Continuous scroll"
+          title="Continuous scroll"
+        >
           <ScrollIcon />
         </ToggleGroupItem>
         <ToggleGroupItem
@@ -558,144 +572,149 @@ export default function PremierEngine({
         </ToggleGroupItem>
       </ToggleGroup>
       {searchOpen ? (
-          <div className="flex items-center gap-1">
-            <div className="relative">
-              <SearchIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                ref={searchInputRef}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={usePdf ? "Search document" : "Search pages"}
-                aria-label={usePdf ? "Search document" : "Search pages"}
-                className="h-8 w-40 pl-7 text-xs sm:w-52"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && matches.length > 0) {
-                    event.preventDefault()
-                    // Enter lands on the next match from here, not the top
-                    // of the list — search reads forward.
-                    const next =
-                      matches.find((match) => match.index >= pageIndex) ?? matches[0]
-                    reportPageChange(next.index, "instant")
-                  }
-                  if (event.key === "Escape") {
-                    event.preventDefault()
-                    closeSearch()
-                    event.currentTarget.blur()
-                  }
-                }}
-              />
-            </div>
-            <span
-              className="min-w-[5ch] text-center font-mono text-xs text-muted-foreground"
-              aria-live="polite"
-              title={textPending ? "Still indexing the document" : undefined}
-            >
-              {needle
-                ? preparing
-                  ? "…"
-                  : `${matches.length}${textPending ? "+" : ""} ${matches.length === 1 ? "page" : "pages"}`
-                : ""}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Close search"
-              onClick={closeSearch}
-              data-book-preview-press
-            >
-              <XIcon />
-            </Button>
+        <div className="flex items-center gap-1">
+          <div className="relative">
+            <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
+            <Input
+              ref={searchInputRef}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={usePdf ? 'Search document' : 'Search pages'}
+              aria-label={usePdf ? 'Search document' : 'Search pages'}
+              className="h-8 w-40 pl-7 text-xs sm:w-52"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && matches.length > 0) {
+                  event.preventDefault()
+                  // Enter lands on the next match from here, not the top
+                  // of the list — search reads forward.
+                  const next =
+                    matches.find((match) => match.index >= pageIndex) ??
+                    matches[0]
+                  reportPageChange(next.index, 'instant')
+                }
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  closeSearch()
+                  event.currentTarget.blur()
+                }
+              }}
+            />
           </div>
-        ) : (
+          <span
+            className="text-muted-foreground min-w-[5ch] text-center font-mono text-xs"
+            aria-live="polite"
+            title={textPending ? 'Still indexing the document' : undefined}
+          >
+            {needle
+              ? preparing
+                ? '…'
+                : `${matches.length}${textPending ? '+' : ''} ${matches.length === 1 ? 'page' : 'pages'}`
+              : ''}
+          </span>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label={usePdf ? "Search document" : "Search pages"}
-            aria-keyshortcuts="/ Control+F"
-            disabled={!searchReady}
-            onClick={openSearch}
+            aria-label="Close search"
+            onClick={closeSearch}
             data-book-preview-press
-            className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
           >
-            <SearchIcon />
+            <XIcon />
           </Button>
-        )}
+        </div>
+      ) : (
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Zoom out"
-          aria-keyshortcuts="-"
-          onClick={zoomOut}
-          disabled={zoom <= 0.6}
+          aria-label={usePdf ? 'Search document' : 'Search pages'}
+          aria-keyshortcuts="/ Control+F"
+          disabled={!searchReady}
+          onClick={openSearch}
           data-book-preview-press
           className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
         >
-          <ZoomOutIcon />
+          <SearchIcon />
         </Button>
-        <button
-          type="button"
-          aria-label="Reset zoom"
-          aria-keyshortcuts="0"
-          onClick={zoomReset}
-          data-book-preview-press
-          className="min-w-[5ch] text-center font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {Math.round(zoom * 100)}%
-        </button>
+      )}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Zoom out"
+        aria-keyshortcuts="-"
+        onClick={zoomOut}
+        disabled={zoom <= 0.6}
+        data-book-preview-press
+        className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+      >
+        <ZoomOutIcon />
+      </Button>
+      <button
+        type="button"
+        aria-label="Reset zoom"
+        aria-keyshortcuts="0"
+        onClick={zoomReset}
+        data-book-preview-press
+        className="text-muted-foreground hover:text-foreground min-w-[5ch] text-center font-mono text-xs transition-colors"
+      >
+        {Math.round(zoom * 100)}%
+      </button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Zoom in"
+        aria-keyshortcuts="+"
+        onClick={zoomIn}
+        disabled={zoom >= 2.4}
+        data-book-preview-press
+        className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+      >
+        <ZoomInIcon />
+      </Button>
+      <Button
+        type="button"
+        variant={speaking ? 'secondary' : 'ghost'}
+        size="icon-sm"
+        aria-label={speaking ? 'Stop reading aloud' : 'Read aloud'}
+        aria-pressed={speaking}
+        disabled={speechDisabled}
+        title={
+          speaking
+            ? 'Stop reading aloud'
+            : 'Read aloud — turns the pages itself'
+        }
+        onClick={toggleSpeech}
+        data-book-preview-press
+        className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+      >
+        {speaking ? <SquareIcon /> : <SpeechIcon />}
+      </Button>
+      {usePdf && doc && doc.numPages > 1 ? (
         <Button
           type="button"
-          variant="ghost"
+          variant={thumbsOpen ? 'secondary' : 'ghost'}
           size="icon-sm"
-          aria-label="Zoom in"
-          aria-keyshortcuts="+"
-          onClick={zoomIn}
-          disabled={zoom >= 2.4}
+          aria-label="Page thumbnails"
+          aria-pressed={thumbsOpen}
+          onClick={() => setThumbsOpen((open) => !open)}
           data-book-preview-press
           className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
         >
-          <ZoomInIcon />
+          <PanelLeftIcon />
         </Button>
-        <Button
-          type="button"
-          variant={speaking ? "secondary" : "ghost"}
-          size="icon-sm"
-          aria-label={speaking ? "Stop reading aloud" : "Read aloud"}
-          aria-pressed={speaking}
-          disabled={speechDisabled}
-          title={speaking ? "Stop reading aloud" : "Read aloud — turns the pages itself"}
-          onClick={toggleSpeech}
-          data-book-preview-press
-          className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
-        >
-          {speaking ? <SquareIcon /> : <SpeechIcon />}
-        </Button>
-        {usePdf && doc && doc.numPages > 1 ? (
-          <Button
-            type="button"
-            variant={thumbsOpen ? "secondary" : "ghost"}
-            size="icon-sm"
-            aria-label="Page thumbnails"
-            aria-pressed={thumbsOpen}
-            onClick={() => setThumbsOpen((open) => !open)}
-            data-book-preview-press
-            className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
-          >
-            <PanelLeftIcon />
-          </Button>
-        ) : null}
-        <span className="sr-only" role="status" aria-live="polite">
-          {speaking ? `Reading page ${pageIndex + 1}` : ""}
-        </span>
-      </div>
+      ) : null}
+      <span className="sr-only" role="status" aria-live="polite">
+        {speaking ? `Reading page ${pageIndex + 1}` : ''}
+      </span>
+    </div>
   )
 
   return (
     <div className="flex h-full w-full flex-col gap-3 p-4">
       {chromeHost ? createPortal(controls, chromeHost) : controls}
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border bg-muted/30">
+      <div className="bg-muted/30 flex min-h-0 flex-1 overflow-hidden rounded-lg border">
         {usePdf && doc ? (
           narrow ? (
             <PdfThumbSheet
@@ -703,14 +722,14 @@ export default function PremierEngine({
               pageIndex={pageIndex}
               open={thumbsOpen}
               onOpenChange={setThumbsOpen}
-              onSelect={(index) => reportPageChange(index, "instant")}
+              onSelect={(index) => reportPageChange(index, 'instant')}
             />
           ) : (
             <PdfThumbRail
               doc={doc}
               pageIndex={pageIndex}
               open={thumbsOpen}
-              onSelect={(index) => reportPageChange(index, "instant")}
+              onSelect={(index) => reportPageChange(index, 'instant')}
             />
           )
         ) : null}
@@ -726,20 +745,20 @@ export default function PremierEngine({
                 />
               </div>
             ) : pdfUrl ? (
-              <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex h-full items-center justify-center gap-2 text-sm">
                 <Spinner />
                 Opening PDF…
               </div>
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
                 Waiting for a document
               </div>
             )
           ) : !usePdf && pages.length === 0 ? (
             source.allowPdfUpload ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 p-4 text-center">
-                <FileUpIcon className="size-8 text-muted-foreground/60" />
-                <p className="max-w-52 text-sm text-muted-foreground">
+                <FileUpIcon className="text-muted-foreground/60 size-8" />
+                <p className="text-muted-foreground max-w-52 text-sm">
                   Upload or drop a PDF to begin
                 </p>
                 <Button
@@ -760,22 +779,24 @@ export default function PremierEngine({
                   onChange={(event) => {
                     const file = event.target.files?.[0]
                     if (file) uploadPdf(file)
-                    event.target.value = ""
+                    event.target.value = ''
                   }}
                 />
               </div>
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
                 Waiting for pages
               </div>
             )
-          ) : view === "book" ? (
+          ) : view === 'book' ? (
             // CSS `zoom` resizes the whole flip stage — layout and pointer
             // math stay consistent, so corner drags still land.
             <div className="h-full w-full" style={{ zoom }}>
               <CurlStage
                 pageIndex={pageIndex}
-                pageRatio={usePdf ? ratio ?? CURL_PAGE_RATIO : CURL_PAGE_RATIO}
+                pageRatio={
+                  usePdf ? (ratio ?? CURL_PAGE_RATIO) : CURL_PAGE_RATIO
+                }
                 canGoPrev={pageIndex > 0}
                 canGoNext={pageIndex < Math.max(totalPages, 1) - 1}
                 reducedMotion={reducedMotion}
@@ -783,10 +804,12 @@ export default function PremierEngine({
                 contentKey={
                   usePdf
                     ? `pdf:${sheets?.length ?? 0}`
-                    : `${appearance}:${pages.map((page) => page.id).join(",")}`
+                    : `${appearance}:${pages.map((page) => page.id).join(',')}`
                 }
                 onPageChange={reportPageChange}
-                onEngineError={(message) => reportError({ kind: "engine-load", message })}
+                onEngineError={(message) =>
+                  reportError({ kind: 'engine-load', message })
+                }
               >
                 <PremierSheets
                   usePdf={usePdf}
@@ -796,30 +819,33 @@ export default function PremierEngine({
                 />
               </CurlStage>
             </div>
-          ) : view === "spread" ? (
+          ) : view === 'spread' ? (
             <PremierSpreadView
               faces={faces}
               pageIndex={pageIndex}
               zoom={zoom}
               reducedMotion={reducedMotion}
               doc={doc}
+              onZoom={setZoom}
               onPageChange={reportPageChange}
             />
-          ) : view === "scroll" ? (
+          ) : view === 'scroll' ? (
             <PremierScrollView
               faces={faces}
               pageIndex={pageIndex}
               zoom={zoom}
               reducedMotion={reducedMotion}
               doc={doc}
+              onZoom={setZoom}
               onPageChange={reportPageChange}
             />
-          ) : view === "text" ? (
+          ) : view === 'text' ? (
             <PremierTextView
               faces={faces}
               pageIndex={pageIndex}
               zoom={zoom}
               reducedMotion={reducedMotion}
+              onZoom={setZoom}
               onPageChange={reportPageChange}
             />
           ) : (
@@ -829,6 +855,7 @@ export default function PremierEngine({
               zoom={zoom}
               reducedMotion={reducedMotion}
               doc={doc}
+              onZoom={setZoom}
               onPageChange={reportPageChange}
             />
           )}
@@ -837,12 +864,14 @@ export default function PremierEngine({
           ) : null}
           {searchOpen && needle ? (
             <div
-              className="absolute inset-x-0 bottom-0 flex max-h-24 flex-wrap justify-center gap-1.5 overflow-auto border-t bg-background/90 p-2 backdrop-blur-sm"
+              className="bg-background/90 absolute inset-x-0 bottom-0 flex max-h-24 flex-wrap justify-center gap-1.5 overflow-auto border-t p-2 backdrop-blur-sm"
               aria-live="polite"
             >
               {matches.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {usePdf && preparing ? "Still reading the document…" : "No pages match."}
+                <p className="text-muted-foreground text-xs">
+                  {usePdf && preparing
+                    ? 'Still reading the document…'
+                    : 'No pages match.'}
                 </p>
               ) : (
                 <>
@@ -851,15 +880,17 @@ export default function PremierEngine({
                       key={match.index}
                       type="button"
                       size="xs"
-                      variant={match.index === pageIndex ? "secondary" : "outline"}
-                      onClick={() => reportPageChange(match.index, "instant")}
+                      variant={
+                        match.index === pageIndex ? 'secondary' : 'outline'
+                      }
+                      onClick={() => reportPageChange(match.index, 'instant')}
                       data-book-preview-press
                     >
                       {match.label}
                     </Button>
                   ))}
                   {matches.length > shownMatches.length ? (
-                    <span className="self-center text-xs text-muted-foreground">
+                    <span className="text-muted-foreground self-center text-xs">
                       +{matches.length - shownMatches.length} more
                     </span>
                   ) : null}

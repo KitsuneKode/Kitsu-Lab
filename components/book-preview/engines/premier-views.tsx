@@ -1,22 +1,22 @@
-"use client"
+'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from "react"
-import { usePageArrival } from "../hooks/use-page-arrival"
-import { useStableHandler } from "../hooks/use-stable-handler"
-import { BookPreviewPageView } from "../book-preview-page"
-import { pageSearchText } from "../normalize"
-import type { PdfSheet } from "../hooks/use-pdf-sheets"
+import { pageSearchText } from '../normalize'
+import type { PdfSheet } from '../hooks/use-pdf-sheets'
+import { BookPreviewPageView } from '../book-preview-page'
+import { usePageArrival } from '../hooks/use-page-arrival'
+import { useStableHandler } from '../hooks/use-stable-handler'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import type {
+  BookPreviewAppearance,
+  BookPreviewNavigationBehavior,
+  BookPreviewPage,
+} from '../types'
 import {
   renderPdfTextLayer,
   resolvePdfPageLinks,
   type PdfDocumentProxy,
   type PdfPageLink,
-} from "../pdf-runtime"
-import type {
-  BookPreviewAppearance,
-  BookPreviewNavigationBehavior,
-  BookPreviewPage,
-} from "../types"
+} from '../pdf-runtime'
 
 /**
  * The premier reader's flat views — one page, a two-page spread, a continuous
@@ -67,10 +67,7 @@ export function buildPremierFaces(input: {
           className="h-full w-full object-contain"
         />
       ) : (
-        <div
-          className="h-full w-full animate-pulse bg-muted/40"
-          aria-hidden
-        />
+        <div className="bg-muted/40 h-full w-full animate-pulse" aria-hidden />
       ),
     }))
   }
@@ -118,19 +115,19 @@ function PdfFaceOverlay({
   // No IntersectionObserver → treat every face as near and let the paint
   // effect do the work. Not rendered into markup, so hydration is safe.
   const [near, setNear] = useState(
-    () => typeof IntersectionObserver === "undefined"
+    () => typeof IntersectionObserver === 'undefined',
   )
   const [links, setLinks] = useState<PdfPageLink[]>([])
   const reportNavigate = useStableHandler(onNavigate)
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host || typeof IntersectionObserver === "undefined") return
+    if (!host || typeof IntersectionObserver === 'undefined') return
     // Generous margin: spans exist a little before the face scrolls in, and
     // disappear a little after it leaves — fast scrolling never sees a gap.
     const observer = new IntersectionObserver(
       ([entry]) => setNear(entry.isIntersecting),
-      { rootMargin: "120%" }
+      { rootMargin: '120%' },
     )
     observer.observe(host)
     return () => observer.disconnect()
@@ -151,8 +148,12 @@ function PdfFaceOverlay({
         const scale = host.clientWidth / (zoom * Math.max(1, base.width))
         if (!Number.isFinite(scale) || scale <= 0) return
         host.replaceChildren()
-        host.style.setProperty("--total-scale-factor", String(scale))
-        const rendered = await renderPdfTextLayer({ page, container: host, scale })
+        host.style.setProperty('--total-scale-factor', String(scale))
+        const rendered = await renderPdfTextLayer({
+          page,
+          container: host,
+          scale,
+        })
         if (cancelled) {
           rendered.cancel()
           return
@@ -191,7 +192,7 @@ function PdfFaceOverlay({
         >
           {links.map((link, index) => {
             const target = link.target
-            return target.kind === "page" ? (
+            return target.kind === 'page' ? (
               <button
                 key={index}
                 type="button"
@@ -206,7 +207,7 @@ function PdfFaceOverlay({
                 title={`Go to page ${target.pageIndex + 1}`}
                 data-book-preview-link
                 data-book-preview-press
-                onClick={() => reportNavigate(target.pageIndex, "instant")}
+                onClick={() => reportNavigate(target.pageIndex, 'instant')}
               />
             ) : (
               <a
@@ -250,8 +251,8 @@ function FaceBox({
     <div
       {...arrival}
       className={
-        "relative h-full max-w-full shrink-0 overflow-hidden rounded-md border bg-card shadow-sm " +
-        (className ?? "")
+        'bg-card relative h-full max-w-full shrink-0 overflow-hidden rounded-md border shadow-sm ' +
+        (className ?? '')
       }
       style={{ aspectRatio: `${face.aspect ?? FALLBACK_ASPECT}` }}
     >
@@ -259,6 +260,105 @@ function FaceBox({
       {children}
     </div>
   )
+}
+
+/** Two-finger pinch scales the face and keeps the document point under the
+    midpoint anchored — the same contract the pdf engine's pinch uses. The
+    zoom style is written directly during the gesture (no React churn per
+    move) and committed to state once the fingers lift. */
+function usePinchZoom({
+  hostRef,
+  zoomTargetRef,
+  scrollerRef,
+  zoom,
+  onZoom,
+}: {
+  hostRef: React.RefObject<HTMLElement | null>
+  /** The element carrying the CSS zoom — measured with rects so the anchor
+      math is independent of how browsers report zoomed scroll offsets. */
+  zoomTargetRef: React.RefObject<HTMLElement | null>
+  scrollerRef: React.RefObject<HTMLElement | null>
+  zoom: number
+  onZoom: (zoom: number) => void
+}) {
+  const report = useStableHandler(onZoom)
+  const zoomRef = useRef(zoom)
+  useEffect(() => {
+    zoomRef.current = zoom
+  })
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host) return
+    const pts = new Map<number, { x: number; y: number }>()
+    let pinching = false
+    let startDist = 0
+    let baseZoom = 1
+    let applied = 1
+
+    const dist = () => {
+      const [p, q] = [...pts.values()]
+      return Math.hypot(p.x - q.x, p.y - q.y)
+    }
+    const mid = () => {
+      const [p, q] = [...pts.values()]
+      return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }
+    }
+
+    const onDown = (event: PointerEvent) => {
+      if (event.pointerType === 'mouse') return
+      pts.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (pts.size === 2) {
+        pinching = true
+        startDist = dist()
+        baseZoom = zoomRef.current
+        applied = baseZoom
+      }
+    }
+    const onMove = (event: PointerEvent) => {
+      const point = pts.get(event.pointerId)
+      if (!point) return
+      point.x = event.clientX
+      point.y = event.clientY
+      if (!pinching || pts.size !== 2 || startDist <= 0) return
+      const el = zoomTargetRef.current
+      if (!el) return
+      const next = Math.min(2.4, Math.max(0.6, baseZoom * (dist() / startDist)))
+      const scroller = scrollerRef.current
+      // Fraction-of-face anchoring: where the midpoint sits inside the face
+      // before the zoom is where it should sit after — convention-free, since
+      // getBoundingClientRect is always in visual pixels.
+      const m = mid()
+      const before = el.getBoundingClientRect()
+      const relX = (m.x - before.left) / Math.max(1, before.width)
+      const relY = (m.y - before.top) / Math.max(1, before.height)
+      el.style.zoom = String(next)
+      if (scroller) {
+        const after = el.getBoundingClientRect()
+        scroller.scrollLeft += after.left + relX * after.width - m.x
+        scroller.scrollTop += after.top + relY * after.height - m.y
+      }
+      applied = next
+    }
+    const onUp = (event: PointerEvent) => {
+      pts.delete(event.pointerId)
+      if (pinching && pts.size < 2) {
+        pinching = false
+        if (Math.abs(applied - zoomRef.current) > 0.005) report(applied)
+      }
+    }
+
+    host.addEventListener('pointerdown', onDown)
+    host.addEventListener('pointermove', onMove)
+    host.addEventListener('pointerup', onUp)
+    host.addEventListener('pointercancel', onUp)
+    return () => {
+      host.removeEventListener('pointerdown', onDown)
+      host.removeEventListener('pointermove', onMove)
+      host.removeEventListener('pointerup', onUp)
+      host.removeEventListener('pointercancel', onUp)
+    }
+  }, [hostRef, report, scrollerRef, zoomTargetRef])
 }
 
 /** Horizontal drag on touch/pen turns the view: the face tracks the finger,
@@ -280,7 +380,10 @@ function useSwipeTurn({
   stepFor: (direction: 1 | -1) => number | null
   zoom: number
   reducedMotion: boolean
-  onPageChange: (index: number, behavior?: BookPreviewNavigationBehavior) => void
+  onPageChange: (
+    index: number,
+    behavior?: BookPreviewNavigationBehavior,
+  ) => void
 }) {
   const report = useStableHandler(onPageChange)
   const gesture = useRef<{
@@ -309,22 +412,29 @@ function useSwipeTurn({
       el.style.transition = `translate ${ms}ms ease-out`
       el.style.translate = target
       window.setTimeout(() => {
-        el.style.transition = ""
+        el.style.transition = ''
       }, ms)
     }
     const release = () => {
       const face = faceRef.current
       if (face) {
-        face.style.transition = ""
-        face.style.translate = ""
+        face.style.transition = ''
+        face.style.translate = ''
       }
     }
 
     const onDown = (event: PointerEvent) => {
-      if (event.pointerType === "mouse" || event.button !== 0) return
+      if (event.pointerType === 'mouse' || event.button !== 0) return
+      // A second finger means pinch — release the swipe so the zoom gesture
+      // owns the face instead of stacking translate on it.
+      if (gesture.current) {
+        gesture.current = null
+        release()
+        return
+      }
       // Zoomed pages pan natively; a drag must not also turn the page.
       if (stateRef.current.zoom !== 1) return
-      if ((event.target as HTMLElement).closest("a,button,input,[role=button]"))
+      if ((event.target as HTMLElement).closest('a,button,input,[role=button]'))
         return
       gesture.current = {
         id: event.pointerId,
@@ -359,8 +469,10 @@ function useSwipeTurn({
       if (face) {
         settle(
           face,
-          commit && target !== null ? `${dx < 0 ? -width : width}px 0` : "0px 0",
-          commit && target !== null ? 140 : 160
+          commit && target !== null
+            ? `${dx < 0 ? -width : width}px 0`
+            : '0px 0',
+          commit && target !== null ? 140 : 160,
         )
       }
       if (target !== null) report(target)
@@ -379,7 +491,7 @@ function useSwipeTurn({
         suppressClick.current = false
         return
       }
-      if ((event.target as HTMLElement).closest("a,button,input,[role=button]"))
+      if ((event.target as HTMLElement).closest('a,button,input,[role=button]'))
         return
       const rect = host.getBoundingClientRect()
       const ratio = (event.clientX - rect.left) / Math.max(rect.width, 1)
@@ -389,17 +501,17 @@ function useSwipeTurn({
       if (target !== null) report(target)
     }
 
-    host.addEventListener("pointerdown", onDown)
-    host.addEventListener("pointermove", onMove)
-    host.addEventListener("pointerup", onUp)
-    host.addEventListener("pointercancel", onCancel)
-    host.addEventListener("click", onClick)
+    host.addEventListener('pointerdown', onDown)
+    host.addEventListener('pointermove', onMove)
+    host.addEventListener('pointerup', onUp)
+    host.addEventListener('pointercancel', onCancel)
+    host.addEventListener('click', onClick)
     return () => {
-      host.removeEventListener("pointerdown", onDown)
-      host.removeEventListener("pointermove", onMove)
-      host.removeEventListener("pointerup", onUp)
-      host.removeEventListener("pointercancel", onCancel)
-      host.removeEventListener("click", onClick)
+      host.removeEventListener('pointerdown', onDown)
+      host.removeEventListener('pointermove', onMove)
+      host.removeEventListener('pointerup', onUp)
+      host.removeEventListener('pointercancel', onCancel)
+      host.removeEventListener('click', onClick)
     }
   }, [faceRef, hostRef, report])
 }
@@ -412,6 +524,7 @@ export function PremierSingleView({
   zoom,
   reducedMotion,
   doc,
+  onZoom,
   onPageChange,
 }: {
   faces: PremierFace[]
@@ -421,9 +534,14 @@ export function PremierSingleView({
   /** The open pdf document — present only for pdf sources; page-data faces
       are already real DOM text and need no overlay. */
   doc: PdfDocumentProxy | null
-  onPageChange: (index: number, behavior?: BookPreviewNavigationBehavior) => void
+  onZoom: (zoom: number) => void
+  onPageChange: (
+    index: number,
+    behavior?: BookPreviewNavigationBehavior,
+  ) => void
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null)
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
   const faceRef = useRef<HTMLDivElement | null>(null)
   const arrival = usePageArrival(pageIndex)
   useSwipeTurn({
@@ -437,16 +555,27 @@ export function PremierSingleView({
     reducedMotion,
     onPageChange,
   })
+  usePinchZoom({
+    hostRef,
+    zoomTargetRef: faceRef,
+    scrollerRef,
+    zoom,
+    onZoom,
+  })
 
   const face = faces[Math.min(pageIndex, faces.length - 1)]
   return (
     <div
       ref={hostRef}
-      className={zoom === 1 ? "h-full w-full touch-pan-y" : "h-full w-full"}
+      className={
+        zoom === 1
+          ? 'h-full w-full touch-pan-y'
+          : 'h-full w-full touch-pan-x touch-pan-y'
+      }
     >
       {/* m-auto centers the face but top-aligns it the moment it overflows,
           so a zoomed page scrolls instead of clipping its head. */}
-      <div className="flex h-full overflow-auto p-4">
+      <div ref={scrollerRef} className="flex h-full overflow-auto p-4">
         <div
           ref={faceRef}
           style={{ zoom }}
@@ -486,7 +615,7 @@ export function spreadSlots(pageIndex: number, total: number) {
 export function spreadStep(
   pair: number,
   direction: 1 | -1,
-  total: number
+  total: number,
 ): number | null {
   const next = pair + direction
   if (next < 0) return null
@@ -502,6 +631,7 @@ export function PremierSpreadView({
   zoom,
   reducedMotion,
   doc,
+  onZoom,
   onPageChange,
 }: {
   faces: PremierFace[]
@@ -509,9 +639,14 @@ export function PremierSpreadView({
   zoom: number
   reducedMotion: boolean
   doc: PdfDocumentProxy | null
-  onPageChange: (index: number, behavior?: BookPreviewNavigationBehavior) => void
+  onZoom: (zoom: number) => void
+  onPageChange: (
+    index: number,
+    behavior?: BookPreviewNavigationBehavior,
+  ) => void
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null)
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
   const faceRef = useRef<HTMLDivElement | null>(null)
   const { pair, left, right } = spreadSlots(pageIndex, faces.length)
   const arrival = usePageArrival(pair)
@@ -523,15 +658,26 @@ export function PremierSpreadView({
     reducedMotion,
     onPageChange,
   })
+  usePinchZoom({
+    hostRef,
+    zoomTargetRef: faceRef,
+    scrollerRef,
+    zoom,
+    onZoom,
+  })
 
   const leftFace = faces[left]
   const rightFace = right >= 0 ? faces[right] : null
   return (
     <div
       ref={hostRef}
-      className={zoom === 1 ? "h-full w-full touch-pan-y" : "h-full w-full"}
+      className={
+        zoom === 1
+          ? 'h-full w-full touch-pan-y'
+          : 'h-full w-full touch-pan-x touch-pan-y'
+      }
     >
-      <div className="flex h-full overflow-auto p-4">
+      <div ref={scrollerRef} className="flex h-full overflow-auto p-4">
         <div
           ref={faceRef}
           style={{ zoom }}
@@ -565,7 +711,7 @@ export function PremierSpreadView({
           ) : leftFace ? (
             <div
               aria-hidden
-              className="h-full shrink-0 rounded-md bg-muted/30"
+              className="bg-muted/30 h-full shrink-0 rounded-md"
               style={{
                 aspectRatio: `${leftFace.aspect ?? FALLBACK_ASPECT}`,
               }}
@@ -595,7 +741,10 @@ function useScrollPageSync({
   pageIndex: number
   count: number
   reducedMotion: boolean
-  onPageChange: (index: number, behavior?: BookPreviewNavigationBehavior) => void
+  onPageChange: (
+    index: number,
+    behavior?: BookPreviewNavigationBehavior,
+  ) => void
 }) {
   const faceEls = useRef(new Map<number, HTMLElement>())
   const ratios = useRef(new Map<number, number>())
@@ -604,18 +753,16 @@ function useScrollPageSync({
 
   useEffect(() => {
     const host = scrollerRef.current
-    if (!host || typeof IntersectionObserver === "undefined") return
+    if (!host || typeof IntersectionObserver === 'undefined') return
     // A new face list must not inherit the last document's visibility scores.
     ratios.current.clear()
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const index = Number(
-            (entry.target as HTMLElement).dataset.faceIndex
-          )
+          const index = Number((entry.target as HTMLElement).dataset.faceIndex)
           ratios.current.set(
             index,
-            entry.isIntersecting ? entry.intersectionRatio : 0
+            entry.isIntersecting ? entry.intersectionRatio : 0,
           )
         }
         let best = -1
@@ -628,10 +775,10 @@ function useScrollPageSync({
         }
         if (best >= 0 && best < count && best !== dominantRef.current) {
           dominantRef.current = best
-          report(best, "instant")
+          report(best, 'instant')
         }
       },
-      { root: host, threshold: [0.1, 0.35, 0.6, 0.85] }
+      { root: host, threshold: [0.1, 0.35, 0.6, 0.85] },
     )
     for (const el of faceEls.current.values()) observer.observe(el)
     return () => observer.disconnect()
@@ -643,8 +790,8 @@ function useScrollPageSync({
     if (!el) return
     dominantRef.current = pageIndex
     el.scrollIntoView({
-      block: "start",
-      behavior: reducedMotion ? "auto" : "smooth",
+      block: 'start',
+      behavior: reducedMotion ? 'auto' : 'smooth',
     })
   }, [pageIndex, reducedMotion])
 
@@ -661,6 +808,7 @@ export function PremierScrollView({
   zoom,
   reducedMotion,
   doc,
+  onZoom,
   onPageChange,
 }: {
   faces: PremierFace[]
@@ -668,15 +816,27 @@ export function PremierScrollView({
   zoom: number
   reducedMotion: boolean
   doc: PdfDocumentProxy | null
-  onPageChange: (index: number, behavior?: BookPreviewNavigationBehavior) => void
+  onZoom: (zoom: number) => void
+  onPageChange: (
+    index: number,
+    behavior?: BookPreviewNavigationBehavior,
+  ) => void
 }) {
   const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const columnRef = useRef<HTMLDivElement | null>(null)
   const registerFace = useScrollPageSync({
     scrollerRef,
     pageIndex,
     count: faces.length,
     reducedMotion,
     onPageChange,
+  })
+  usePinchZoom({
+    hostRef: scrollerRef,
+    zoomTargetRef: columnRef,
+    scrollerRef,
+    zoom,
+    onZoom,
   })
 
   return (
@@ -685,6 +845,7 @@ export function PremierScrollView({
       className="h-full w-full overflow-auto overscroll-contain"
     >
       <div
+        ref={columnRef}
         className="mx-auto flex w-[88%] max-w-[44rem] flex-col items-stretch gap-4 py-6"
         style={{ zoom }}
       >
@@ -693,7 +854,7 @@ export function PremierScrollView({
             key={face.key}
             data-face-index={index}
             ref={registerFace(index)}
-            className="relative w-full overflow-hidden rounded-md border bg-card shadow-sm"
+            className="bg-card relative w-full overflow-hidden rounded-md border shadow-sm"
             style={{ aspectRatio: `${face.aspect ?? FALLBACK_ASPECT}` }}
           >
             {face.content}
@@ -722,21 +883,34 @@ export function PremierTextView({
   pageIndex,
   zoom,
   reducedMotion,
+  onZoom,
   onPageChange,
 }: {
   faces: PremierFace[]
   pageIndex: number
   zoom: number
   reducedMotion: boolean
-  onPageChange: (index: number, behavior?: BookPreviewNavigationBehavior) => void
+  onZoom: (zoom: number) => void
+  onPageChange: (
+    index: number,
+    behavior?: BookPreviewNavigationBehavior,
+  ) => void
 }) {
   const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const columnRef = useRef<HTMLDivElement | null>(null)
   const registerFace = useScrollPageSync({
     scrollerRef,
     pageIndex,
     count: faces.length,
     reducedMotion,
     onPageChange,
+  })
+  usePinchZoom({
+    hostRef: scrollerRef,
+    zoomTargetRef: columnRef,
+    scrollerRef,
+    zoom,
+    onZoom,
   })
 
   return (
@@ -745,6 +919,7 @@ export function PremierTextView({
       className="h-full w-full overflow-auto overscroll-contain"
     >
       <div
+        ref={columnRef}
         className="mx-auto flex w-[88%] max-w-[40rem] flex-col gap-8 py-8"
         style={{ zoom }}
       >
@@ -756,15 +931,15 @@ export function PremierTextView({
             aria-label={`Page ${index + 1}`}
             className="scroll-mt-4"
           >
-            <p className="mb-2 font-mono text-[11px] tracking-widest text-muted-foreground uppercase">
+            <p className="text-muted-foreground mb-2 font-mono text-[11px] tracking-widest uppercase">
               Page {index + 1}
             </p>
             {face.text ? (
-              <p className="text-[15px] leading-7 whitespace-pre-wrap text-foreground/90">
+              <p className="text-foreground/90 text-[15px] leading-7 whitespace-pre-wrap">
                 {face.text}
               </p>
             ) : (
-              <p className="text-sm text-muted-foreground italic">
+              <p className="text-muted-foreground text-sm italic">
                 This page has no readable text.
               </p>
             )}

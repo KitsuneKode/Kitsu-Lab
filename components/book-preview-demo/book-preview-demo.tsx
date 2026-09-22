@@ -1,17 +1,17 @@
 'use client'
 
-import { useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { DEMO_BOOK_PAGES } from './sample-pages'
+import { useEffect, useMemo, useState } from 'react'
 import { BookPreview } from '@/components/book-preview'
 import { DEMO_ARCHIVAL_PAGES } from './sample-archival-pages'
 import { BookPreviewComparison } from './book-preview-comparison'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { optionalBookPreviewEngines } from '@/components/book-preview/optional-engines'
 import type {
   BookPreviewMode,
   BookPreviewSource,
 } from '@/components/book-preview'
-import { optionalBookPreviewEngines } from '@/components/book-preview/optional-engines'
 
 const DEMO_MODES: BookPreviewMode[] = [
   'page',
@@ -58,6 +58,35 @@ export function BookPreviewDemo() {
     '/specimens/attention-is-all-you-need.pdf',
   )
   const [docKind, setDocKind] = useState<DemoDocument>('bird')
+  // The large specimens are local-only (gitignored), so a deployed build may
+  // not have them — probe once and offer only what actually resolves. If the
+  // selected specimen is gone, fall back to one that is.
+  const [reachable, setReachable] = useState<Set<string> | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all(
+      PDF_SPECIMENS.map((item) =>
+        fetch(item.url, { method: 'HEAD' })
+          .then((res) => [item.url, res.ok] as const)
+          .catch(() => [item.url, false] as const),
+      ),
+    ).then((entries) => {
+      if (cancelled) return
+      const ok = new Set(entries.filter(([, fine]) => fine).map(([url]) => url))
+      setReachable(ok)
+      setPdfUrl((current) =>
+        ok.has(current)
+          ? current
+          : (PDF_SPECIMENS.find((item) => ok.has(item.url))?.url ?? current),
+      )
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  const specimens = reachable
+    ? PDF_SPECIMENS.filter((item) => reachable.has(item.url))
+    : PDF_SPECIMENS
   const pdfFile =
     PDF_SPECIMENS.find((item) => item.url === pdfUrl) ?? PDF_SPECIMENS[0]
   const engineLabel = (id: BookPreviewMode) =>
@@ -139,7 +168,7 @@ export function BookPreviewDemo() {
           value={[pdfFile.url]}
           onValueChange={(value) => {
             const next = value[0]
-            if (PDF_SPECIMENS.some((item) => item.url === next)) {
+            if (specimens.some((item) => item.url === next)) {
               setPdfUrl(next as (typeof PDF_SPECIMENS)[number]['url'])
             }
           }}
@@ -149,7 +178,7 @@ export function BookPreviewDemo() {
           aria-label="PDF specimen"
           className="mx-auto"
         >
-          {PDF_SPECIMENS.map((item) => (
+          {specimens.map((item) => (
             <ToggleGroupItem
               key={item.url}
               value={item.url}

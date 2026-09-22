@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 import { PauseIcon, PlayIcon, SearchIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,6 +9,7 @@ import { BookPreviewPageView } from "../book-preview-page"
 import { DEFAULT_CAPABILITIES, hasSpeechSupport } from "../capabilities"
 import { usePdfSheets, type PdfSheet } from "../hooks/use-pdf-sheets"
 import { pageSearchText } from "../normalize"
+import { useBookPreview } from "../book-preview-provider"
 import { useStableHandler } from "../hooks/use-stable-handler"
 import type { BookPreviewEngineProps, BookPreviewPage } from "../types"
 import { CURL_MAX_PAGES, CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from "./curl-geometry"
@@ -192,6 +194,7 @@ export default function ArchivalCurlEngine({
   const current = pages[pageIndex]
   const reportReady = useStableHandler(onReady)
   const reportError = useStableHandler(onError)
+  const { chromeHost } = useBookPreview()
 
   const { sheets, ratio, prepared, preparing, doc, passwordRequest, submitPassword, cancelPassword } =
     usePdfSheets({
@@ -342,16 +345,20 @@ export default function ArchivalCurlEngine({
     )
   }
 
+  const controls = (
+    <ArchivalSearchControls
+      query={query}
+      usePdf={usePdf}
+      speaking={speaking}
+      speechDisabled={!hasSpeechSupport() || !spokenText}
+      onQueryChange={setQuery}
+      onToggleSpeech={toggleSpeech}
+    />
+  )
+
   return (
     <div className="flex h-full w-full flex-col gap-3 p-4">
-      <ArchivalSearchControls
-        query={query}
-        usePdf={usePdf}
-        speaking={speaking}
-        speechDisabled={!hasSpeechSupport() || !spokenText}
-        onQueryChange={setQuery}
-        onToggleSpeech={toggleSpeech}
-      />
+      {chromeHost ? createPortal(controls, chromeHost) : controls}
       <ArchivalMatchList
         query={query}
         matches={matches}

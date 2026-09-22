@@ -1,11 +1,17 @@
 import { BOOK_PREVIEW_APPEARANCES, BOOK_PREVIEW_MODES } from "./types"
 import type { BookPreviewAppearance, BookPreviewMode } from "./types"
 
+export const PREMIER_VIEWS = ["book", "single", "spread", "scroll"] as const
+export type PremierView = (typeof PREMIER_VIEWS)[number]
+
 export type BookPreviewPrefs = {
   appearance?: BookPreviewAppearance
   mode?: BookPreviewMode
   /** PDF reader zoom — 0 is the fit-width sentinel used by the pdf engine. */
   pdfZoom?: number
+  /** The premier reader's layout — book flip, one page, a spread, or a
+      continuous strip. */
+  premierView?: PremierView
 }
 
 const PREFS_KEY = "book-preview:prefs"
@@ -31,6 +37,12 @@ export function readBookPreviewPrefs(): BookPreviewPrefs {
     }
     if (typeof parsed.pdfZoom === "number" && Number.isFinite(parsed.pdfZoom)) {
       prefs.pdfZoom = parsed.pdfZoom
+    }
+    if (
+      typeof parsed.premierView === "string" &&
+      (PREMIER_VIEWS as readonly string[]).includes(parsed.premierView)
+    ) {
+      prefs.premierView = parsed.premierView as PremierView
     }
     return prefs
   } catch {

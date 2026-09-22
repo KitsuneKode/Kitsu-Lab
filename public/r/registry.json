@@ -254,10 +254,14 @@
       "name": "book-preview-premier",
       "type": "registry:component",
       "title": "Book preview - Premier",
-      "description": "Flagship reader: page curl, page-level search, continuous read-aloud, and thumbnails for page data or a PDF. Requires the curl engine.",
+      "description": "Flagship reader: flip book, single, spread, and scroll views with page-level search, continuous read-aloud, zoom, and thumbnails for page data or a PDF. Requires the curl engine.",
       "files": [
         {
           "path": "components/book-preview/engines/premier-engine.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/engines/premier-views.tsx",
           "type": "registry:component"
         },
         {

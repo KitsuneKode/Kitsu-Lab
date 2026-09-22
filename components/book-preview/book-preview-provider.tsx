@@ -48,6 +48,11 @@ export type BookPreviewContextValue = {
   engineShortcutsRef: RefObject<BookPreviewEngineShortcuts>
   toggleFullscreen: () => void
   fullscreen: boolean
+  /** DOM node inside the toolbar an engine portals its controls into, so the
+      reader chrome stays one bar instead of a second row floating above the
+      stage. Null until the toolbar mounts its slot. */
+  chromeHost: HTMLElement | null
+  setChromeHost: (el: HTMLElement | null) => void
 }
 
 const BookPreviewContext = createContext<BookPreviewContextValue | null>(null)

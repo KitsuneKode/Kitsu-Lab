@@ -929,6 +929,10 @@ export function BookPreview({
     [dispatch, propSource.allowPdfUpload, uploadPdf]
   )
 
+  // The toolbar renders a slot this element fills; engines portal their
+  // controls into it so the reader has one chrome bar, not two stacked rows.
+  const [chromeHost, setChromeHost] = useState<HTMLElement | null>(null)
+
   const contextValue = useMemo<BookPreviewContextValue>(
     () => ({
       state: {
@@ -963,6 +967,8 @@ export function BookPreview({
       engineShortcutsRef,
       toggleFullscreen,
       fullscreen,
+      chromeHost,
+      setChromeHost,
     }),
     [
       activeAppearance,
@@ -979,6 +985,7 @@ export function BookPreview({
       normalized,
       prefetchMode,
       prevPage,
+      chromeHost,
       reducedMotion,
       reducedTransparency,
       retry,

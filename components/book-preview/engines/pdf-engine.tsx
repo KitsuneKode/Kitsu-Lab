@@ -34,6 +34,7 @@ import {
 } from "../motion"
 import { usePageArrival } from "../hooks/use-page-arrival"
 import { useStableHandler } from "../hooks/use-stable-handler"
+import { createPortal } from "react-dom"
 import { useBookPreview } from "../book-preview-provider"
 import { useNarrowLayout } from "../media"
 import { readBookPreviewPrefs, writeBookPreviewPrefs } from "../prefs"
@@ -123,7 +124,7 @@ export default function PdfEngine({
   const reportReady = useStableHandler(onReady)
   const reportError = useStableHandler(onError)
   const reportPageChange = useStableHandler(onPageChange)
-  const { engineShortcutsRef, uploadPdf } = useBookPreview()
+  const { engineShortcutsRef, uploadPdf, chromeHost } = useBookPreview()
   const narrow = useNarrowLayout()
 
   const [searchOpen, setSearchOpen] = useState(false)
@@ -917,9 +918,8 @@ export default function PdfEngine({
     }
   }
 
-  return (
-    <div className="flex h-full w-full flex-col gap-3 p-4">
-      <div className="flex flex-wrap items-center justify-center gap-2">
+  const controls = (
+    <div className="flex flex-wrap items-center justify-center gap-2">
         <p className="max-w-[10rem] truncate text-xs text-muted-foreground sm:max-w-none">
           {source.pdfFileName ?? "Document"}
         </p>
@@ -1088,6 +1088,11 @@ export default function PdfEngine({
           </Button>
         ) : null}
       </div>
+  )
+
+  return (
+    <div className="flex h-full w-full flex-col gap-3 p-4">
+      {chromeHost ? createPortal(controls, chromeHost) : controls}
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border bg-muted/30">
         {narrow ? (
           <PdfThumbSheet

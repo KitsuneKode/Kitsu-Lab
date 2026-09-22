@@ -45,6 +45,7 @@ export function BookPreviewToolbar() {
     fullscreen,
     goToPage,
     uploadPdf,
+    setChromeHost,
   } = useBookPreview()
   const narrow = useNarrowLayout()
   const coarse = useCoarsePointer()
@@ -72,6 +73,9 @@ export function BookPreviewToolbar() {
       className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border bg-card p-2 sm:gap-3 sm:p-3"
     >
       <BookPreviewModePicker />
+      {/* Engines portal their controls into this slot — the reader keeps a
+          single chrome bar instead of a second row floating above the stage. */}
+      <div ref={setChromeHost} className="contents" />
       <div className="flex flex-wrap items-center gap-2">
         {state.capabilities.appearance ? (
           <AppearanceControl

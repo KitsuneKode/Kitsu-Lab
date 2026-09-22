@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Lint (oxlint)
+        run: bunx oxlint
+
+      - name: Format check (oxfmt)
+        run: bunx oxfmt --check
+
+      - name: Tests
+        run: bun test components/book-preview components/book-preview-demo
+
+      - name: Registry artifacts in sync
+        run: npx -y shadcn@4.21.0 build && git diff --exit-code --stat public/r registry.json
+
+      - name: Build
+        run: bun run build

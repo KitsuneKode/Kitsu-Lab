@@ -1,5 +1,5 @@
 import './globals.css'
-import { Orbitron } from 'next/font/google'
+import { Orbitron, Space_Grotesk, JetBrains_Mono } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
 import { Provider } from '@/components/provider'
 import { Analytics } from '@vercel/analytics/next'
@@ -7,6 +7,18 @@ import { Analytics } from '@vercel/analytics/next'
 const orbitron = Orbitron({
   subsets: ['latin'],
   variable: '--font-orbitron',
+  display: 'swap',
+})
+
+const grotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-grotesk',
+  display: 'swap',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains-mono',
   display: 'swap',
 })
 
@@ -46,7 +58,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${orbitron.className} min-h-screen antialiased`}>
+      <body
+        className={`${orbitron.variable} ${grotesk.variable} ${jetbrainsMono.variable} min-h-screen font-sans antialiased`}
+      >
         <Provider>{children}</Provider>
         <Analytics />
       </body>

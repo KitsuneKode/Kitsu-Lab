@@ -4,15 +4,37 @@ import Link from "next/link"
 import { useLinkStatus } from "next/link"
 import { IconArrowRight } from "@tabler/icons-react"
 
-export function ExhibitLink({ path, name }: { path: string; name: string }) {
+export function ExhibitLink({
+  path,
+  name,
+  description,
+  index,
+}: {
+  path: string
+  name: string
+  description?: string
+  index: number
+}) {
   return (
     <Link
       href={`/exhibition/${path}`}
       prefetch
       transitionTypes={["nav-forward"]}
-      className="group flex items-center gap-2 text-xl"
+      className="group hover:bg-accent/50 flex items-baseline gap-5 px-2 py-6 transition-colors sm:gap-8 sm:px-4"
     >
-      {name}
+      <span className="text-muted-foreground font-mono text-xs tabular-nums">
+        {String(index + 1).padStart(2, "0")}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span className="font-display text-base font-semibold tracking-wide sm:text-lg">
+          {name}
+        </span>
+        {description ? (
+          <span className="text-muted-foreground line-clamp-2 text-sm leading-relaxed">
+            {description}
+          </span>
+        ) : null}
+      </span>
       <ExhibitLinkHint />
     </Link>
   )
@@ -24,9 +46,9 @@ function ExhibitLinkHint() {
     <span
       aria-hidden
       data-pending={pending ? "" : undefined}
-      className="ml-2 inline-flex transition-transform duration-200 group-hover:translate-x-0.5 data-[pending]:animate-pulse"
+      className="text-muted-foreground self-center transition-all duration-200 group-hover:text-foreground group-hover:translate-x-1 data-[pending]:animate-pulse"
     >
-      <IconArrowRight />
+      <IconArrowRight className="size-5" />
     </span>
   )
 }

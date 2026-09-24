@@ -2,7 +2,15 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   countdownVisible,
+  defaultIsAllowedHref,
   deliveryState,
+  describeSchedule,
+  fromZonedInput,
+  isPromotion,
+  nextBoundary,
+  routesMayOverlap,
+  sanitizePromotions,
+  toZonedInput,
   dismissalExpiry,
   dismissalKey,
   formatTimeLeft,
@@ -244,5 +252,148 @@ describe('reviewPromotion', () => {
       'everywhere-dialog',
       'dialog-overlap',
     ])
+  })
+})
+
+describe('hardening', () => {
+  test('refuses backslash and control-character hrefs (open redirects)', () => {
+    expect(defaultIsAllowedHref('/courses')).toBe(true)
+    expect(defaultIsAllowedHref('/\\evil.com')).toBe(false)
+    expect(defaultIsAllowedHref('//evil.com')).toBe(false)
+    expect(defaultIsAllowedHref('/a\tb')).toBe(false)
+    expect(defaultIsAllowedHref('javascript:alert(1)')).toBe(false)
+  })
+
+  test('media sources are not limited by a narrowed CTA list', () => {
+    const result = parsePromotion(
+      {
+        placement: 'card',
+        title: 'Hi',
+        cta: { label: 'Go', href: '/courses' },
+        media: { src: '/img/a.webp', alt: 'A class', width: 16, height: 9 },
+        startsAt: T0,
+        endsAt: T0 + DAY,
+      },
+      { isAllowedHref: (href) => href === '/courses' },
+    )
+    expect(result.ok).toBe(true)
+  })
+
+  test('codes are normalised to upper case and validated', () => {
+    const base = {
+      placement: 'bar',
+      title: 'Hi',
+      startsAt: T0,
+      endsAt: T0 + DAY,
+    }
+    const ok = parsePromotion({ ...base, code: ' night20 ' })
+    expect(ok.ok && ok.value.code).toBe('NIGHT20')
+    const bad = parsePromotion({ ...base, code: 'NO SPACES' })
+    expect(bad.ok).toBe(false)
+  })
+
+  test('isPromotion drops malformed rows instead of crashing selection', () => {
+    const rows = [
+      promo(),
+      { ...promo({ id: 'x' }), include: undefined },
+      null,
+      'x',
+    ]
+    expect(sanitizePromotions(rows).map((p) => p.id)).toEqual(['p1'])
+    expect(sanitizePromotions({ not: 'an array' })).toEqual([])
+    expect(
+      isPromotion({ ...promo(), cta: { label: 'Go', href: 'javascript:x' } }),
+    ).toBe(false)
+  })
+
+  test('selects one toast alongside bar and dialog', () => {
+    const selection = selectPromotions(
+      [
+        promo({ id: 'b' }),
+        promo({ id: 't1', placement: 'toast', priority: 10 }),
+        promo({ id: 't2', placement: 'toast', priority: 90 }),
+      ],
+      { pathname: '/', now: T0 },
+    )
+    expect(selection.bar?.id).toBe('b')
+    expect(selection.toast?.id).toBe('t2')
+  })
+
+  test('nextBoundary finds the nearest start or end of published records', () => {
+    const records = [
+      promo({ startsAt: T0 + DAY, endsAt: T0 + 3 * DAY }),
+      promo({ id: 'b', startsAt: T0 - DAY, endsAt: T0 + 2 * DAY }),
+      promo({ id: 'c', state: 'draft', startsAt: T0 + 60_000 }),
+    ]
+    expect(nextBoundary(records, T0)).toBe(T0 + DAY)
+    expect(nextBoundary(records, T0 + 5 * DAY)).toBeNull()
+  })
+})
+
+describe('time zones', () => {
+  test('round-trips wall-clock input in an explicit zone', () => {
+    // 29 Sep 2026, 09:00 IST is 03:30 UTC.
+    const ms = fromZonedInput('2026-09-29T09:00', 'Asia/Kolkata')
+    expect(ms).toBe(Date.UTC(2026, 8, 29, 3, 30))
+    expect(toZonedInput(ms!, 'Asia/Kolkata')).toBe('2026-09-29T09:00')
+    expect(toZonedInput(ms!, 'UTC')).toBe('2026-09-29T03:30')
+  })
+
+  test('handles daylight saving on both sides of the jump', () => {
+    const winter = fromZonedInput('2026-01-15T12:00', 'America/New_York')
+    const summer = fromZonedInput('2026-07-15T12:00', 'America/New_York')
+    expect(winter).toBe(Date.UTC(2026, 0, 15, 17))
+    expect(summer).toBe(Date.UTC(2026, 6, 15, 16))
+  })
+
+  test('rejects malformed input', () => {
+    expect(fromZonedInput('', 'UTC')).toBeUndefined()
+    expect(fromZonedInput('tomorrow', 'UTC')).toBeUndefined()
+  })
+
+  test('schedule text names the zone', () => {
+    expect(
+      describeSchedule(T0, T0 + 7 * DAY, { timeZone: 'UTC', locale: 'en-GB' }),
+    ).toMatch(/UTC \(7 days\)$/)
+  })
+})
+
+describe('review, refined', () => {
+  test('never warns about overlapping itself', () => {
+    const self = promo({ id: 'me', placement: 'dialog', include: ['/courses'] })
+    const codes = reviewPromotion(self, [self], T0, { id: 'me' }).map(
+      (w) => w.code,
+    )
+    expect(codes).not.toContain('dialog-overlap')
+  })
+
+  test('disjoint routes do not overlap; nested ones do', () => {
+    expect(
+      routesMayOverlap({ include: ['/books'] }, { include: ['/courses/*'] }),
+    ).toBe(false)
+    expect(
+      routesMayOverlap(
+        { include: ['/courses/**'] },
+        { include: ['/courses/a'] },
+      ),
+    ).toBe(true)
+    expect(
+      routesMayOverlap(
+        { include: ['/courses/*'] },
+        { include: ['/courses/*'] },
+      ),
+    ).toBe(true)
+    expect(routesMayOverlap({ include: [] }, { include: ['/books'] })).toBe(
+      true,
+    )
+  })
+
+  test('flags a dialog with nothing to do', () => {
+    const codes = reviewPromotion(
+      promo({ placement: 'dialog', include: ['/'] }),
+      [],
+      T0,
+    ).map((w) => w.code)
+    expect(codes).toContain('dialog-without-cta')
   })
 })

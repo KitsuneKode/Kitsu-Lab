@@ -1,18 +1,30 @@
 'use client'
 
 import * as React from 'react'
-import { IconArrowRight, IconArrowUpRight, IconX } from '@tabler/icons-react'
+import {
+  IconArrowRight,
+  IconArrowUpRight,
+  IconCheck,
+  IconCopy,
+  IconMinus,
+  IconX,
+} from '@tabler/icons-react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
 import {
   countdownVisible,
-  formatTimeLeft,
+  timeLeft,
   type Promotion,
   type PromotionContent,
   type PromotionTone,
 } from './promotion'
-import type { PromotionLinkProps } from './promotion-provider'
+import {
+  usePromotionLabels,
+  type PromotionLabels,
+  type PromotionLinkProps,
+} from './promotion-provider'
 
 /**
  * Presentational pieces shared by the live renderers and the editor preview.
@@ -30,6 +42,9 @@ export const promotionToneClasses: Record<PromotionTone, string> = {
     'bg-[var(--promo-highlight,var(--accent))] text-[var(--promo-highlight-foreground,var(--accent-foreground))]',
 }
 
+/** Strong ease-out: starts fast, so an entrance feels like a response. */
+export const PROMO_EASE_OUT = [0.23, 1, 0.32, 1] as const
+
 export type PreviewablePromotion = PromotionContent &
   Partial<Pick<Promotion, 'id' | 'campaign'>>
 
@@ -39,6 +54,7 @@ type ViewProps = {
   Link?: React.ComponentType<PromotionLinkProps>
   onClick?: () => void
   onDismiss?: () => void
+  onCopy?: () => void
 }
 
 function PlainLink({
@@ -62,6 +78,16 @@ function PlainLink({
   )
 }
 
+export function countdownLabel(
+  promotion: Pick<PromotionContent, 'showCountdown' | 'endsAt'>,
+  now: number | null,
+  labels: PromotionLabels,
+): string | null {
+  if (now === null || !countdownVisible(promotion, now)) return null
+  const left = timeLeft(promotion.endsAt, now)
+  return left ? labels.endsIn(left) : null
+}
+
 function Countdown({
   promotion,
   now,
@@ -69,11 +95,10 @@ function Countdown({
   promotion: PreviewablePromotion
   now: number | null
 }) {
-  if (now === null || !countdownVisible(promotion, now)) return null
-  const label = formatTimeLeft(promotion.endsAt, now)
+  const label = countdownLabel(promotion, now, usePromotionLabels())
   if (!label) return null
   return (
-    <span className="bg-background/15 rounded-md px-1.5 py-0.5 text-xs font-medium whitespace-nowrap tabular-nums ring-1 ring-current/15">
+    <span className="rounded-md bg-current/10 px-1.5 py-0.5 text-xs font-medium whitespace-nowrap tabular-nums ring-1 ring-current/15">
       {label}
     </span>
   )
@@ -85,6 +110,7 @@ function CtaLink({
   onClick,
   className,
 }: Pick<ViewProps, 'promotion' | 'Link' | 'onClick'> & { className?: string }) {
+  const labels = usePromotionLabels()
   const cta = promotion.cta
   if (!cta) return null
   const Icon = cta.external ? IconArrowUpRight : IconArrowRight
@@ -103,64 +129,188 @@ function CtaLink({
       {cta.label}
       <Icon
         aria-hidden
-        className="size-4 transition-transform duration-200 group-hover/cta:translate-x-0.5 motion-reduce:transition-none"
+        className="size-4 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover/cta:translate-x-0.5 motion-reduce:transition-none rtl:-scale-x-100 rtl:group-hover/cta:-translate-x-0.5"
       />
       {cta.external ? (
-        <span className="sr-only"> (opens in a new tab)</span>
+        <span className="sr-only"> {labels.opensInNewTab}</span>
       ) : null}
     </Link>
   )
 }
 
-function DismissButton({
-  onDismiss,
-  label,
+async function writeClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    // Older Safari and insecure origins: a hidden textarea still works.
+    const area = document.createElement('textarea')
+    area.value = text
+    area.setAttribute('readonly', '')
+    area.style.position = 'fixed'
+    area.style.opacity = '0'
+    document.body.append(area)
+    area.select()
+    const ok = document.execCommand('copy')
+    area.remove()
+    return ok
+  }
+}
+
+/**
+ * The code as text anyone can select, plus a copy button whose icon morphs to
+ * a check. The swap is masked with a short blur so it reads as one object
+ * changing, not two crossfading; reduced motion keeps only the fade.
+ */
+export function PromoCode({
+  code,
+  onCopy,
+  className,
 }: {
-  onDismiss?: () => void
-  label: string
+  code: string
+  onCopy?: () => void
+  className?: string
 }) {
-  if (!onDismiss) return null
+  const labels = usePromotionLabels()
+  const reduce = useReducedMotion()
+  const [copied, setCopied] = React.useState(false)
+  React.useEffect(() => {
+    if (!copied) return
+    const timer = window.setTimeout(() => setCopied(false), 1600)
+    return () => window.clearTimeout(timer)
+  }, [copied])
+
+  const hidden = reduce
+    ? { opacity: 0 }
+    : { opacity: 0, scale: 0.8, filter: 'blur(2px)' }
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-lg border border-dashed border-current/35 py-0.5 ps-2 pe-0.5 text-sm',
+        className,
+      )}
+    >
+      <span className="font-mono font-medium tracking-wider select-all">
+        {code}
+      </span>
+      <button
+        type="button"
+        aria-label={labels.copyCode(code)}
+        onClick={async () => {
+          if (await writeClipboard(code)) {
+            setCopied(true)
+            onCopy?.()
+          }
+        }}
+        className="relative grid size-7 place-items-center rounded-md transition-[background-color,transform] duration-150 ease-out outline-none hover:bg-current/10 focus-visible:ring-3 focus-visible:ring-current/30 active:scale-[0.96]"
+      >
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.span
+            key={copied ? 'done' : 'copy'}
+            initial={hidden}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={hidden}
+            transition={{ duration: 0.16, ease: PROMO_EASE_OUT }}
+            className="grid place-items-center"
+          >
+            {copied ? (
+              <IconCheck aria-hidden className="size-4" />
+            ) : (
+              <IconCopy aria-hidden className="size-4" />
+            )}
+          </motion.span>
+        </AnimatePresence>
+      </button>
+      <span role="status" className="sr-only">
+        {copied ? labels.copied : ''}
+      </span>
+    </span>
+  )
+}
+
+function IconAction({
+  onAction,
+  label,
+  icon: Icon = IconX,
+}: {
+  onAction?: () => void
+  label: string
+  icon?: typeof IconX
+}) {
+  if (!onAction) return null
   return (
     <Button
       type="button"
       variant="ghost"
       size="icon-sm"
-      onClick={onDismiss}
+      onClick={onAction}
       aria-label={label}
       className="shrink-0 text-current hover:bg-current/10 hover:text-current"
     >
-      <IconX aria-hidden />
+      <Icon aria-hidden />
     </Button>
   )
 }
 
 /* -------------------------------------------------------------------------- */
 
+export type PromoBarVariant = 'inline' | 'floating'
+
+/**
+ * `inline` is the classic full-width strip in the page flow. `floating` is a
+ * pill docked to the bottom of the viewport: it never shifts layout (no CLS),
+ * sits in the thumb zone on phones, and suits pages with a sticky header.
+ */
 export function PromoBarView({
   promotion,
   now,
   Link,
   onClick,
   onDismiss,
-}: ViewProps) {
+  onCopy,
+  variant = 'inline',
+}: ViewProps & { variant?: PromoBarVariant }) {
+  const labels = usePromotionLabels()
+  const floating = variant === 'floating'
   return (
     <div
       role="region"
-      aria-label={promotion.eyebrow ?? 'Announcement'}
-      className={cn('w-full text-sm', promotionToneClasses[promotion.tone])}
+      aria-label={promotion.eyebrow ?? labels.announcement}
+      className={cn(
+        'text-sm forced-colors:border',
+        floating
+          ? 'rounded-2xl shadow-lg ring-1 shadow-black/10 ring-black/5 sm:rounded-full dark:ring-white/10'
+          : 'w-full border-b border-current/10',
+        promotionToneClasses[promotion.tone],
+      )}
     >
-      <div className="mx-auto flex max-w-screen-xl items-center gap-3 px-4 py-2 sm:px-6">
-        <p className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
+      <div
+        className={cn(
+          'flex items-center gap-3',
+          floating
+            ? 'py-1.5 ps-4 pe-1.5'
+            : 'mx-auto max-w-screen-xl px-4 py-2 sm:px-6',
+        )}
+      >
+        <p
+          className={cn(
+            'flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1',
+            !floating && 'justify-center text-center',
+          )}
+        >
           {promotion.eyebrow ? (
             <span className="font-medium opacity-80">{promotion.eyebrow}</span>
           ) : null}
           <span className="font-medium">{promotion.title}</span>
-          {promotion.body ? (
+          {promotion.body && !floating ? (
             <span className="hidden opacity-80 md:inline">
               {promotion.body}
             </span>
           ) : null}
           <Countdown promotion={promotion} now={now} />
+          {promotion.code ? (
+            <PromoCode code={promotion.code} onCopy={onCopy} />
+          ) : null}
           <CtaLink
             promotion={promotion}
             Link={Link}
@@ -168,9 +318,33 @@ export function PromoBarView({
             className="underline decoration-current/40 underline-offset-4 hover:decoration-current"
           />
         </p>
-        <DismissButton onDismiss={onDismiss} label="Dismiss announcement" />
+        <IconAction onAction={onDismiss} label={labels.dismiss} />
       </div>
     </div>
+  )
+}
+
+function Media({
+  media,
+  className,
+  eager,
+}: {
+  media: NonNullable<PromotionContent['media']>
+  className?: string
+  eager?: boolean
+}) {
+  return (
+    // Plain img: the registry must not assume a framework image loader.
+    // oxlint-disable-next-line nextjs/no-img-element
+    <img
+      src={media.src}
+      alt={media.alt}
+      width={media.width}
+      height={media.height}
+      loading={eager ? 'eager' : 'lazy'}
+      decoding="async"
+      className={cn('bg-current/5 object-cover', className)}
+    />
   )
 }
 
@@ -180,63 +354,162 @@ export function PromoCardView({
   Link,
   onClick,
   onDismiss,
+  onCopy,
   className,
 }: ViewProps & { className?: string }) {
+  const labels = usePromotionLabels()
   const media = promotion.media
   return (
     <aside
       aria-label={promotion.eyebrow ?? promotion.title}
       className={cn(
-        'relative flex overflow-hidden rounded-xl border border-border/60 text-sm',
-        media ? 'flex-col sm:flex-row' : 'flex-col',
+        '@container relative overflow-hidden rounded-xl text-sm ring-1 ring-black/5 forced-colors:border dark:ring-white/10',
         promotionToneClasses[promotion.tone],
         className,
       )}
     >
-      {media ? (
-        // Plain img: the registry must not assume a framework image loader.
-        // oxlint-disable-next-line nextjs/no-img-element
-        <img
-          src={media.src}
-          alt={media.alt}
-          width={media.width}
-          height={media.height}
-          loading="lazy"
-          decoding="async"
-          className="aspect-[16/9] w-full object-cover sm:aspect-auto sm:w-2/5"
+      <div className={cn('flex flex-col', media && '@md:flex-row')}>
+        {media ? (
+          <Media
+            media={media}
+            className="aspect-[16/9] w-full @md:aspect-auto @md:w-2/5"
+          />
+        ) : null}
+        <div className="flex flex-1 flex-col gap-2 p-4 @md:p-5">
+          <div className="flex min-h-5 items-center gap-2 pe-8">
+            {promotion.eyebrow ? (
+              <span className="text-xs font-medium tracking-wide uppercase opacity-75">
+                {promotion.eyebrow}
+              </span>
+            ) : null}
+            <Countdown promotion={promotion} now={now} />
+          </div>
+          <p className="text-base leading-snug font-medium text-balance">
+            {promotion.title}
+          </p>
+          {promotion.body ? (
+            <p className="leading-relaxed text-pretty opacity-80">
+              {promotion.body}
+            </p>
+          ) : null}
+          {promotion.code || promotion.cta ? (
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              {promotion.code ? (
+                <PromoCode code={promotion.code} onCopy={onCopy} />
+              ) : null}
+              <CtaLink
+                promotion={promotion}
+                Link={Link}
+                onClick={onClick}
+                className="underline decoration-current/30 underline-offset-4 hover:decoration-current"
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+      {onDismiss ? (
+        <div className="absolute end-2 top-2">
+          <IconAction
+            onAction={onDismiss}
+            label={labels.dismissNamed(promotion.title)}
+          />
+        </div>
+      ) : null}
+    </aside>
+  )
+}
+
+/**
+ * The toast's face: a compact card for a corner of the screen. No focus is
+ * taken and nothing behind it is blocked, so it can wait politely.
+ */
+export function PromoToastView({
+  promotion,
+  now,
+  Link,
+  onClick,
+  onDismiss,
+  onMinimize,
+  onCopy,
+  className,
+}: ViewProps & { onMinimize?: () => void; className?: string }) {
+  const labels = usePromotionLabels()
+  const media = promotion.media
+  return (
+    <div
+      className={cn(
+        'relative flex gap-3 rounded-2xl bg-popover p-3 text-sm text-popover-foreground shadow-xl ring-1 shadow-black/10 ring-black/5 forced-colors:border dark:ring-white/10',
+        className,
+      )}
+    >
+      {promotion.tone !== 'neutral' ? (
+        <span
+          aria-hidden
+          className={cn(
+            'absolute inset-y-3 start-0 w-1 rounded-e-full',
+            promotion.tone === 'brand'
+              ? 'bg-primary'
+              : 'bg-[var(--promo-highlight,var(--accent-foreground))]',
+          )}
         />
       ) : null}
-      <div className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
-        <div className="flex items-center gap-2">
+      {media ? (
+        <Media
+          media={media}
+          eager
+          className="size-16 shrink-0 rounded-lg sm:size-20"
+        />
+      ) : null}
+      <div className="flex min-w-0 flex-1 flex-col gap-1 ps-1">
+        <div className="flex min-h-5 items-center gap-2 pe-14">
           {promotion.eyebrow ? (
-            <span className="text-xs font-medium tracking-wide uppercase opacity-75">
+            <span className="text-muted-foreground truncate text-xs font-medium">
               {promotion.eyebrow}
             </span>
           ) : null}
           <Countdown promotion={promotion} now={now} />
         </div>
-        <p className="text-base leading-snug font-medium text-balance">
+        <p className="leading-snug font-medium text-balance">
           {promotion.title}
         </p>
         {promotion.body ? (
-          <p className="leading-relaxed opacity-80">{promotion.body}</p>
+          <p className="text-muted-foreground line-clamp-2 leading-relaxed">
+            {promotion.body}
+          </p>
         ) : null}
-        <CtaLink
-          promotion={promotion}
-          Link={Link}
-          onClick={onClick}
-          className="mt-1 self-start underline decoration-current/30 underline-offset-4 hover:decoration-current"
+        {promotion.code || promotion.cta ? (
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            {promotion.code ? (
+              <PromoCode code={promotion.code} onCopy={onCopy} />
+            ) : null}
+            {promotion.cta ? (
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={
+                  <CtaLink
+                    promotion={promotion}
+                    Link={Link}
+                    onClick={onClick}
+                  />
+                }
+              />
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      <div className="absolute end-1.5 top-1.5 flex">
+        <IconAction
+          onAction={onMinimize}
+          label={labels.minimize}
+          icon={IconMinus}
+        />
+        <IconAction
+          onAction={onDismiss}
+          label={labels.dismissNamed(promotion.title)}
         />
       </div>
-      {onDismiss ? (
-        <div className="absolute top-2 right-2">
-          <DismissButton
-            onDismiss={onDismiss}
-            label={`Dismiss ${promotion.title}`}
-          />
-        </div>
-      ) : null}
-    </aside>
+    </div>
   )
 }
 
@@ -264,25 +537,23 @@ export function PromoDialogContentView({
   Link,
   onClick,
   onDismiss,
+  onCopy,
   Title = DefaultTitle,
   Description = DefaultDescription,
 }: ViewProps & { Title?: TextComponent; Description?: TextComponent }) {
+  const labels = usePromotionLabels()
   const media = promotion.media
   return (
     <div className="flex flex-col gap-4">
       {media ? (
-        // oxlint-disable-next-line nextjs/no-img-element
-        <img
-          src={media.src}
-          alt={media.alt}
-          width={media.width}
-          height={media.height}
-          decoding="async"
-          className="aspect-[16/9] w-full rounded-lg object-cover"
+        <Media
+          media={media}
+          eager
+          className="aspect-[16/9] w-full rounded-lg"
         />
       ) : null}
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-2">
+        <div className="flex min-h-5 items-center gap-2">
           {promotion.eyebrow ? (
             <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               {promotion.eyebrow}
@@ -292,13 +563,24 @@ export function PromoDialogContentView({
             <Countdown promotion={promotion} now={now} />
           </span>
         </div>
-        <Title className="text-lg">{promotion.title}</Title>
-        {promotion.body ? <Description>{promotion.body}</Description> : null}
+        <Title className="text-lg leading-snug text-balance">
+          {promotion.title}
+        </Title>
+        {promotion.body ? (
+          <Description className="text-pretty">{promotion.body}</Description>
+        ) : null}
+        {promotion.code ? (
+          <PromoCode
+            code={promotion.code}
+            onCopy={onCopy}
+            className="mt-2 self-start"
+          />
+        ) : null}
       </div>
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         {onDismiss ? (
           <Button type="button" variant="ghost" onClick={onDismiss}>
-            Not now
+            {labels.notNow}
           </Button>
         ) : null}
         {promotion.cta ? (

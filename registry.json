@@ -421,7 +421,7 @@
       "name": "promotion",
       "type": "registry:lib",
       "title": "Promotion core",
-      "description": "Types and pure rules for scheduled promotions: validation, delivery state, route targeting, selection, dismissal and review warnings. No dependencies.",
+      "description": "Types and pure rules for scheduled promotions: validation, delivery state, route targeting, selection, dismissal, time-zone-safe date input and review warnings. No dependencies.",
       "files": [
         {
           "path": "components/promotions/promotion.ts",
@@ -433,8 +433,8 @@
       "name": "promotion-provider",
       "type": "registry:component",
       "title": "Promotion provider",
-      "description": "Loads promotions, keeps time, applies dismissal and the one-intrusive-surface rule, and reports impressions, clicks and dismissals.",
-      "dependencies": ["@tabler/icons-react"],
+      "description": "Loads and sanitises promotions, keeps time to the exact start and end, applies dismissal, once-per-visit and one-floating-surface rules, waits for engagement without interrupting, and reports impressions, clicks, copies and dismissals.",
+      "dependencies": ["@tabler/icons-react", "motion"],
       "registryDependencies": [
         "https://kitsu-lab.vercel.app/r/promotion.json",
         "button"
@@ -449,13 +449,13 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Pass your router's pathname and, for client-side navigation, your Link as `linkComponent`. Set `--promo-highlight` and `--promo-highlight-foreground` to theme the highlight tone."
+      "docs": "Pass your router's pathname and, for client-side navigation, your Link as `linkComponent`. A `{ load }` source runs once per mount; change `sourceKey` to reload. Translate every string with `labels`. Set `--promo-highlight` and `--promo-highlight-foreground` to theme the highlight tone."
     },
     {
       "name": "promo-bar",
       "type": "registry:component",
       "title": "Promo bar",
-      "description": "Dismissible announcement bar with an optional countdown to a real end date.",
+      "description": "Announcement bar, inline above the header or floating at the bottom of the viewport (no layout shift), with an optional countdown to a real end date and a copyable code.",
       "registryDependencies": [
         "https://kitsu-lab.vercel.app/r/promotion-provider.json"
       ],
@@ -470,7 +470,7 @@
       "name": "promo-card",
       "type": "registry:component",
       "title": "Promo card",
-      "description": "Inline promotion for a named slot, with optional image.",
+      "description": "Inline promotion for a named slot. Lays itself out from its own width with container queries and folds away when dismissed.",
       "registryDependencies": [
         "https://kitsu-lab.vercel.app/r/promotion-provider.json"
       ],
@@ -482,14 +482,44 @@
       ]
     },
     {
+      "name": "promo-badge",
+      "type": "registry:component",
+      "title": "Promo badge",
+      "description": "A small “New” pill or dot beside a nav item, shown while a live promotion points its button there. Needs no record of its own.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-badge.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-toast",
+      "type": "registry:component",
+      "title": "Promo toast",
+      "description": "A polite corner card that appears after light engagement, never takes focus, folds into a chip the visitor can reopen, and can be swiped away.",
+      "dependencies": ["motion", "@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-toast.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
       "name": "promo-dialog",
       "type": "registry:component",
       "title": "Promo dialog",
-      "description": "Restrained dialog on wide screens and bottom sheet on phones, opened only after engagement.",
+      "description": "Restrained dialog on wide screens and a swipe-to-dismiss bottom sheet on phones, opened once per visit after engagement. Following the button is never counted as a dismissal.",
       "registryDependencies": [
         "https://kitsu-lab.vercel.app/r/promotion-provider.json",
-        "dialog",
-        "sheet"
+        "button"
       ],
       "files": [
         {
@@ -497,13 +527,14 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Requires Base UI primitives (a base-* shadcn project)."
+      "docs": "Requires Base UI 1.8+ (a base-* shadcn project): the phone layout uses the Base UI Drawer for swipe dismissal.",
+      "dependencies": ["@base-ui/react", "@tabler/icons-react"]
     },
     {
       "name": "promotion-editor",
       "type": "registry:block",
       "title": "Promotion editor",
-      "description": "Create and review a promotion with a live preview, a preview clock, a plain-language schedule and taste warnings. Owns no data.",
+      "description": "Create and review a promotion with a live preview of every placement, a preview clock, a plain-language schedule in an explicit time zone and taste warnings. Owns no data.",
       "registryDependencies": [
         "https://kitsu-lab.vercel.app/r/promotion-provider.json",
         "badge",
@@ -519,18 +550,20 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Requires Base UI primitives (a base-* shadcn project): ToggleGroup and Slider use array values."
+      "docs": "Requires Base UI primitives (a base-* shadcn project): ToggleGroup and Slider use array values. Pass `timeZone` so dates are entered in the campaign's zone, not the reviewer's."
     },
     {
       "name": "promotions",
       "type": "registry:block",
       "title": "Promotions",
-      "description": "The full promotion system: core, provider, bar, card, dialog and editor.",
+      "description": "The full promotion system: core, provider, bar, card, toast, badge, dialog and editor.",
       "registryDependencies": [
         "https://kitsu-lab.vercel.app/r/promotion.json",
         "https://kitsu-lab.vercel.app/r/promotion-provider.json",
         "https://kitsu-lab.vercel.app/r/promo-bar.json",
         "https://kitsu-lab.vercel.app/r/promo-card.json",
+        "https://kitsu-lab.vercel.app/r/promo-toast.json",
+        "https://kitsu-lab.vercel.app/r/promo-badge.json",
         "https://kitsu-lab.vercel.app/r/promo-dialog.json",
         "https://kitsu-lab.vercel.app/r/promotion-editor.json"
       ],

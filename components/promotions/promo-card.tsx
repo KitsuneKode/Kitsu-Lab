@@ -1,15 +1,24 @@
 'use client'
 
 import * as React from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 
 import type { Promotion } from './promotion'
-import { useImpression, usePromotions } from './promotion-provider'
-import { PromoCardView } from './promotion-views'
+import {
+  moveFocusPast,
+  useImpression,
+  usePromotions,
+} from './promotion-provider'
+import { PROMO_EASE_OUT, PromoCardView } from './promotion-views'
 
 /**
  * An inline promotion for a named slot, e.g. `<PromoCard slot="hero" />`.
  * Renders `fallback` (nothing by default) when no promotion fills the slot, so
- * the surrounding layout decides what an empty slot looks like.
+ * the surrounding layout decides what an empty slot looks like. A dismissed
+ * card folds away instead of vanishing, so the content below never jumps.
+ *
+ * The card lays itself out from its own width (container queries), so the
+ * same slot works in a sidebar, a hero or a full-width band.
  */
 export function PromoCard({
   slot = 'default',
@@ -22,44 +31,56 @@ export function PromoCard({
   dismissible?: boolean
   className?: string
 }) {
-  const { card, now, dismiss, report, Link } = usePromotions()
+  const { card, now, pathname, dismiss, report, Link } = usePromotions()
+  const reduce = useReducedMotion()
   const promotion = card(slot)
 
   const onImpression = React.useCallback(
-    (p: Promotion) =>
-      report({
-        type: 'impression',
-        id: p.id,
-        placement: p.placement,
-        campaign: p.campaign,
-      }),
+    (p: Promotion) => report('impression', p),
     [report],
   )
-  const ref = useImpression(promotion, onImpression)
-
-  if (!promotion) return <>{fallback}</>
+  const ref = useImpression(promotion, onImpression, pathname)
 
   return (
-    <div
-      ref={ref as React.RefObject<HTMLDivElement>}
-      data-slot="promo-card"
-      data-promo-slot={slot}
-    >
-      <PromoCardView
-        promotion={promotion}
-        now={now}
-        Link={Link}
-        className={className}
-        onClick={() =>
-          report({
-            type: 'click',
-            id: promotion.id,
-            placement: promotion.placement,
-            campaign: promotion.campaign,
-          })
-        }
-        onDismiss={dismissible ? () => dismiss(promotion) : undefined}
-      />
-    </div>
+    <>
+      <AnimatePresence initial={false}>
+        {promotion ? (
+          <motion.div
+            key={promotion.id}
+            ref={ref as React.RefObject<HTMLDivElement>}
+            data-slot="promo-card"
+            data-promo-slot={slot}
+            className="overflow-hidden print:hidden"
+            exit={
+              reduce
+                ? { opacity: 0, transition: { duration: 0.15 } }
+                : {
+                    opacity: 0,
+                    height: 0,
+                    transition: { duration: 0.25, ease: PROMO_EASE_OUT },
+                  }
+            }
+          >
+            <PromoCardView
+              promotion={promotion}
+              now={now}
+              Link={Link}
+              className={className}
+              onClick={() => report('click', promotion)}
+              onCopy={() => report('copy', promotion)}
+              onDismiss={
+                dismissible
+                  ? () => {
+                      moveFocusPast(ref.current)
+                      dismiss(promotion)
+                    }
+                  : undefined
+              }
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+      {promotion ? null : fallback}
+    </>
   )
 }

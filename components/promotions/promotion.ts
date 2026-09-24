@@ -3,7 +3,7 @@
  * every rule here is testable with plain data and an injected clock.
  */
 
-export const PROMOTION_PLACEMENTS = ['bar', 'card', 'dialog'] as const
+export const PROMOTION_PLACEMENTS = ['bar', 'card', 'toast', 'dialog'] as const
 export type PromotionPlacement = (typeof PROMOTION_PLACEMENTS)[number]
 
 export const PROMOTION_TONES = ['neutral', 'brand', 'highlight'] as const
@@ -43,6 +43,10 @@ export type PromotionCta = {
   external?: boolean
 }
 
+/** Bar, toast and dialog interrupt; a card sits in the page's own flow. */
+export const INTRUSIVE_PLACEMENTS = ['bar', 'toast', 'dialog'] as const
+export type IntrusivePlacement = (typeof INTRUSIVE_PLACEMENTS)[number]
+
 /** What an editor produces. Identity and lifecycle fields are added by the host. */
 export type PromotionContent = {
   placement: PromotionPlacement
@@ -53,6 +57,8 @@ export type PromotionContent = {
   body?: string
   media?: PromotionMedia
   cta?: PromotionCta
+  /** A code the visitor can copy, e.g. `NIGHT20`. Shown with a copy button. */
+  code?: string
   tone: PromotionTone
   /** Route patterns such as `/`, `/courses` or `/courses/*`. Empty means every route. */
   include: string[]
@@ -85,6 +91,7 @@ export const TITLE_MAX = 80
 export const BODY_MAX = 320
 export const EYEBROW_MAX = 40
 export const CTA_LABEL_MAX = 32
+export const CODE_MAX = 24
 export const COUNTDOWN_MAX_DAYS = 14
 
 /* -------------------------------------------------------------------------- */
@@ -180,6 +187,7 @@ export function formatTimeLeft(endsAt: number, now: number): string | null {
 
 export type PromotionSelection = {
   bar?: Promotion
+  toast?: Promotion
   dialog?: Promotion
   cards: Record<string, Promotion>
 }
@@ -192,7 +200,7 @@ function beats(candidate: Promotion, current: Promotion | undefined) {
 }
 
 /**
- * At most one bar, one dialog and one card per slot for this route and time.
+ * At most one bar, one toast, one dialog and one card per slot for this route and time.
  * Priority first, then id, so the result is stable across renders and servers.
  * Never mutates the input.
  */
@@ -241,6 +249,8 @@ export function dismissalExpiry(
 
 export type PromotionParseOptions = {
   isAllowedHref?: (href: string) => boolean
+  /** Image sources. Defaults to the href rule, not a host's narrowed CTA list. */
+  isAllowedMediaSrc?: (src: string) => boolean
   isAllowedRoute?: (pattern: string) => boolean
   maxWindowDays?: number
 }
@@ -259,6 +269,7 @@ export type PromotionField =
   | 'media'
   | 'cta.label'
   | 'cta.href'
+  | 'code'
   | 'tone'
   | 'include'
   | 'exclude'
@@ -267,10 +278,15 @@ export type PromotionField =
   | 'priority'
   | 'dismiss'
 
-const SAFE_HREF = /^(\/(?!\/)|https:\/\/|tel:|mailto:)/i
+const SAFE_HREF = /^(\/(?![/\\])|https:\/\/|tel:|mailto:)/i
 
+/**
+ * Same-site paths, https, tel: and mailto:. Backslashes are refused outright:
+ * browsers read `/\\evil.com` as `//evil.com`, an open redirect.
+ */
 export function defaultIsAllowedHref(href: string): boolean {
-  return SAFE_HREF.test(href) && !/[\s<>"]/.test(href)
+  // oxlint-disable-next-line no-control-regex
+  return SAFE_HREF.test(href) && !/[\s<>"\\\u0000-\u001f]/.test(href)
 }
 
 function defaultIsAllowedRoute(pattern: string): boolean {
@@ -348,6 +364,7 @@ export function parsePromotion(
     return { ok: false, errors: { form: 'Enter the promotion details.' } }
 
   const isAllowedHref = options.isAllowedHref ?? defaultIsAllowedHref
+  const isAllowedMediaSrc = options.isAllowedMediaSrc ?? defaultIsAllowedHref
   const isAllowedRoute = options.isAllowedRoute ?? defaultIsAllowedRoute
   const maxWindowDays = options.maxWindowDays ?? 365
   const errors: Partial<Record<PromotionField, string>> = {}
@@ -398,7 +415,7 @@ export function parsePromotion(
     const alt = plainText(raw.alt, 160, true)
     if (
       typeof raw.src !== 'string' ||
-      !isAllowedHref(raw.src) ||
+      !isAllowedMediaSrc(raw.src) ||
       !alt.ok ||
       !isInt(raw.width, 1, 10_000) ||
       !isInt(raw.height, 1, 10_000)
@@ -412,6 +429,14 @@ export function parsePromotion(
         height: raw.height,
       }
     }
+  }
+
+  let code: string | undefined
+  if (input.code !== undefined && input.code !== null && input.code !== '') {
+    const raw = typeof input.code === 'string' ? input.code.trim() : ''
+    if (!new RegExp(`^[A-Za-z0-9_-]{1,${CODE_MAX}}$`).test(raw))
+      errors.code = `Codes are 1–${CODE_MAX} letters, digits, - or _.`
+    else code = raw.toUpperCase()
   }
 
   const include = routeList(input.include, isAllowedRoute)
@@ -463,6 +488,7 @@ export function parsePromotion(
       ...(body.ok && body.value ? { body: body.value } : {}),
       ...(media ? { media } : {}),
       ...(cta ? { cta } : {}),
+      ...(code ? { code } : {}),
       tone,
       include,
       exclude,
@@ -479,6 +505,153 @@ export function parsePromotion(
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Untrusted records                                                         */
+/* -------------------------------------------------------------------------- */
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+/**
+ * Structural check for a stored record. The provider usually sits in the root
+ * layout, so one malformed row from a CMS must be dropped, not crash the app.
+ */
+export function isPromotion(value: unknown): value is Promotion {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    value.id !== '' &&
+    PROMOTION_STATES.some((state) => state === value.state) &&
+    PROMOTION_PLACEMENTS.some((placement) => placement === value.placement) &&
+    typeof value.title === 'string' &&
+    PROMOTION_TONES.some((tone) => tone === value.tone) &&
+    isStringArray(value.include) &&
+    isStringArray(value.exclude) &&
+    isTime(value.startsAt) &&
+    isTime(value.endsAt) &&
+    typeof value.priority === 'number' &&
+    Number.isFinite(value.priority) &&
+    parseDismiss(value.dismiss) !== null &&
+    typeof value.dismissalVersion === 'number' &&
+    (value.cta === undefined ||
+      (isRecord(value.cta) &&
+        typeof value.cta.label === 'string' &&
+        typeof value.cta.href === 'string' &&
+        defaultIsAllowedHref(value.cta.href))) &&
+    (value.media === undefined ||
+      (isRecord(value.media) &&
+        typeof value.media.src === 'string' &&
+        typeof value.media.alt === 'string'))
+  )
+}
+
+/** Keeps the well-formed records and drops the rest, preserving order. */
+export function sanitizePromotions(records: unknown): Promotion[] {
+  return Array.isArray(records) ? records.filter(isPromotion) : []
+}
+
+/**
+ * The next instant any published record starts or ends after `now`, so a
+ * clock can wake exactly on a boundary instead of polling. Null when none.
+ */
+export function nextBoundary(
+  promotions: readonly Pick<Promotion, 'state' | 'startsAt' | 'endsAt'>[],
+  now: number,
+): number | null {
+  let next: number | null = null
+  for (const promotion of promotions) {
+    if (promotion.state !== 'published') continue
+    for (const edge of [promotion.startsAt, promotion.endsAt]) {
+      if (edge > now && (next === null || edge < next)) next = edge
+    }
+  }
+  return next
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Time zones                                                                */
+/* -------------------------------------------------------------------------- */
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/** Offset of `timeZone` from UTC at instant `ms`, in ms (IST is +19_800_000). */
+function zoneOffset(ms: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+  }).formatToParts(ms)
+  const get = (type: string) =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0)
+  const asUtc = Date.UTC(
+    get('year'),
+    get('month') - 1,
+    get('day'),
+    get('hour'),
+    get('minute'),
+    get('second'),
+  )
+  return asUtc - (ms - (ms % 1000))
+}
+
+/**
+ * Formats an instant for `<input type="datetime-local">` as wall-clock time in
+ * `timeZone` (the browser's zone when omitted). The input itself has no zone,
+ * so an editor showing IST must convert here, not trust the browser.
+ */
+export function toZonedInput(ms: number, timeZone?: string): string {
+  const date = new Date(timeZone ? ms + zoneOffset(ms, timeZone) : ms)
+  const [y, mo, d, h, mi] = timeZone
+    ? [
+        date.getUTCFullYear(),
+        date.getUTCMonth() + 1,
+        date.getUTCDate(),
+        date.getUTCHours(),
+        date.getUTCMinutes(),
+      ]
+    : [
+        date.getFullYear(),
+        date.getMonth() + 1,
+        date.getDate(),
+        date.getHours(),
+        date.getMinutes(),
+      ]
+  return `${y}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(mi)}`
+}
+
+/**
+ * Reads a `datetime-local` value as wall-clock time in `timeZone`. Across a
+ * daylight-saving jump the offset is re-read at the result, so a time in the
+ * skipped hour lands just after the jump rather than an hour off.
+ */
+export function fromZonedInput(
+  value: string,
+  timeZone?: string,
+): number | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value)
+  if (!match) return undefined
+  const [y, mo, d, h, mi] = match.slice(1).map(Number) as [
+    number,
+    number,
+    number,
+    number,
+    number,
+  ]
+  if (!timeZone) {
+    const ms = new Date(y, mo - 1, d, h, mi).getTime()
+    return Number.isFinite(ms) ? ms : undefined
+  }
+  const wall = Date.UTC(y, mo - 1, d, h, mi)
+  const first = wall - zoneOffset(wall, timeZone)
+  return wall - zoneOffset(first, timeZone)
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Review helpers                                                            */
 /* -------------------------------------------------------------------------- */
 
@@ -488,7 +661,39 @@ export type PromotionWarning = {
     | 'external-cta'
     | 'dialog-overlap'
     | 'everywhere-dialog'
+    | 'dialog-without-cta'
+    | 'toast-overlap'
   message: string
+}
+
+function routeBase(pattern: string): string {
+  return pattern.replace(/\/\*\*?$/, '') || '/'
+}
+
+/**
+ * Whether two targetings could ever meet on one page. Conservative: when in
+ * doubt it says yes, because a missed overlap is worse than a spare warning.
+ */
+export function routesMayOverlap(
+  a: Pick<PromotionContent, 'include'>,
+  b: Pick<PromotionContent, 'include'>,
+): boolean {
+  if (a.include.length === 0 || b.include.length === 0) return true
+  return a.include.some((pa) =>
+    b.include.some(
+      (pb) =>
+        pa === pb ||
+        matchRoute(pa, routeBase(pb)) ||
+        matchRoute(pb, routeBase(pa)) ||
+        matchRoute(pa, `${routeBase(pb)}/x`) ||
+        matchRoute(pb, `${routeBase(pa)}/x`),
+    ),
+  )
+}
+
+export type ReviewOptions = {
+  /** The record being edited, so it never warns about overlapping itself. */
+  id?: string
 }
 
 /**
@@ -499,6 +704,7 @@ export function reviewPromotion(
   draft: PromotionContent,
   others: readonly Promotion[] = [],
   now = Date.now(),
+  { id }: ReviewOptions = {},
 ): PromotionWarning[] {
   const warnings: PromotionWarning[] = []
   if (
@@ -520,37 +726,50 @@ export function reviewPromotion(
       message:
         'A dialog on every page is the loudest option. Consider targeting the pages it is about.',
     })
-  if (draft.placement === 'dialog') {
+  if (draft.placement === 'dialog' && !draft.cta && !draft.code)
+    warnings.push({
+      code: 'dialog-without-cta',
+      message:
+        'A dialog with nothing to do only interrupts. Add a button, or use a bar or toast.',
+    })
+  if (draft.placement === 'dialog' || draft.placement === 'toast') {
     const overlapping = others.find(
       (other) =>
-        other.placement === 'dialog' &&
+        other.id !== id &&
+        other.placement === draft.placement &&
         other.state === 'published' &&
         other.startsAt < draft.endsAt &&
-        draft.startsAt < other.endsAt,
+        draft.startsAt < other.endsAt &&
+        routesMayOverlap(draft, other),
     )
     if (overlapping)
       warnings.push({
-        code: 'dialog-overlap',
-        message: `“${overlapping.title}” is also a dialog in this window. Only the higher priority one shows.`,
+        code: draft.placement === 'dialog' ? 'dialog-overlap' : 'toast-overlap',
+        message: `“${overlapping.title}” is also a ${draft.placement} on these pages in this window. Only the higher priority one shows.`,
       })
   }
   return warnings
 }
 
-/** "Mon 29 Sep, 9:00 am → Sun 5 Oct, 11:59 pm (7 days)" in the given zone. */
+/** "Mon 29 Sep, 9:00 am → Sun 5 Oct, 11:59 pm GMT+5:30 (7 days)" in the given zone. */
 export function describeSchedule(
   startsAt: number,
   endsAt: number,
   { timeZone, locale }: { timeZone?: string; locale?: string } = {},
 ): string {
-  const format = new Intl.DateTimeFormat(locale, {
+  const options: Intl.DateTimeFormatOptions = {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
     hour: 'numeric',
     minute: '2-digit',
     timeZone,
+  }
+  const start = new Intl.DateTimeFormat(locale, options)
+  const end = new Intl.DateTimeFormat(locale, {
+    ...options,
+    timeZoneName: 'short',
   })
   const days = Math.max(1, Math.round((endsAt - startsAt) / DAY))
-  return `${format.format(startsAt)} → ${format.format(endsAt)} (${days} day${days === 1 ? '' : 's'})`
+  return `${start.format(startsAt)} → ${end.format(endsAt)} (${days} day${days === 1 ? '' : 's'})`
 }

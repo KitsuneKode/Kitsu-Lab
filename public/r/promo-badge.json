@@ -1,0 +1,17 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "promo-badge",
+  "title": "Promo badge",
+  "description": "A small “New” pill or dot beside a nav item, shown while a live promotion points its button there. Needs no record of its own.",
+  "registryDependencies": [
+    "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+  ],
+  "files": [
+    {
+      "path": "components/promotions/promo-badge.tsx",
+      "content": "'use client'\n\nimport * as React from 'react'\nimport { cn } from '@/lib/utils'\n\nimport { usePromotions } from './promotion-provider'\n\n/**\n * The quietest placement: a small \"New\" pill (or dot) beside a nav item,\n * shown only while a live promotion on this route points its button at\n * `href`. It needs no record of its own and disappears with the campaign.\n *\n * ```tsx\n * <Link href=\"/books\">Books <PromoBadge href=\"/books\" /></Link>\n * ```\n *\n * The label reads the promotion's eyebrow, so \"Just printed\" can replace\n * \"New\". Nothing pulses: a nav is seen constantly, and motion there nags.\n */\nexport function PromoBadge({\n  href,\n  label,\n  variant = 'pill',\n  className,\n}: {\n  href: string\n  /** Overrides the promotion's eyebrow. */\n  label?: string\n  variant?: 'pill' | 'dot'\n  className?: string\n}) {\n  const { pointingAt } = usePromotions()\n  const promotion = pointingAt(href)\n  if (!promotion) return null\n  const text = label ?? promotion.eyebrow ?? 'New'\n\n  if (variant === 'dot') {\n    return (\n      <span\n        data-slot=\"promo-badge\"\n        className={cn(\n          'bg-primary inline-block size-1.5 shrink-0 rounded-full align-middle forced-colors:bg-[Highlight]',\n          className,\n        )}\n      >\n        <span className=\"sr-only\">{text}</span>\n      </span>\n    )\n  }\n  return (\n    <span\n      data-slot=\"promo-badge\"\n      className={cn(\n        'bg-primary/10 text-primary ring-primary/20 inline-flex h-5 shrink-0 items-center rounded-full px-1.5 align-middle text-[0.6875rem] font-medium ring-1 ring-inset forced-colors:border',\n        className,\n      )}\n    >\n      {text}\n    </span>\n  )\n}\n",
+      "type": "registry:component"
+    }
+  ],
+  "type": "registry:component"
+}

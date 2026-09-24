@@ -12,6 +12,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   BODY_MAX,
+  CODE_MAX,
+  COUNTDOWN_MAX_DAYS,
   CTA_LABEL_MAX,
   EYEBROW_MAX,
   PROMOTION_PLACEMENTS,
@@ -19,9 +21,11 @@ import {
   TITLE_MAX,
   deliveryState,
   describeSchedule,
+  fromZonedInput,
   parsePromotion,
   reviewPromotion,
   targetsRoute,
+  toZonedInput,
   type Promotion,
   type PromotionContent,
   type PromotionField,
@@ -33,6 +37,7 @@ import {
   PromoBarView,
   PromoCardView,
   PromoDialogContentView,
+  PromoToastView,
 } from './promotion-views'
 
 const HOUR = 3_600_000
@@ -51,6 +56,12 @@ export type PromotionEditorProps = {
   slots?: readonly PromotionEditorOption[]
   /** Other promotions, so the review can flag overlapping dialogs. */
   others?: readonly Promotion[]
+  /** Id of the record being edited, so it is not compared with itself. */
+  editingId?: string
+  /**
+   * The zone dates are entered and shown in, e.g. `Asia/Kolkata`. Defaults to
+   * the browser's. The date inputs follow it, not the reviewer's laptop.
+   */
   timeZone?: string
   submitLabel?: string
   onSubmit: (content: PromotionContent) => void | Promise<void>
@@ -69,6 +80,11 @@ type Draft = {
   tone: PromotionTone
   ctaLabel: string
   ctaHref: string
+  code: string
+  mediaSrc: string
+  mediaAlt: string
+  mediaWidth: number
+  mediaHeight: number
   include: string[]
   exclude: string[]
   startsAt: string
@@ -82,7 +98,15 @@ type Draft = {
 const PLACEMENT_LABELS: Record<PromotionPlacement, string> = {
   bar: 'Announcement bar',
   card: 'Inline card',
+  toast: 'Toast',
   dialog: 'Dialog',
+}
+
+const PLACEMENT_HINTS: Record<PromotionPlacement, string> = {
+  bar: 'A strip above the header. Quiet, seen by everyone.',
+  card: 'Sits inside a page slot you name. Never interrupts.',
+  toast: 'A small card in the corner after a few seconds. Folds to a chip.',
+  dialog: 'Interrupts once per visit, after engagement. Use sparingly.',
 }
 
 const TONE_LABELS: Record<PromotionTone, string> = {
@@ -99,23 +123,10 @@ const STATE_LABELS = {
   ended: 'Ended',
 } as const
 
-/** `datetime-local` works in the browser's zone; convert at the edges only. */
-const pad = (n: number) => String(n).padStart(2, '0')
-
-function toLocalInput(ms: number): string {
-  const date = new Date(ms)
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
-function fromLocalInput(value: string): number | undefined {
-  if (!value) return undefined
-  const ms = new Date(value).getTime()
-  return Number.isFinite(ms) ? ms : undefined
-}
-
 function initialDraft(
   initial: Partial<PromotionContent> = {},
   now: number,
+  timeZone: string | undefined,
 ): Draft {
   const startsAt = initial.startsAt ?? Math.ceil(now / HOUR) * HOUR
   const endsAt = initial.endsAt ?? startsAt + 7 * DAY
@@ -128,10 +139,15 @@ function initialDraft(
     tone: initial.tone ?? 'neutral',
     ctaLabel: initial.cta?.label ?? '',
     ctaHref: initial.cta?.href ?? '',
+    code: initial.code ?? '',
+    mediaSrc: initial.media?.src ?? '',
+    mediaAlt: initial.media?.alt ?? '',
+    mediaWidth: initial.media?.width ?? 1600,
+    mediaHeight: initial.media?.height ?? 900,
     include: initial.include ?? [],
     exclude: initial.exclude ?? [],
-    startsAt: toLocalInput(startsAt),
-    endsAt: toLocalInput(endsAt),
+    startsAt: toZonedInput(startsAt, timeZone),
+    endsAt: toZonedInput(endsAt, timeZone),
     priority: initial.priority ?? 50,
     dismissMode: initial.dismiss?.mode ?? 'days',
     dismissDays: initial.dismiss?.mode === 'days' ? initial.dismiss.days : 7,
@@ -139,8 +155,9 @@ function initialDraft(
   }
 }
 
-function toInput(draft: Draft) {
+function toInput(draft: Draft, timeZone: string | undefined) {
   const hasCta = draft.ctaLabel.trim() !== '' || draft.ctaHref.trim() !== ''
+  const hasMedia = draft.mediaSrc.trim() !== '' || draft.mediaAlt.trim() !== ''
   return {
     placement: draft.placement,
     slot: draft.placement === 'card' ? draft.slot : undefined,
@@ -149,10 +166,19 @@ function toInput(draft: Draft) {
     body: draft.body,
     tone: draft.tone,
     cta: hasCta ? { label: draft.ctaLabel, href: draft.ctaHref } : undefined,
+    code: draft.code,
+    media: hasMedia
+      ? {
+          src: draft.mediaSrc.trim(),
+          alt: draft.mediaAlt,
+          width: draft.mediaWidth,
+          height: draft.mediaHeight,
+        }
+      : undefined,
     include: draft.include,
     exclude: draft.exclude,
-    startsAt: fromLocalInput(draft.startsAt),
-    endsAt: fromLocalInput(draft.endsAt),
+    startsAt: fromZonedInput(draft.startsAt, timeZone),
+    endsAt: fromZonedInput(draft.endsAt, timeZone),
     priority: draft.priority,
     dismiss:
       draft.dismissMode === 'days'
@@ -180,10 +206,12 @@ function Field({
       className="flex flex-col gap-2"
       data-invalid={error ? true : undefined}
     >
-      <Label htmlFor={id}>{label}</Label>
+      <Label id={`${id}-label`} htmlFor={id}>
+        {label}
+      </Label>
       {children}
       {error ? (
-        <p id={`${id}-error`} className="text-destructive text-xs">
+        <p id={`${id}-error`} className="text-destructive text-xs" role="alert">
           {error}
         </p>
       ) : hint ? (
@@ -237,7 +265,13 @@ function RoutePicker({
     )
   }
   return (
-    <div id={id} role="group" className="flex flex-wrap gap-1.5">
+    <div
+      id={id}
+      role="group"
+      aria-labelledby={`${id}-label`}
+      aria-describedby={invalid ? `${id}-error` : undefined}
+      className="flex flex-wrap gap-1.5"
+    >
       {options.map((option) => {
         const checked = value.includes(option.value)
         return (
@@ -283,6 +317,7 @@ export function PromotionEditor({
   targets,
   slots,
   others = NO_OTHERS,
+  editingId,
   timeZone,
   submitLabel = 'Save',
   onSubmit,
@@ -294,10 +329,16 @@ export function PromotionEditor({
   const id = (name: string) => `${uid}-${name}`
   const [mountedAt] = React.useState(() => Date.now())
   const [draft, setDraft] = React.useState<Draft>(() =>
-    initialDraft(initial, mountedAt),
+    initialDraft(initial, mountedAt, timeZone),
   )
+  // Errors show per field once it has been left, and everywhere after submit.
   const [touched, setTouched] = React.useState(false)
+  const [blurred, setBlurred] = React.useState<ReadonlySet<string>>(
+    () => new Set(),
+  )
   const [saving, setSaving] = React.useState(false)
+  const [formError, setFormError] = React.useState<string | null>(null)
+  const [pane, setPane] = React.useState<'form' | 'preview'>('form')
   const [previewRoute, setPreviewRoute] = React.useState(
     initial?.include?.[0]?.replace(/\/\*+$/, '') || '/',
   )
@@ -316,18 +357,25 @@ export function PromotionEditor({
     [routes, targets],
   )
   const result = React.useMemo(
-    () => parsePromotion(toInput(draft), parseOptions),
-    [draft, parseOptions],
+    () => parsePromotion(toInput(draft, timeZone), parseOptions),
+    [draft, parseOptions, timeZone],
   )
-  const errors = {
-    ...(touched && !result.ok ? result.errors : {}),
-    ...serverErrors,
+  const errors: Partial<Record<PromotionField, string>> = { ...serverErrors }
+  if (!result.ok) {
+    for (const [field, message] of Object.entries(result.errors)) {
+      if (touched || blurred.has(field))
+        errors[field as PromotionField] = message
+    }
   }
+  const leave = (field: PromotionField) => () =>
+    setBlurred((previous) =>
+      previous.has(field) ? previous : new Set(previous).add(field),
+    )
 
   // The preview renders even while invalid, from whatever is typable so far.
-  const startsAt = fromLocalInput(draft.startsAt) ?? mountedAt
+  const startsAt = fromZonedInput(draft.startsAt, timeZone) ?? mountedAt
   const endsAt = Math.max(
-    fromLocalInput(draft.endsAt) ?? startsAt + DAY,
+    fromZonedInput(draft.endsAt, timeZone) ?? startsAt + DAY,
     startsAt + HOUR,
   )
   const preview: PromotionContent = result.ok
@@ -338,6 +386,16 @@ export function PromotionEditor({
         body: draft.body.trim() || undefined,
         eyebrow: draft.eyebrow.trim() || undefined,
         tone: draft.tone,
+        code: draft.code.trim().toUpperCase() || undefined,
+        media:
+          draft.mediaSrc.trim() && draft.mediaAlt.trim()
+            ? {
+                src: draft.mediaSrc.trim(),
+                alt: draft.mediaAlt.trim(),
+                width: draft.mediaWidth,
+                height: draft.mediaHeight,
+              }
+            : undefined,
         cta:
           draft.ctaLabel.trim() && draft.ctaHref.trim()
             ? { label: draft.ctaLabel.trim(), href: draft.ctaHref.trim() }
@@ -365,7 +423,7 @@ export function PromotionEditor({
   )
   const onRoute = targetsRoute(preview, previewRoute)
   const warnings = result.ok
-    ? reviewPromotion(result.value, others, mountedAt)
+    ? reviewPromotion(result.value, others, mountedAt, { id: editingId })
     : []
 
   const clock = new Intl.DateTimeFormat(undefined, {
@@ -375,50 +433,89 @@ export function PromotionEditor({
     hour: 'numeric',
     minute: '2-digit',
     timeZone,
+    timeZoneName: 'short',
   })
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setTouched(true)
+    setFormError(null)
     if (!result.ok) {
-      const first = Object.keys(result.errors)[0]
-      document
-        .getElementById(
-          id(
-            first === 'cta.label'
-              ? 'cta-label'
-              : first === 'cta.href'
-                ? 'cta-href'
-                : (first ?? 'title'),
-          ),
-        )
-        ?.focus()
+      setPane('form')
+      const first = Object.keys(result.errors)[0] ?? 'title'
+      const target = document.getElementById(id(first.replace('.', '-')))
+      // Groups are not focusable themselves; focus their first control.
+      const focusable = target?.matches('input, textarea, select, button')
+        ? target
+        : target?.querySelector<HTMLElement>('input, button, select')
+      focusable?.focus()
       return
     }
     setSaving(true)
     try {
       await onSubmit(result.value)
+    } catch (error) {
+      setFormError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Could not save. Your changes are still here; try again.',
+      )
     } finally {
       setSaving(false)
     }
   }
 
-  const describedBy = (name: string) =>
-    errors[name as PromotionField] ? `${id(name)}-error` : undefined
+  const describedBy = (name: string, field = name) =>
+    errors[field as PromotionField] ? `${id(name)}-error` : undefined
 
   return (
     <form
       noValidate
       onSubmit={submit}
       className={cn(
-        'grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]',
+        'grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-8',
         className,
       )}
     >
-      <div className="flex flex-col gap-6">
-        <Field id={id('placement')} label="Placement" error={errors.placement}>
+      {/* Phones: one pane at a time, the switch pinned where a thumb reaches. */}
+      <div className="bg-background/80 sticky top-0 z-10 -mx-1 px-1 py-2 backdrop-blur lg:hidden">
+        <ToggleGroup
+          aria-label="Editor view"
+          value={[pane]}
+          onValueChange={(value) => {
+            if (value[0]) setPane(value[0] as 'form' | 'preview')
+          }}
+          variant="outline"
+          size="sm"
+          className="w-full *:flex-1"
+        >
+          <ToggleGroupItem value="form">Edit</ToggleGroupItem>
+          <ToggleGroupItem value="preview">
+            Preview
+            {warnings.length > 0 ? (
+              <span className="bg-muted-foreground/15 ms-1 rounded-full px-1.5 text-[0.6875rem] tabular-nums">
+                {warnings.length}
+              </span>
+            ) : null}
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      <div
+        className={cn(
+          'flex-col gap-6 lg:flex',
+          pane === 'form' ? 'flex' : 'hidden',
+        )}
+      >
+        <Field
+          id={id('placement')}
+          label="Placement"
+          error={errors.placement}
+          hint={PLACEMENT_HINTS[draft.placement]}
+        >
           <ToggleGroup
             id={id('placement')}
+            aria-labelledby={`${id('placement')}-label`}
             value={[draft.placement]}
             onValueChange={(value) => {
               if (value[0]) set('placement', value[0] as PromotionPlacement)
@@ -439,6 +536,7 @@ export function PromotionEditor({
           <Field id={id('slot')} label="Slot" error={errors.slot}>
             <ToggleGroup
               id={id('slot')}
+              aria-labelledby={`${id('slot')}-label`}
               value={[draft.slot]}
               onValueChange={(value) => {
                 if (value[0]) set('slot', value[0])
@@ -468,6 +566,7 @@ export function PromotionEditor({
             required
             aria-invalid={Boolean(errors.title) || undefined}
             aria-describedby={describedBy('title')}
+            onBlur={leave('title')}
             onChange={(e) => set('title', e.target.value)}
           />
         </Field>
@@ -484,6 +583,7 @@ export function PromotionEditor({
             rows={3}
             aria-invalid={Boolean(errors.body) || undefined}
             aria-describedby={describedBy('body')}
+            onBlur={leave('body')}
             onChange={(e) => set('body', e.target.value)}
           />
         </Field>
@@ -499,12 +599,15 @@ export function PromotionEditor({
               id={id('eyebrow')}
               value={draft.eyebrow}
               aria-invalid={Boolean(errors.eyebrow) || undefined}
+              aria-describedby={describedBy('eyebrow')}
+              onBlur={leave('eyebrow')}
               onChange={(e) => set('eyebrow', e.target.value)}
             />
           </Field>
           <Field id={id('tone')} label="Tone">
             <ToggleGroup
               id={id('tone')}
+              aria-labelledby={`${id('tone')}-label`}
               value={[draft.tone]}
               onValueChange={(value) => {
                 if (value[0]) set('tone', value[0] as PromotionTone)
@@ -533,6 +636,8 @@ export function PromotionEditor({
               id={id('cta-label')}
               value={draft.ctaLabel}
               aria-invalid={Boolean(errors['cta.label']) || undefined}
+              aria-describedby={describedBy('cta-label', 'cta.label')}
+              onBlur={leave('cta.label')}
               onChange={(e) => set('ctaLabel', e.target.value)}
             />
           </Field>
@@ -546,6 +651,8 @@ export function PromotionEditor({
                 id={id('cta-href')}
                 value={draft.ctaHref}
                 aria-invalid={Boolean(errors['cta.href']) || undefined}
+                aria-describedby={describedBy('cta-href', 'cta.href')}
+                onBlur={leave('cta.href')}
                 onChange={(e) => set('ctaHref', e.target.value)}
                 className="border-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive dark:bg-input/30 h-8 w-full rounded-lg border bg-transparent px-2 text-sm outline-none focus-visible:ring-3"
               >
@@ -562,9 +669,62 @@ export function PromotionEditor({
                 value={draft.ctaHref}
                 placeholder="/courses or https://…"
                 aria-invalid={Boolean(errors['cta.href']) || undefined}
+                aria-describedby={describedBy('cta-href', 'cta.href')}
+                onBlur={leave('cta.href')}
                 onChange={(e) => set('ctaHref', e.target.value)}
               />
             )}
+          </Field>
+        </fieldset>
+
+        <Field
+          id={id('code')}
+          label="Code (optional)"
+          error={errors.code}
+          hint="Shown with a copy button, e.g. NIGHT20."
+        >
+          <Input
+            id={id('code')}
+            value={draft.code}
+            autoCapitalize="characters"
+            spellCheck={false}
+            maxLength={CODE_MAX}
+            className="font-mono uppercase"
+            aria-invalid={Boolean(errors.code) || undefined}
+            aria-describedby={describedBy('code')}
+            onBlur={leave('code')}
+            onChange={(e) => set('code', e.target.value)}
+          />
+        </Field>
+
+        <fieldset className="grid gap-6 sm:grid-cols-2">
+          <legend className="sr-only">Image</legend>
+          <Field
+            id={id('media')}
+            label="Image URL (optional)"
+            error={errors.media}
+          >
+            <Input
+              id={id('media')}
+              value={draft.mediaSrc}
+              placeholder="https://… or /images/…"
+              aria-invalid={Boolean(errors.media) || undefined}
+              aria-describedby={describedBy('media')}
+              onBlur={leave('media')}
+              onChange={(e) => set('mediaSrc', e.target.value)}
+            />
+          </Field>
+          <Field
+            id={id('media-alt')}
+            label="Image description"
+            hint="What it shows, for people who cannot see it."
+          >
+            <Input
+              id={id('media-alt')}
+              value={draft.mediaAlt}
+              onBlur={leave('media')}
+              onChange={(e) => set('mediaAlt', e.target.value)}
+            />
           </Field>
         </fieldset>
 
@@ -594,21 +754,32 @@ export function PromotionEditor({
         </Field>
 
         <div className="grid gap-6 sm:grid-cols-2">
-          <Field id={id('startsAt')} label="Starts" error={errors.startsAt}>
+          <Field
+            id={id('startsAt')}
+            label={timeZone ? `Starts (${timeZone})` : 'Starts'}
+            error={errors.startsAt}
+          >
             <Input
               id={id('startsAt')}
               type="datetime-local"
               value={draft.startsAt}
               aria-invalid={Boolean(errors.startsAt) || undefined}
+              aria-describedby={describedBy('startsAt')}
               onChange={(e) => set('startsAt', e.target.value)}
             />
           </Field>
-          <Field id={id('endsAt')} label="Ends" error={errors.endsAt}>
+          <Field
+            id={id('endsAt')}
+            label={timeZone ? `Ends (${timeZone})` : 'Ends'}
+            error={errors.endsAt}
+          >
             <Input
               id={id('endsAt')}
               type="datetime-local"
               value={draft.endsAt}
               aria-invalid={Boolean(errors.endsAt) || undefined}
+              aria-describedby={describedBy('endsAt')}
+              onBlur={leave('endsAt')}
               onChange={(e) => set('endsAt', e.target.value)}
             />
           </Field>
@@ -654,6 +825,7 @@ export function PromotionEditor({
               {draft.dismissMode === 'days' ? (
                 <Input
                   aria-label="Days"
+                  aria-invalid={Boolean(errors.dismiss) || undefined}
                   type="number"
                   min={1}
                   max={365}
@@ -673,8 +845,17 @@ export function PromotionEditor({
             checked={draft.showCountdown}
             onChange={(e) => set('showCountdown', e.target.checked)}
           />
-          Show “Ends in …” during the last 14 days
+          Show “Ends in …” during the last {COUNTDOWN_MAX_DAYS} days
         </label>
+
+        {formError ? (
+          <p
+            role="alert"
+            className="border-destructive/30 bg-destructive/5 text-destructive rounded-lg border px-3 py-2 text-sm"
+          >
+            {formError}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={saving}>
@@ -690,7 +871,10 @@ export function PromotionEditor({
 
       <section
         aria-label="Preview"
-        className="flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start"
+        className={cn(
+          'flex-col gap-4 lg:sticky lg:top-6 lg:flex lg:self-start',
+          pane === 'preview' ? 'flex' : 'hidden',
+        )}
       >
         <div className="border-border/60 flex flex-col gap-3 rounded-xl border p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -753,6 +937,16 @@ export function PromotionEditor({
               <div className="p-4">
                 <PromoCardView promotion={preview} now={previewNow} />
               </div>
+            ) : preview.placement === 'toast' ? (
+              <div className="flex min-h-40 items-end justify-end bg-black/[0.03] p-4">
+                <PromoToastView
+                  promotion={preview}
+                  now={previewNow}
+                  onDismiss={() => {}}
+                  onMinimize={() => {}}
+                  className="w-full max-w-[22rem]"
+                />
+              </div>
             ) : (
               <div className="flex justify-center bg-black/5 p-6">
                 <div className="bg-popover text-popover-foreground ring-foreground/10 w-full max-w-sm rounded-xl p-4 shadow-lg ring-1">
@@ -770,12 +964,7 @@ export function PromotionEditor({
         <dl className="border-border/60 grid gap-2 rounded-xl border p-4 text-sm">
           <div>
             <dt className="text-muted-foreground">When</dt>
-            <dd>
-              {describeSchedule(startsAt, endsAt, { timeZone })}
-              {timeZone ? (
-                <span className="text-muted-foreground"> · {timeZone}</span>
-              ) : null}
-            </dd>
+            <dd>{describeSchedule(startsAt, endsAt, { timeZone })}</dd>
           </div>
           <div>
             <dt className="text-muted-foreground">Where</dt>

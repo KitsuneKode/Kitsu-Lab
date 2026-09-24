@@ -86,7 +86,11 @@ Highlights are anchored by text quote (the exact words plus a little context, W3
 />
 ```
 
-`annotate={false}` turns highlighting off for read-only previews. Engines opt page surfaces in with `data-bp-annotatable` + `data-page-index` (premier faces, the PDF text layer and page leaves already do).
+### Drawing
+
+Press `D` (or the pen button) to draw on the page: pen, marker and eraser, five inks, undo with `mod+Z`, `Esc` to put the pen down. Strokes are stored page-relative (0–1 coordinates, width as a fraction of page width) in the same notebook as highlights, so they land in the same place at any zoom, in every flat view, and on every device. Once a stylus touches the page, finger contacts are ignored (palm rejection), and coalesced pointer events keep fast pen strokes smooth. Engines opt page-sized surfaces in with `data-bp-inkable` + `data-page-index` (premier single, spread and scroll faces and the pdf stage do); the flip book and the text view reflow or move their pages, so they show no ink.
+
+`annotate={false}` turns highlighting and drawing off for read-only previews. Engines opt page surfaces in with `data-bp-annotatable` + `data-page-index` (premier faces, the PDF text layer and page leaves already do).
 
 ## Ask (AI)
 

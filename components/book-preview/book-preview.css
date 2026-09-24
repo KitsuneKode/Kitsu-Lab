@@ -509,6 +509,36 @@ html[data-book-preview-immersive] body > [data-base-ui-portal] {
   }
 }
 
+/* Drawing: a crosshair for the pen and marker, a cell for the eraser. The
+   ink toolbar settles up from the page it belongs to. */
+.book-preview [data-bp-ink-surface][data-tool='pen'],
+.book-preview [data-bp-ink-surface][data-tool='marker'] {
+  cursor: crosshair;
+}
+
+.book-preview [data-bp-ink-surface][data-tool='eraser'] {
+  cursor: cell;
+}
+
+.book-preview [data-book-preview-ink-toolbar] {
+  transition:
+    opacity 200ms var(--book-preview-ease-out),
+    translate 200ms var(--book-preview-ease-out);
+}
+
+@starting-style {
+  .book-preview [data-book-preview-ink-toolbar] {
+    opacity: 0;
+    translate: -50% 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-ink-toolbar] {
+    transition: opacity 120ms linear;
+  }
+}
+
 /* A bookmarked page wears a ribbon that drops in from the top edge. */
 .book-preview [data-book-preview-ribbon] {
   transition: translate 220ms var(--book-preview-ease-out);

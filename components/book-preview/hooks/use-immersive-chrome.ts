@@ -151,6 +151,8 @@ export function useImmersiveChrome({
       const target = event.target as HTMLElement | null
       if (isInteractiveTarget(target)) return
       if (target?.closest?.('[data-book-preview-chrome]')) return
+      // With the pen out, a tap is ink.
+      if (target?.closest?.('[data-bp-ink-surface][data-active]')) return
       // A tap that made a text selection is selecting, not asking for chrome.
       const selection = window.getSelection?.()
       if (selection && !selection.isCollapsed) return

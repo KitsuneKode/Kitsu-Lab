@@ -261,6 +261,14 @@ export function BookPreviewAnnotationLayer() {
     if (!annotate || !root || highlights.length === 0) return
     const onClick = (event: MouseEvent) => {
       if (cardRef.current?.contains(event.target as Node)) return
+      // A tap with the pen out is a dot of ink, not a highlight lookup.
+      if (
+        (event.target as Element).closest?.(
+          '[data-bp-ink-surface][data-active]',
+        )
+      ) {
+        return
+      }
       const selection = window.getSelection()
       if (selection && !selection.isCollapsed) return
       const caret = caretFromPoint(event.clientX, event.clientY)

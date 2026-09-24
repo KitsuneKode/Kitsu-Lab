@@ -10,6 +10,8 @@
  * view switches, reloads, and devices.
  */
 
+import { INK_COLORS, type BookPreviewInkColor } from './ink'
+
 export const HIGHLIGHT_COLORS = ['yellow', 'green', 'blue', 'pink'] as const
 export type BookPreviewHighlightColor = (typeof HIGHLIGHT_COLORS)[number]
 
@@ -41,7 +43,20 @@ export type BookPreviewBookmark = AnnotationBase & {
   label?: string
 }
 
-export type BookPreviewAnnotation = BookPreviewHighlight | BookPreviewBookmark
+/** One freehand stroke. Points are page-relative (0–1) and flattened
+    [x0, y0, x1, y1, …]; width is a fraction of the page width. */
+export type BookPreviewInk = AnnotationBase & {
+  kind: 'ink'
+  tool: 'pen' | 'marker'
+  color: BookPreviewInkColor
+  width: number
+  points: number[]
+}
+
+export type BookPreviewAnnotation =
+  | BookPreviewHighlight
+  | BookPreviewBookmark
+  | BookPreviewInk
 
 export const QUOTE_CONTEXT_CHARS = 32
 
@@ -285,6 +300,28 @@ export function sanitizeAnnotations(raw: unknown): BookPreviewAnnotation[] {
       })
       continue
     }
+    if (item.kind === 'ink') {
+      const points = Array.isArray(item.points)
+        ? item.points.filter(isFiniteNumber)
+        : []
+      // An odd count means a truncated pair — drop the dangling coordinate.
+      const even = points.length % 2 === 0 ? points : points.slice(0, -1)
+      if (even.length < 2) continue
+      out.push({
+        ...base,
+        kind: 'ink',
+        tool: item.tool === 'marker' ? 'marker' : 'pen',
+        color: (INK_COLORS as readonly string[]).includes(item.color as string)
+          ? (item.color as BookPreviewInkColor)
+          : 'ink',
+        width:
+          isFiniteNumber(item.width) && item.width > 0 && item.width < 0.2
+            ? item.width
+            : 0.0035,
+        points: even.map((value) => Math.min(1, Math.max(0, value))),
+      })
+      continue
+    }
     if (item.kind !== 'highlight' || !isRecord(item.quote)) continue
     const quote = item.quote
     if (typeof quote.exact !== 'string' || !quote.exact) continue
@@ -348,7 +385,25 @@ export function annotationsToMarkdown(
       if (item.note) lines.push('', item.note.trim())
     }
   }
-  if (bookmarks.length === 0 && highlights.length === 0) {
+  const inkPages = new Map<number, number>()
+  for (const item of sorted) {
+    if (item.kind === 'ink') {
+      inkPages.set(item.pageIndex, (inkPages.get(item.pageIndex) ?? 0) + 1)
+    }
+  }
+  if (inkPages.size > 0) {
+    lines.push('', '## Drawings', '')
+    for (const [page, strokes] of inkPages) {
+      lines.push(
+        `- Page ${page + 1} — ${strokes} ${strokes === 1 ? 'stroke' : 'strokes'}`,
+      )
+    }
+  }
+  if (
+    bookmarks.length === 0 &&
+    highlights.length === 0 &&
+    inkPages.size === 0
+  ) {
     lines.push('', '_No highlights or bookmarks yet._')
   }
   return `${lines.join('\n')}\n`

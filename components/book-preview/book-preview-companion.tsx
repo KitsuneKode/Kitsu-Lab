@@ -44,21 +44,30 @@ import {
   sortAnnotations,
   upsertAnnotation,
   type BookPreviewAnnotation,
+  type BookPreviewBookmark,
   type BookPreviewHighlight,
   type BookPreviewHighlightColor,
+  type BookPreviewInk,
 } from './annotations'
+import { INK_SWATCHES, inkPath, unflattenInk } from './ink'
 import {
   IconArrowUp,
   IconBookmark,
   IconCopy,
   IconDownload,
   IconHighlight,
+  IconPencil,
   IconPlayerStopFilled,
   IconSparkles,
   IconTrash,
 } from '@tabler/icons-react'
 
-type Filter = 'all' | 'notes' | 'bookmarks' | BookPreviewHighlightColor
+type Filter =
+  | 'all'
+  | 'notes'
+  | 'bookmarks'
+  | 'drawings'
+  | BookPreviewHighlightColor
 
 /**
  * The reader's companion sheet: everything they marked (the notebook) and a
@@ -81,7 +90,7 @@ export function BookPreviewCompanion() {
         <SheetHeader className="pb-2">
           <SheetTitle>Companion</SheetTitle>
           <SheetDescription className="text-xs">
-            Your highlights, notes and bookmarks
+            Your highlights, notes, drawings and bookmarks
             {ai ? ' — and a place to ask about the page.' : '.'}
           </SheetDescription>
         </SheetHeader>
@@ -129,13 +138,29 @@ function NotebookPanel() {
   const [copied, setCopied] = useState(false)
 
   const sorted = useMemo(() => sortAnnotations(annotations), [annotations])
-  const shown = sorted.filter((item) => {
-    if (filter === 'all') return true
-    if (filter === 'bookmarks') return item.kind === 'bookmark'
-    if (item.kind !== 'highlight') return false
-    if (filter === 'notes') return Boolean(item.note)
-    return item.color === filter
-  })
+  // Strokes are many small records; the notebook shows one entry per page.
+  const drawings = useMemo(() => {
+    const byPage = new Map<number, BookPreviewInk[]>()
+    for (const item of sorted) {
+      if (item.kind !== 'ink') continue
+      const list = byPage.get(item.pageIndex) ?? []
+      list.push(item)
+      byPage.set(item.pageIndex, list)
+    }
+    return [...byPage.entries()]
+  }, [sorted])
+  const shownDrawings =
+    filter === 'all' || filter === 'drawings' ? drawings : []
+  const shown = sorted.filter(
+    (item): item is BookPreviewHighlight | BookPreviewBookmark => {
+      if (item.kind === 'ink' || filter === 'drawings') return false
+      if (filter === 'all') return true
+      if (filter === 'bookmarks') return item.kind === 'bookmark'
+      if (item.kind !== 'highlight') return false
+      if (filter === 'notes') return Boolean(item.note)
+      return item.color === filter
+    },
+  )
   const markdown = () =>
     annotationsToMarkdown(annotations, {
       title: source.title ?? source.pdfFileName,
@@ -233,6 +258,13 @@ function NotebookPanel() {
             className="flex-1"
           >
             <IconBookmark />
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="drawings"
+            aria-label="Drawings"
+            className="flex-1"
+          >
+            <IconPencil />
           </ToggleGroupItem>
           {HIGHLIGHT_COLORS.map((color) => (
             <ToggleGroupItem
@@ -379,7 +411,57 @@ function NotebookPanel() {
             </div>
           </li>
         ))}
-        {shown.length === 0 ? (
+        {shownDrawings.map(([page, strokes], position) => (
+          <li
+            key={`ink-${page}`}
+            data-book-preview-notebook-item
+            style={
+              {
+                '--bp-stagger': `${Math.min(shown.length + position, 10) * 30}ms`,
+              } as CSSProperties
+            }
+            className={cn(
+              'bg-card group relative flex flex-col gap-2 rounded-lg border p-3',
+              page === state.pageIndex && 'ring-ring/40 ring-1',
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                goToPage(page)
+                setCompanionOpen(false)
+              }}
+              className="flex items-center gap-3 text-left"
+            >
+              <InkPreview strokes={strokes} />
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium">Drawing</span>
+                <span className="text-muted-foreground text-xs">
+                  {strokes.length} {strokes.length === 1 ? 'stroke' : 'strokes'}
+                </span>
+              </span>
+            </button>
+            <div className="text-muted-foreground flex items-center justify-between gap-2 text-xs">
+              <span className="font-mono">p. {page + 1}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={() =>
+                  updateAnnotations((list) =>
+                    list.filter(
+                      (entry) =>
+                        !(entry.kind === 'ink' && entry.pageIndex === page),
+                    ),
+                  )
+                }
+              >
+                Clear page
+              </Button>
+            </div>
+          </li>
+        ))}
+        {shown.length === 0 && shownDrawings.length === 0 ? (
           <li className="text-muted-foreground py-6 text-center text-xs">
             Nothing matches this filter.
           </li>
@@ -409,6 +491,34 @@ function NotebookPanel() {
         </Button>
       </div>
     </>
+  )
+}
+
+/** A thumbnail of a page's strokes on a paper-shaped card. */
+function InkPreview({ strokes }: { strokes: BookPreviewInk[] }) {
+  const width = 48
+  const height = 64
+  return (
+    <svg
+      aria-hidden
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="shrink-0 rounded-sm border bg-white text-zinc-900"
+    >
+      {strokes.map((stroke) => (
+        <path
+          key={stroke.id}
+          d={inkPath(unflattenInk(stroke.points), width, height)}
+          fill="none"
+          stroke={INK_SWATCHES[stroke.color].stroke}
+          strokeWidth={Math.max(stroke.width * width, 0.8)}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={stroke.tool === 'marker' ? 0.4 : 1}
+        />
+      ))}
+    </svg>
   )
 }
 

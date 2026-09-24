@@ -199,6 +199,8 @@ function FaceBox({
     <div
       {...arrival}
       data-bp-annotatable
+      data-bp-inkable
+      data-bp-ink-paper={face.pageNumber !== null ? 'light' : undefined}
       data-page-index={index}
       className={
         'bg-card relative h-full max-w-full shrink-0 overflow-hidden rounded-md border shadow-sm ' +
@@ -828,6 +830,8 @@ export function PremierScrollView({
             key={face.key}
             data-face-index={index}
             data-bp-annotatable
+            data-bp-inkable
+            data-bp-ink-paper={face.pageNumber !== null ? 'light' : undefined}
             data-page-index={index}
             ref={registerFace(index)}
             className="bg-card relative w-full overflow-hidden rounded-md border shadow-sm"

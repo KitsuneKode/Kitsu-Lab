@@ -10,6 +10,7 @@ import type { BookPreviewState } from './reducer'
 import type { BookPreviewTypography } from './typography'
 import type { BookPreviewAiAdapter } from './ai'
 import type { BookPreviewAnnotation } from './annotations'
+import type { BookPreviewInkColor, BookPreviewInkTool } from './ink'
 import type {
   BookPreviewAppearance,
   BookPreviewEngine,
@@ -103,6 +104,18 @@ export type BookPreviewContextValue = {
   /** Text of a page for Ask/export — engine-provided, else read from DOM,
       else the page data. */
   getPageText: (pageIndex: number) => string
+  /** Freehand drawing mode — on while the reader has the pen out. */
+  draw: BookPreviewDrawState
+  setDraw: (patch: Partial<BookPreviewDrawState>) => void
+  /** Whether the current view shows page faces that accept ink. */
+  inkAvailable: boolean
+  setInkAvailable: (available: boolean) => void
+}
+
+export type BookPreviewDrawState = {
+  active: boolean
+  tool: BookPreviewInkTool
+  color: BookPreviewInkColor
 }
 
 const BookPreviewContext = createContext<BookPreviewContextValue | null>(null)

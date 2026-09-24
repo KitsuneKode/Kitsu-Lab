@@ -42,6 +42,7 @@ import {
 } from './premier-views'
 import type {
   BookPreviewCapabilities,
+  BookPreviewContentsEntry,
   BookPreviewEngineProps,
   BookPreviewError,
   BookPreviewPage,
@@ -75,14 +76,16 @@ const SPEECH_WATCHDOG_SLACK_MS = 8000
 function premierCapabilities(
   source: NormalizedBookSource,
   usePdf: boolean,
+  view: PremierView,
 ): BookPreviewCapabilities {
   return {
     ...DEFAULT_CAPABILITIES,
     curl: true,
     search: true,
     speech: hasSpeechSupport(),
-    // The document brings its own paper; ours would fight the scan.
-    appearance: !usePdf,
+    // A scan brings its own paper and ours would fight it — except in the
+    // text view, which is pure type and wears the reader's paper.
+    appearance: !usePdf || view === 'text',
     thumbnails: usePdf,
     download: Boolean(source.downloadUrl || source.pdfUrl),
     upload: !usePdf ? false : source.allowPdfUpload,
@@ -437,12 +440,32 @@ export default function PremierEngine({
     zoomReset,
   ])
 
+  // The author's outline becomes the table of contents. It resolves after
+  // the first page (a slow bookmark walk never delays reading) and rides
+  // every later ready report, so a view change never drops it.
+  const [outline, setOutline] = useState<{
+    doc: NonNullable<typeof doc>
+    contents: BookPreviewContentsEntry[]
+  } | null>(null)
+  useEffect(() => {
+    if (!doc) return
+    let cancelled = false
+    void resolvePdfOutline(doc).then((contents) => {
+      if (!cancelled && contents.length > 0) setOutline({ doc, contents })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [doc])
+  const contents = outline && outline.doc === doc ? outline.contents : undefined
+
   useEffect(() => {
     if (usePdf) {
       if (!sheets) return
       reportReady({
         totalPages: sheets.length,
-        capabilities: premierCapabilities(source, true),
+        capabilities: premierCapabilities(source, true, view),
+        contents,
       })
       return
     }
@@ -470,9 +493,18 @@ export default function PremierEngine({
     }
     reportReady({
       totalPages: pages.length,
-      capabilities: premierCapabilities(source, false),
+      capabilities: premierCapabilities(source, false, view),
     })
-  }, [pages.length, reportError, reportReady, sheets, source, usePdf])
+  }, [
+    contents,
+    pages.length,
+    reportError,
+    reportReady,
+    sheets,
+    source,
+    usePdf,
+    view,
+  ])
 
   // A password prompt still counts as "open": reporting a zero-page ready
   // unblocks the viewport so the gate is visible, and pagination stays off
@@ -490,24 +522,6 @@ export default function PremierEngine({
       },
     })
   }, [passwordRequest, reportReady])
-
-  // The author's outline becomes the table of contents — a second ready call
-  // so a slow bookmark walk never delays the first page.
-  useEffect(() => {
-    if (!doc) return
-    let cancelled = false
-    void resolvePdfOutline(doc).then((contents) => {
-      if (cancelled || contents.length === 0) return
-      reportReady({
-        totalPages: doc.numPages,
-        capabilities: premierCapabilities(source, true),
-        contents,
-      })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [doc, reportReady, source])
 
   // A new document stops its narration — a side effect belongs in an effect,
   // not in the render-adjust below.

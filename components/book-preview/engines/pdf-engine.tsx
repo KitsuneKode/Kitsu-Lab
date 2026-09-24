@@ -1257,6 +1257,9 @@ export default function PdfEngine({
             <div
               ref={stageInnerRef}
               data-book-preview-pdf-stage
+              data-bp-inkable
+              data-bp-ink-paper="light"
+              data-page-index={pageIndex}
               {...arrival}
               className={
                 grabMode

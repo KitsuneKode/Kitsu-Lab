@@ -6,6 +6,7 @@ import {
   IconBookmarkFilled,
   IconDownload,
   IconHighlight,
+  IconPencil,
   IconList,
   IconMaximize,
   IconMinimize,
@@ -91,8 +92,16 @@ export function BookPreviewToolbar() {
 /** Bookmark the page, and open the notebook — with a live count, so a reader
     can see at a glance that their marks are there. */
 function MarksControls() {
-  const { annotate, annotations, updateAnnotations, openCompanion, state } =
-    useBookPreview()
+  const {
+    annotate,
+    annotations,
+    updateAnnotations,
+    openCompanion,
+    state,
+    draw,
+    setDraw,
+    inkAvailable,
+  } = useBookPreview()
   if (!annotate || state.status !== 'ready' || state.totalPages === 0) {
     return null
   }
@@ -108,6 +117,15 @@ function MarksControls() {
       >
         {bookmarked ? <IconBookmarkFilled /> : <IconBookmark />}
       </BookPreviewIconButton>
+      {inkAvailable ? (
+        <BookPreviewIconButton
+          label={draw.active ? 'Put the pen down (D)' : 'Draw on the page (D)'}
+          pressed={draw.active}
+          onClick={() => setDraw({ active: !draw.active })}
+        >
+          <IconPencil />
+        </BookPreviewIconButton>
+      ) : null}
       <span className="relative inline-flex">
         <BookPreviewIconButton
           label="Notebook and Ask"

@@ -26,6 +26,7 @@ import { toggleBookmark } from './annotations'
 import { BookPreviewCompanion } from './book-preview-companion'
 import { BookPreviewBookmarkRibbon } from './book-preview-bookmark-ribbon'
 import { BookPreviewAnnotationLayer } from './book-preview-annotation-layer'
+import { BookPreviewInkLayer } from './book-preview-ink-layer'
 import {
   DEFAULT_TYPOGRAPHY,
   typographyVariables,
@@ -49,6 +50,7 @@ import {
   type BookPreviewAskSeed,
   type BookPreviewCompanionTab,
   type BookPreviewContextValue,
+  type BookPreviewDrawState,
   type BookPreviewEngineShortcuts,
 } from './book-preview-provider'
 import {
@@ -1059,6 +1061,18 @@ export function BookPreview({
     [],
   )
 
+  const [draw, setDrawState] = useState<BookPreviewDrawState>({
+    active: false,
+    tool: 'pen',
+    color: 'ink',
+  })
+  const setDraw = useCallback(
+    (patch: Partial<BookPreviewDrawState>) =>
+      setDrawState((current) => ({ ...current, ...patch })),
+    [],
+  )
+  const [inkAvailable, setInkAvailable] = useState(false)
+
   const getPageText = useCallback(
     (index: number) => {
       const fromEngine = engineShortcutsRef.current.pageText?.(index)
@@ -1175,6 +1189,23 @@ export function BookPreview({
         event.preventDefault()
         updateAnnotations((list) => toggleBookmark(list, activePage))
       }
+      if (
+        (event.key === 'd' || event.key === 'D') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        annotate &&
+        inkAvailable
+      ) {
+        event.preventDefault()
+        setDraw({ active: !draw.active })
+      }
+      if (event.key === 'Escape' && draw.active) {
+        // Putting the pen down comes before closing any overlay.
+        event.preventDefault()
+        setDraw({ active: false })
+        return
+      }
       if (event.key === 'Escape') {
         // Overlays first (engine search/thumbnail sheets), then immersive.
         if (shortcuts.dismiss?.()) {
@@ -1195,6 +1226,10 @@ export function BookPreview({
       state.totalPages,
       toggleFullscreen,
       updateAnnotations,
+      annotate,
+      draw.active,
+      inkAvailable,
+      setDraw,
     ],
   )
 
@@ -1336,6 +1371,10 @@ export function BookPreview({
       setCompanionOpen,
       setCompanionTab,
       getPageText,
+      draw,
+      setDraw,
+      inkAvailable,
+      setInkAvailable,
     }),
     [
       activeAppearance,
@@ -1345,6 +1384,9 @@ export function BookPreview({
       companion,
       compatibleEngines,
       getPageText,
+      draw,
+      inkAvailable,
+      setDraw,
       openCompanion,
       setCompanionOpen,
       setCompanionTab,
@@ -1388,7 +1430,7 @@ export function BookPreview({
           style={rootStyle}
           tabIndex={0}
           aria-label={label}
-          aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f b / + - 0 Escape"
+          aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f b d / + - 0 Escape"
           data-reduced-motion={reducedMotion || undefined}
           data-reduced-transparency={reducedTransparency || undefined}
           data-more-contrast={moreContrast || undefined}
@@ -1441,13 +1483,15 @@ export function BookPreview({
           </BookPreviewViewport>
           <BookPreviewNavigation />
           <BookPreviewAnnotationLayer />
+          <BookPreviewInkLayer />
           <BookPreviewCompanion />
           <p className="sr-only">
             Arrow keys, Page Up and Page Down turn pages while this reader is
             focused. Space moves forward, F toggles fullscreen, B bookmarks the
-            page, slash or Control F opens search when the active reader
-            supports it, and plus, minus and zero control zoom. Select text to
-            highlight it. Typing in fields is ignored.
+            page, D picks up the pen to draw on it, slash or Control F opens
+            search when the active reader supports it, and plus, minus and zero
+            control zoom. Select text to highlight it. Typing in fields is
+            ignored.
           </p>
           {dropActive ? (
             <div

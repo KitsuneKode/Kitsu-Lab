@@ -219,7 +219,10 @@ function useEngineLoader({
 
     let cancelled = false
     const engineId = activeEngine.id
-    dispatch({ type: 'engine-loading' })
+    // A new source for an engine that is already loaded remounts that engine,
+    // which reports ready itself. Only a module that still has to load is
+    // "loading"; announcing it here would overwrite the engine's own report.
+    if (loadedRef.current !== engineId) dispatch({ type: 'engine-loading' })
     loadedRef.current = engineId
     activeEngine
       .load()
@@ -283,27 +286,18 @@ function usePersistedPageIndex({
   goToPage: (next: number, behavior?: BookPreviewNavigationBehavior) => void
   dispatch: Dispatch<BookPreviewAction>
 }) {
-  const sourceReady = useRef(false)
-  const resetPageRef = useRef({ pageControlled, pageIndex, defaultPageIndex })
-  useEffect(() => {
-    resetPageRef.current = { pageControlled, pageIndex, defaultPageIndex }
-  })
-
-  // Reset only when the source itself changes. Page props live in a ref so a
-  // controlled consumer's pageIndex updates do not trigger a source reset.
-  useEffect(() => {
-    if (!sourceReady.current) {
-      sourceReady.current = true
-      return
-    }
-    const reset = resetPageRef.current
+  // Reset when the source itself changes, adjusted during render rather than
+  // in an effect. Effects run child-first, so an effect here fired *after* the
+  // remounted engine had already reported ready and put the reader back into
+  // a loading state nobody would clear.
+  const [resetFor, setResetFor] = useState(sourceKey)
+  if (resetFor !== sourceKey) {
+    setResetFor(sourceKey)
     dispatch({
       type: 'reset-source',
-      pageIndex: reset.pageControlled
-        ? reset.pageIndex
-        : reset.defaultPageIndex,
+      pageIndex: pageControlled ? pageIndex : defaultPageIndex,
     })
-  }, [sourceKey, dispatch])
+  }
 
   const restoredKeyRef = useRef<string | null>(null)
   const persistKey = `book-preview:page:${sourceKey}`

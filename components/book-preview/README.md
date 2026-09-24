@@ -4,25 +4,37 @@
 
 ## Install
 
-This registry targets shadcn's Base UI styles (`base-*`, including `base-nova`). After the registry is deployed:
+This registry targets shadcn's Base UI styles (`base-*`, including `base-nova`). Register the `@kitsu` namespace once in your `components.json`:
+
+```json
+{
+  "registries": {
+    "@kitsu": "https://kitsu-lab.vercel.app/r/{name}.json"
+  }
+}
+```
+
+Then add the core reader:
 
 ```bash
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview.json
+npx shadcn@latest add @kitsu/book-preview
 ```
 
 Add only the engines the product needs:
 
 ```bash
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-curl.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-pdf.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-scroll.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-spread.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-archival-curl.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-premier.json
-npx shadcn@latest add https://kitsulab.vercel.app/r/book-preview-webgl.json
+npx shadcn@latest add @kitsu/book-preview-curl
+npx shadcn@latest add @kitsu/book-preview-pdf
+npx shadcn@latest add @kitsu/book-preview-scroll
+npx shadcn@latest add @kitsu/book-preview-spread
+npx shadcn@latest add @kitsu/book-preview-archival-curl
+npx shadcn@latest add @kitsu/book-preview-premier
+npx shadcn@latest add @kitsu/book-preview-webgl
 ```
 
-`book-preview-engines.json` is a convenience bundle for demos that genuinely need every mode. Production apps should prefer individual engine items to avoid installing unused PDF, page-flip, or Three.js packages.
+Every item is also addressable by URL (`https://kitsu-lab.vercel.app/r/<name>.json`), which is how items reference each other so they install without the namespace configured.
+
+`@kitsu/book-preview-engines` is a convenience bundle for demos that genuinely need every mode. Production apps should prefer individual engine items to avoid installing unused PDF, page-flip, or Three.js packages.
 
 ## Core usage
 
@@ -51,6 +63,31 @@ export function Reader() {
 ```
 
 `persistPage` remembers the reading position per source, `persistPreferences` remembers appearance, reader mode, and engine-level settings like PDF zoom, and `pageParam="page"` deep-links `?page=12` — applied once per source on open, then kept current with `history.replaceState`. All three are opt-in and inert while the matching prop is controlled.
+
+## Image pages
+
+Serve pre-rendered page images instead of a document, for low-end devices or to keep the source file off the client. Every engine renders them; none needs the PDF runtime.
+
+```tsx
+const source = {
+  title: 'Geography notes',
+  pages: pageImages.map((page, index) => ({
+    id: page.id,
+    pageNumber: index + 1,
+    image: {
+      src: page.url1024,
+      srcSet: `${page.url1024} 1024w, ${page.url1600} 1600w`,
+      sizes: '(min-width: 1024px) 50vw, 100vw',
+      width: 1240,
+      height: 1754,
+      alt: `Page ${index + 1}`,
+    },
+    searchableText: page.text, // optional, enables search
+  })),
+}
+```
+
+`width` and `height` are the intrinsic size and fix the aspect ratio, so nothing shifts while images load. Images are not draggable, but anything shown on screen can be captured: do not describe this as copy protection.
 
 ## Compose optional engines
 

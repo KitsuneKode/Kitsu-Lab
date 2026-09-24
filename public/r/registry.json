@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
-  "name": "kitsu-lab",
-  "homepage": "https://kitsulab.vercel.app",
+  "name": "kitsu",
+  "homepage": "https://kitsu-lab.vercel.app",
   "items": [
     {
       "name": "book-preview",
@@ -180,7 +180,7 @@
       ],
       "dependencies": ["pdfjs-dist"],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview.json",
+        "https://kitsu-lab.vercel.app/r/book-preview.json",
         "badge",
         "spinner",
         "button",
@@ -225,7 +225,7 @@
       ],
       "dependencies": ["page-flip"],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview-pdf.json"
+        "https://kitsu-lab.vercel.app/r/book-preview-pdf.json"
       ]
     },
     {
@@ -244,7 +244,7 @@
         }
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview-curl.json",
+        "https://kitsu-lab.vercel.app/r/book-preview-curl.json",
         "input"
       ]
     },
@@ -276,7 +276,7 @@
         }
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview-curl.json",
+        "https://kitsu-lab.vercel.app/r/book-preview-curl.json",
         "input"
       ]
     },
@@ -296,7 +296,7 @@
         }
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview-pdf.json"
+        "https://kitsu-lab.vercel.app/r/book-preview-pdf.json"
       ]
     },
     {
@@ -315,7 +315,7 @@
         }
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview.json",
+        "https://kitsu-lab.vercel.app/r/book-preview.json",
         "input",
         "toggle-group"
       ]
@@ -346,7 +346,7 @@
         "maath"
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview.json"
+        "https://kitsu-lab.vercel.app/r/book-preview.json"
       ]
     },
     {
@@ -361,13 +361,13 @@
         }
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview-pdf.json",
-        "https://kitsulab.vercel.app/r/book-preview-curl.json",
-        "https://kitsulab.vercel.app/r/book-preview-archival-curl.json",
-        "https://kitsulab.vercel.app/r/book-preview-premier.json",
-        "https://kitsulab.vercel.app/r/book-preview-scroll.json",
-        "https://kitsulab.vercel.app/r/book-preview-spread.json",
-        "https://kitsulab.vercel.app/r/book-preview-webgl.json"
+        "https://kitsu-lab.vercel.app/r/book-preview-pdf.json",
+        "https://kitsu-lab.vercel.app/r/book-preview-curl.json",
+        "https://kitsu-lab.vercel.app/r/book-preview-archival-curl.json",
+        "https://kitsu-lab.vercel.app/r/book-preview-premier.json",
+        "https://kitsu-lab.vercel.app/r/book-preview-scroll.json",
+        "https://kitsu-lab.vercel.app/r/book-preview-spread.json",
+        "https://kitsu-lab.vercel.app/r/book-preview-webgl.json"
       ]
     },
     {
@@ -407,12 +407,207 @@
       "name": "email-domain-input",
       "type": "registry:component",
       "title": "Email Domain Input",
-      "description": "Email input restricted to approved domains \u2014 an inline domain picker keeps the local part and suffix in one field.",
+      "description": "Email input restricted to approved domains — an inline domain picker keeps the local part and suffix in one field.",
       "registryDependencies": ["input", "select"],
       "docs": "Requires Base UI primitives (a base-* shadcn project): the Select API relies on `items` and `alignItemWithTrigger`.",
       "files": [
         {
           "path": "components/email-domain-input.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promotion",
+      "type": "registry:lib",
+      "title": "Promotion core",
+      "description": "Types and pure rules for scheduled promotions: validation (plain text, safe links, structured offers), delivery windows, route targeting, one-overlay selection, dismissal, overlap checks and review warnings. No dependencies.",
+      "files": [
+        {
+          "path": "components/promotions/promotion.ts",
+          "type": "registry:lib"
+        }
+      ]
+    },
+    {
+      "name": "promotion-provider",
+      "type": "registry:component",
+      "title": "Promotion provider",
+      "description": "Loads promotions, keeps time without hydration mismatches, applies dismissals, shows at most one overlay, waits for engagement or exit intent, and reports impressions, clicks, code copies and dismissals. Includes the shared presentational blocks.",
+      "dependencies": ["@tabler/icons-react"],
+      "registryDependencies": ["https://kitsu-lab.vercel.app/r/promotion.json"],
+      "files": [
+        {
+          "path": "components/promotions/promotion-provider.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/promotions/promotion-views.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/promotions/use-promo-overlay.ts",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Pass your router's pathname and, for client-side navigation, your Link as `linkComponent`. Set `--promo-highlight` and `--promo-highlight-foreground` to theme the highlight tone. Uses Tailwind v4 container queries."
+    },
+    {
+      "name": "promo-bar",
+      "type": "registry:component",
+      "title": "Promo bar",
+      "description": "Slim announcement above the header, with offer badge and an honest countdown.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-bar.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-card",
+      "type": "registry:component",
+      "title": "Promo card",
+      "description": "Inline promotion for a named slot: image, key points, price, copyable code and terms.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-card.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-corner",
+      "type": "registry:component",
+      "title": "Promo corner",
+      "description": "A floating card in a bottom corner that never blocks the page. Compact on phones.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-corner.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-sheet",
+      "type": "registry:component",
+      "title": "Promo side panel",
+      "description": "A side panel for campaigns that need room, with a pinned button; rises from the bottom on phones.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "sheet"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-sheet.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Requires Base UI primitives (a base-* shadcn project)."
+    },
+    {
+      "name": "promo-dialog",
+      "type": "registry:component",
+      "title": "Promo dialog",
+      "description": "A centred modal for the most important campaign; a bottom sheet on phones.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "dialog",
+        "sheet"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-dialog.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Requires Base UI primitives (a base-* shadcn project)."
+    },
+    {
+      "name": "promotion-preview",
+      "type": "registry:component",
+      "title": "Promotion preview",
+      "description": "Shows a promotion on a mock page at real desktop or phone size, in the position it will occupy, and says whether it would show at a given page and time.",
+      "dependencies": ["@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-preview.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "campaign-timeline",
+      "type": "registry:component",
+      "title": "Campaign timeline",
+      "description": "Every promotion on one date axis: live, scheduled, draft, the now line, and overlays that compete for the same pages.",
+      "dependencies": ["@tabler/icons-react"],
+      "registryDependencies": ["https://kitsu-lab.vercel.app/r/promotion.json"],
+      "files": [
+        {
+          "path": "components/promotions/campaign-timeline.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promotion-editor",
+      "type": "registry:block",
+      "title": "Promotion editor",
+      "description": "Plan a campaign in sections (placement, message, offer, button, audience, schedule) beside a live device preview with page and time controls and review notes. Owns no data.",
+      "dependencies": ["@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-preview.json",
+        "button",
+        "input",
+        "label",
+        "slider",
+        "textarea"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-editor.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Requires Base UI primitives (a base-* shadcn project): Slider uses array values."
+    },
+    {
+      "name": "promotions",
+      "type": "registry:block",
+      "title": "Promotions",
+      "description": "The full campaign system: core, provider, bar, card, corner, side panel, dialog, preview, timeline and editor.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion.json",
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "https://kitsu-lab.vercel.app/r/promo-bar.json",
+        "https://kitsu-lab.vercel.app/r/promo-card.json",
+        "https://kitsu-lab.vercel.app/r/promo-corner.json",
+        "https://kitsu-lab.vercel.app/r/promo-sheet.json",
+        "https://kitsu-lab.vercel.app/r/promo-dialog.json",
+        "https://kitsu-lab.vercel.app/r/promotion-preview.json",
+        "https://kitsu-lab.vercel.app/r/campaign-timeline.json",
+        "https://kitsu-lab.vercel.app/r/promotion-editor.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-overlays.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/promotions/index.ts",
           "type": "registry:component"
         }
       ]

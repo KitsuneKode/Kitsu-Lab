@@ -1,0 +1,17 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "promo-corner",
+  "title": "Promo corner",
+  "description": "A floating card in a bottom corner that never blocks the page. Compact on phones.",
+  "registryDependencies": [
+    "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+  ],
+  "files": [
+    {
+      "path": "components/promotions/promo-corner.tsx",
+      "content": "'use client'\n\nimport * as React from 'react'\nimport { cn } from '@/lib/utils'\n\nimport { PromoCornerView } from './promotion-views'\nimport { usePromoOverlay } from './use-promo-overlay'\n\n/**\n * A floating card in a bottom corner. It does not take focus or dim the page,\n * so it can sit beside an announcement bar; Escape still dismisses it.\n *\n * Pass `className` to lift it above anything already pinned to the bottom of\n * the page, such as a mobile action bar (`bottom-20 md:bottom-6`).\n */\nexport function PromoCorner({\n  side = 'right',\n  locale,\n  className,\n}: {\n  side?: 'left' | 'right'\n  locale?: string\n  className?: string\n}) {\n  const { shown, open, now, Link, close, onClick, onCopy } =\n    usePromoOverlay('corner')\n\n  React.useEffect(() => {\n    if (!open) return\n    const onKey = (event: KeyboardEvent) => {\n      if (event.key === 'Escape') close()\n    }\n    document.addEventListener('keydown', onKey)\n    return () => document.removeEventListener('keydown', onKey)\n  }, [open, close])\n\n  if (!shown) return null\n\n  return (\n    <div\n      data-slot=\"promo-corner\"\n      data-state={open ? 'open' : 'closed'}\n      aria-hidden={!open}\n      inert={!open}\n      className={cn(\n        'fixed bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 transition-[opacity,translate] duration-300 ease-out motion-reduce:transition-opacity',\n        side === 'right' ? 'right-4' : 'left-4',\n        open\n          ? 'translate-y-0 opacity-100'\n          : 'pointer-events-none translate-y-3 opacity-0',\n        className,\n      )}\n    >\n      <PromoCornerView\n        promotion={shown}\n        now={now}\n        Link={Link}\n        onClick={onClick}\n        onCopy={onCopy}\n        onDismiss={close}\n        locale={locale}\n      />\n    </div>\n  )\n}\n",
+      "type": "registry:component"
+    }
+  ],
+  "type": "registry:component"
+}

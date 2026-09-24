@@ -1,5 +1,6 @@
 import type {
   BookPreviewPage,
+  BookPreviewPageImage,
   BookPreviewSource,
   NormalizedBookSource,
 } from './types'
@@ -7,6 +8,26 @@ import type {
 function pageId(page: BookPreviewPage, index: number): string {
   if (page.id.trim().length > 0) return page.id
   return `page-${page.pageNumber || index + 1}`
+}
+
+const positiveSize = (value: number) =>
+  Number.isFinite(value) && value > 0 && value <= 20_000
+
+/** Drops an image that cannot render without layout shift or a source. */
+export function normalizePageImage(
+  image: BookPreviewPageImage | undefined,
+): BookPreviewPageImage | undefined {
+  if (!image) return undefined
+  const src = image.src?.trim()
+  if (!src || !positiveSize(image.width) || !positiveSize(image.height))
+    return undefined
+  return {
+    ...image,
+    src,
+    srcSet: image.srcSet?.trim() || undefined,
+    sizes: image.sizes?.trim() || undefined,
+    alt: image.alt?.trim() ?? '',
+  }
 }
 
 export function normalizePages(
@@ -20,6 +41,7 @@ export function normalizePages(
     paragraphs: page.paragraphs?.filter(
       (paragraph) => paragraph.trim().length > 0,
     ),
+    image: normalizePageImage(page.image),
   }))
 }
 

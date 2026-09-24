@@ -84,6 +84,17 @@ export function BookPreviewPageView({
     )
   }
 
+  if (page.image) {
+    return (
+      <BookPreviewImagePage
+        page={page}
+        appearance={appearance}
+        className={className}
+        ref={ref}
+      />
+    )
+  }
+
   if (page.isCover || page.isBackCover) {
     return (
       <BookPreviewCoverPage
@@ -103,6 +114,56 @@ export function BookPreviewPageView({
       className={className}
       ref={ref}
     />
+  )
+}
+
+/**
+ * A raster page on the paper surface. `object-contain` keeps the whole page
+ * visible in any engine frame; the intrinsic size fixes the aspect ratio so the
+ * frame never jumps while the image arrives.
+ */
+function BookPreviewImagePage({
+  page,
+  appearance,
+  className,
+  ref,
+}: BookPreviewThemePageProps) {
+  const theme = themeClasses(appearance)
+  const image = page.image
+  if (!image) return null
+  const placeholder = image.placeholder?.startsWith('data:')
+    ? { backgroundImage: `url(${image.placeholder})`, backgroundSize: 'cover' }
+    : image.placeholder
+      ? { backgroundColor: image.placeholder }
+      : undefined
+  return (
+    <div
+      ref={ref}
+      data-slot="book-preview-image-page"
+      className={cn(
+        'flex h-full w-full items-center justify-center overflow-hidden',
+        theme.bg,
+        className,
+      )}
+    >
+      {/* Plain img: the registry must not assume a framework image loader. */}
+      {/* oxlint-disable-next-line nextjs/no-img-element */}
+      <img
+        src={image.src}
+        srcSet={image.srcSet}
+        sizes={image.sizes}
+        width={image.width}
+        height={image.height}
+        alt={image.alt || `Page ${page.pageNumber}`}
+        decoding="async"
+        draggable={false}
+        style={{
+          aspectRatio: `${image.width} / ${image.height}`,
+          ...placeholder,
+        }}
+        className="h-auto max-h-full w-auto max-w-full object-contain select-none"
+      />
+    </div>
   )
 }
 

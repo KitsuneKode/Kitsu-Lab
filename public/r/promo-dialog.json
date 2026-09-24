@@ -1,0 +1,20 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "promo-dialog",
+  "title": "Promo dialog",
+  "description": "A centred modal for the most important campaign; a bottom sheet on phones.",
+  "registryDependencies": [
+    "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+    "dialog",
+    "sheet"
+  ],
+  "files": [
+    {
+      "path": "components/promotions/promo-dialog.tsx",
+      "content": "'use client'\n\nimport * as React from 'react'\n\nimport {\n  Dialog,\n  DialogContent,\n  DialogDescription,\n  DialogTitle,\n} from '@/components/ui/dialog'\nimport {\n  Sheet,\n  SheetContent,\n  SheetDescription,\n  SheetTitle,\n} from '@/components/ui/sheet'\nimport { PromoOverlayContent } from './promotion-views'\nimport { usePromoOverlay, useWideScreen } from './use-promo-overlay'\n\n/**\n * The loudest placement, for an important timed campaign: a centred dialog\n * on wide screens and a bottom sheet on phones. Closing it by any route\n * (Not now, Escape, the backdrop, the button) records a dismissal.\n */\nexport function PromoDialog({ locale }: { locale?: string }) {\n  const { shown, open, now, Link, close, onClick, onCopy } =\n    usePromoOverlay('dialog')\n  const wide = useWideScreen()\n  if (!shown) return null\n\n  const onOpenChange = (next: boolean) => {\n    if (!next) close()\n  }\n  const content = {\n    promotion: shown,\n    now,\n    Link,\n    onClick,\n    onCopy,\n    onDismiss: close,\n    locale,\n  }\n\n  if (wide) {\n    return (\n      <Dialog open={open} onOpenChange={onOpenChange}>\n        <DialogContent\n          data-slot=\"promo-dialog\"\n          showCloseButton={false}\n          className=\"gap-0 overflow-hidden p-0 sm:max-w-md\"\n        >\n          <PromoOverlayContent\n            {...content}\n            Title={DialogTitle}\n            Description={DialogDescription}\n          />\n        </DialogContent>\n      </Dialog>\n    )\n  }\n\n  return (\n    <Sheet open={open} onOpenChange={onOpenChange}>\n      <SheetContent\n        side=\"bottom\"\n        data-slot=\"promo-dialog\"\n        showCloseButton={false}\n        className=\"max-h-[88dvh] gap-0 overflow-y-auto rounded-t-2xl p-0 pb-[env(safe-area-inset-bottom)]\"\n      >\n        <PromoOverlayContent\n          {...content}\n          Title={SheetTitle}\n          Description={SheetDescription}\n        />\n      </SheetContent>\n    </Sheet>\n  )\n}\n",
+      "type": "registry:component"
+    }
+  ],
+  "docs": "Requires Base UI primitives (a base-* shadcn project).",
+  "type": "registry:component"
+}

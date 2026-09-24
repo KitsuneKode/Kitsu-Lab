@@ -24,7 +24,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://kitsulab.vercel.app'),
+  metadataBase: new URL('https://kitsu-lab.vercel.app'),
   title: 'Kitsu Lab',
   description:
     'The destination for all your component. This website shows all the trial components by kitsunekode',

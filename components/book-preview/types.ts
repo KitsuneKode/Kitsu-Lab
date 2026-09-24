@@ -72,6 +72,25 @@ export type BookPreviewPageRenderContext = {
   page: BookPreviewPage
 }
 
+/**
+ * A pre-rendered page raster. Lets hosts serve page images (for bandwidth,
+ * low-end devices, or keeping the source document off the client) without a
+ * custom `render` per page. Images can still be captured; this is not DRM.
+ */
+export type BookPreviewPageImage = {
+  src: string
+  /** e.g. '/p/3-1024.webp 1024w, /p/3-1600.webp 1600w' */
+  srcSet?: string
+  sizes?: string
+  /** Intrinsic size, used for the aspect ratio so nothing shifts on load. */
+  width: number
+  height: number
+  /** Required. A short summary of the page, or "Page 3". */
+  alt: string
+  /** Shown behind the image while it loads: a CSS colour or a tiny data URL. */
+  placeholder?: string
+}
+
 export type BookPreviewPage = {
   id: string
   pageNumber: number
@@ -86,6 +105,8 @@ export type BookPreviewPage = {
   isCover?: boolean
   isBackCover?: boolean
   searchableText?: string
+  /** Render this page as an image. Takes precedence over text fields. */
+  image?: BookPreviewPageImage
   render?: (context: BookPreviewPageRenderContext) => ReactNode
 }
 

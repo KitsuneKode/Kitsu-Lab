@@ -1,0 +1,17 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "promo-bar",
+  "title": "Promo bar",
+  "description": "Slim announcement above the header, with offer badge and an honest countdown.",
+  "registryDependencies": [
+    "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+  ],
+  "files": [
+    {
+      "path": "components/promotions/promo-bar.tsx",
+      "content": "'use client'\n\nimport * as React from 'react'\nimport { cn } from '@/lib/utils'\n\nimport type { Promotion } from './promotion'\nimport { useImpression, usePromotions } from './promotion-provider'\nimport { PromoBarView } from './promotion-views'\n\n/**\n * The announcement bar. Renders nothing until a live, undismissed promotion\n * exists for this route, then opens with a height transition (an opacity fade\n * under reduced motion) so it never shoves content on first paint.\n */\nexport function PromoBar({\n  className,\n  dismissible = true,\n}: {\n  className?: string\n  dismissible?: boolean\n}) {\n  const { bar, now, dismiss, report, Link } = usePromotions()\n  const [shown, setShown] = React.useState<Promotion | null>(null)\n\n  // Keep the last promotion mounted while the bar closes, so it animates out\n  // with its content rather than collapsing empty.\n  if (bar && bar !== shown) setShown(bar)\n\n  const onImpression = React.useCallback(\n    (p: Promotion) =>\n      report({\n        type: 'impression',\n        id: p.id,\n        placement: p.placement,\n        campaign: p.campaign,\n      }),\n    [report],\n  )\n  const ref = useImpression(bar, onImpression)\n  const open = Boolean(bar)\n\n  return (\n    <div\n      ref={ref as React.RefObject<HTMLDivElement>}\n      data-slot=\"promo-bar\"\n      data-state={open ? 'open' : 'closed'}\n      aria-hidden={!open}\n      inert={!open}\n      className={cn(\n        'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-opacity',\n        open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',\n        className,\n      )}\n    >\n      <div className=\"overflow-hidden\">\n        {shown ? (\n          <PromoBarView\n            promotion={shown}\n            now={now}\n            Link={Link}\n            onClick={() =>\n              report({\n                type: 'click',\n                id: shown.id,\n                placement: shown.placement,\n                campaign: shown.campaign,\n              })\n            }\n            onDismiss={dismissible ? () => dismiss(shown) : undefined}\n          />\n        ) : null}\n      </div>\n    </div>\n  )\n}\n",
+      "type": "registry:component"
+    }
+  ],
+  "type": "registry:component"
+}

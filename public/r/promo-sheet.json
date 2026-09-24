@@ -1,0 +1,19 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "promo-sheet",
+  "title": "Promo side panel",
+  "description": "A side panel for campaigns that need room, with a pinned button; rises from the bottom on phones.",
+  "registryDependencies": [
+    "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+    "sheet"
+  ],
+  "files": [
+    {
+      "path": "components/promotions/promo-sheet.tsx",
+      "content": "'use client'\n\nimport * as React from 'react'\n\nimport {\n  Sheet,\n  SheetContent,\n  SheetDescription,\n  SheetTitle,\n} from '@/components/ui/sheet'\nimport { PromoOverlayContent } from './promotion-views'\nimport { usePromoOverlay, useWideScreen } from './use-promo-overlay'\n\n/**\n * A side panel for a campaign that needs room: a course launch with what it\n * includes, a book with its price and a code. It slides in from the side on\n * wide screens and rises from the bottom on phones, and its button stays\n * pinned in reach however long the details run.\n */\nexport function PromoSheet({\n  side = 'right',\n  locale,\n}: {\n  side?: 'left' | 'right'\n  locale?: string\n}) {\n  const { shown, open, now, Link, close, onClick, onCopy } =\n    usePromoOverlay('sheet')\n  const wide = useWideScreen()\n  if (!shown) return null\n\n  return (\n    <Sheet\n      open={open}\n      onOpenChange={(next) => {\n        if (!next) close()\n      }}\n    >\n      <SheetContent\n        side={wide ? side : 'bottom'}\n        data-slot=\"promo-sheet\"\n        showCloseButton={false}\n        className={\n          wide\n            ? 'gap-0 p-0 data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md'\n            : 'max-h-[90dvh] gap-0 rounded-t-2xl p-0 pb-[env(safe-area-inset-bottom)]'\n        }\n      >\n        <PromoOverlayContent\n          promotion={shown}\n          now={now}\n          Link={Link}\n          onClick={onClick}\n          onCopy={onCopy}\n          onDismiss={close}\n          locale={locale}\n          layout=\"panel\"\n          Title={SheetTitle}\n          Description={SheetDescription}\n        />\n      </SheetContent>\n    </Sheet>\n  )\n}\n",
+      "type": "registry:component"
+    }
+  ],
+  "docs": "Requires Base UI primitives (a base-* shadcn project).",
+  "type": "registry:component"
+}

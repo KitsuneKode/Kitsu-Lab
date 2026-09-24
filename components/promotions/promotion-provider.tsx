@@ -5,6 +5,7 @@ import * as React from 'react'
 import {
   dismissalExpiry,
   dismissalKey,
+  isModal,
   matchRoute,
   selectPromotions,
   type Promotion,
@@ -22,7 +23,8 @@ export type PromotionSource =
   | { load: (signal: AbortSignal) => Promise<readonly Promotion[]> }
 
 export type PromotionEvent = {
-  type: 'impression' | 'click' | 'dismiss'
+  /** `copy` is a visitor copying the offer's code. */
+  type: 'impression' | 'click' | 'dismiss' | 'copy'
   id: string
   placement: PromotionPlacement
   campaign?: string
@@ -115,7 +117,8 @@ type PromotionContextValue = {
   now: number | null
   selection: PromotionSelection
   bar: Promotion | null
-  dialog: Promotion | null
+  /** The corner, sheet or dialog allowed to show right now, if any. */
+  overlay: Promotion | null
   card: (slot: string) => Promotion | null
   dismiss: (promotion: Promotion) => void
   report: (event: PromotionEvent) => void
@@ -147,10 +150,10 @@ export type PromotionProviderProps = {
   /** How often the clock is re-read, so windows open and close on time. */
   tickMs?: number
   storage?: DismissalStore
-  /** Route patterns where the bar and dialog never appear (checkout, sign-in). */
+  /** Route patterns where the bar and overlays never appear (checkout, sign-in). */
   suppressOn?: readonly string[]
-  /** A dialog waits for this much time and scroll depth before it may open. */
-  dialogEngagement?: { delayMs?: number; scrollDepth?: number }
+  /** Overlays wait for this much time and scroll depth before they may open. */
+  engagement?: { delayMs?: number; scrollDepth?: number }
   onEvent?: (event: PromotionEvent) => void
   /** Your framework's link, so internal CTAs navigate client-side. */
   linkComponent?: React.ComponentType<PromotionLinkProps>
@@ -249,6 +252,39 @@ function useEngaged(
   return engagedOn === pathname
 }
 
+/**
+ * Exit intent: the pointer leaving through the top of the window, towards the
+ * tabs or the address bar. Desktop only; touch screens have no such gesture,
+ * so the caller falls back to engagement there.
+ */
+function useExitIntent(pathname: string): {
+  supported: boolean
+  fired: boolean
+} {
+  const [firedOn, setFiredOn] = React.useState<string | null>(null)
+  const supported = React.useSyncExternalStore(
+    subscribeNever,
+    () => window.matchMedia('(hover: hover) and (pointer: fine)').matches,
+    () => false,
+  )
+
+  React.useEffect(() => {
+    if (!supported) return
+    const onLeave = (event: MouseEvent) => {
+      if (event.relatedTarget === null && event.clientY <= 0)
+        setFiredOn(pathname)
+    }
+    document.addEventListener('mouseout', onLeave)
+    return () => document.removeEventListener('mouseout', onLeave)
+  }, [pathname, supported])
+
+  return { supported, fired: firedOn === pathname }
+}
+
+function subscribeNever() {
+  return () => {}
+}
+
 const NO_ROUTES: readonly string[] = []
 const DEFAULT_ENGAGEMENT: { delayMs?: number; scrollDepth?: number } = {}
 
@@ -259,7 +295,7 @@ export function PromotionProvider({
   tickMs = 60_000,
   storage = browserDismissalStore,
   suppressOn = NO_ROUTES,
-  dialogEngagement = DEFAULT_ENGAGEMENT,
+  engagement = DEFAULT_ENGAGEMENT,
   onEvent,
   linkComponent = DefaultLink,
   timeZone,
@@ -267,7 +303,8 @@ export function PromotionProvider({
 }: PromotionProviderProps) {
   const records = useLoadedRecords(source)
   const now = useClock(readNow, tickMs)
-  const engaged = useEngaged(pathname, dialogEngagement)
+  const engaged = useEngaged(pathname, engagement)
+  const exit = useExitIntent(pathname)
   // Dismissals made this render cycle apply immediately, even if storage throws.
   const [dismissedNow, setDismissedNow] = React.useState<ReadonlySet<string>>(
     new Set(),
@@ -323,26 +360,36 @@ export function PromotionProvider({
       !suppressed && selection.bar && !isDismissed(selection.bar)
         ? selection.bar
         : null
-    const dialogCandidate =
-      !suppressed && selection.dialog && !isDismissed(selection.dialog)
-        ? selection.dialog
+    const overlayCandidate =
+      !suppressed && selection.overlay && !isDismissed(selection.overlay)
+        ? selection.overlay
         : null
 
-    // One intrusive surface at a time. A dialog only outranks a visible bar
-    // when its priority is strictly higher, and then the bar steps aside.
-    const dialog =
-      dialogCandidate &&
-      engaged &&
-      (!barCandidate || dialogCandidate.priority > barCandidate.priority)
-        ? dialogCandidate
+    // An overlay opens on its trigger: exit intent where the device has a
+    // pointer, engagement everywhere else.
+    const triggered =
+      overlayCandidate?.trigger === 'exit-intent' && exit.supported
+        ? exit.fired
+        : engaged
+
+    // A corner card sits beside the bar. A sheet or dialog takes over the
+    // page, so it only opens over a visible bar when its priority is strictly
+    // higher, and then the bar steps aside.
+    const overlay =
+      overlayCandidate &&
+      triggered &&
+      (!isModal(overlayCandidate.placement) ||
+        !barCandidate ||
+        overlayCandidate.priority > barCandidate.priority)
+        ? overlayCandidate
         : null
-    const bar = dialog ? null : barCandidate
+    const bar = overlay && isModal(overlay.placement) ? null : barCandidate
 
     return {
       now,
       selection,
       bar,
-      dialog,
+      overlay,
       card: (slot) => {
         const candidate = selection.cards[slot]
         return candidate && !isDismissed(candidate) ? candidate : null
@@ -355,6 +402,8 @@ export function PromotionProvider({
   }, [
     dismiss,
     engaged,
+    exit.fired,
+    exit.supported,
     isDismissed,
     linkComponent,
     now,

@@ -2,7 +2,7 @@
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "promo-bar",
   "title": "Promo bar",
-  "description": "Dismissible announcement bar with an optional countdown to a real end date.",
+  "description": "Slim announcement above the header, with offer badge and an honest countdown.",
   "registryDependencies": [
     "https://kitsu-lab.vercel.app/r/promotion-provider.json"
   ],

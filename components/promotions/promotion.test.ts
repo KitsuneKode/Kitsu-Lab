@@ -5,7 +5,10 @@ import {
   deliveryState,
   dismissalExpiry,
   dismissalKey,
+  formatPrice,
   formatTimeLeft,
+  isOverlay,
+  offerBadge,
   matchRoute,
   parsePromotion,
   reviewPromotion,
@@ -98,6 +101,8 @@ describe('selectPromotions', () => {
       promo({ id: 'a', priority: 50 }),
       promo({ id: 'c', priority: 10 }),
       promo({ id: 'd', placement: 'dialog', priority: 5 }),
+      promo({ id: 'k', placement: 'corner', priority: 30 }),
+      promo({ id: 's', placement: 'sheet', priority: 20 }),
       promo({ id: 'e', placement: 'card', slot: 'hero' }),
       promo({ id: 'f', placement: 'card', slot: 'hero', priority: 90 }),
       promo({ id: 'g', placement: 'card' }),
@@ -105,7 +110,8 @@ describe('selectPromotions', () => {
     const before = JSON.stringify(records)
     const selection = selectPromotions(records, { pathname: '/', now: T0 + 1 })
     expect(selection.bar?.id).toBe('a')
-    expect(selection.dialog?.id).toBe('d')
+    // One overlay across corner, sheet and dialog: the highest priority wins.
+    expect(selection.overlay?.id).toBe('k')
     expect(selection.cards.hero?.id).toBe('f')
     expect(selection.cards.default?.id).toBe('g')
     expect(JSON.stringify(records)).toBe(before)
@@ -150,8 +156,12 @@ describe('countdown', () => {
 
   test('formats whole units', () => {
     expect(formatTimeLeft(T0 + 3 * DAY + 5, T0)).toBe('Ends in 3 days')
-    expect(formatTimeLeft(T0 + 2 * 3_600_000, T0)).toBe('Ends in 2 hours')
-    expect(formatTimeLeft(T0 + 30_000, T0)).toBe('Ends in 1 minute')
+    expect(formatTimeLeft(T0 + DAY + 3_600_000, T0)).toBe('Ends in 1 day')
+    expect(formatTimeLeft(T0 + 5 * 3_600_000 + 20 * 60_000, T0)).toBe(
+      'Ends in 5h 20m',
+    )
+    expect(formatTimeLeft(T0 + 2 * 3_600_000, T0)).toBe('Ends in 2h')
+    expect(formatTimeLeft(T0 + 30_000, T0)).toBe('Ends in 1 min')
     expect(formatTimeLeft(T0, T0)).toBeNull()
   })
 })
@@ -214,6 +224,23 @@ describe('parsePromotion', () => {
     expect(result.errors.include).toBeDefined()
   })
 
+  test('narrowing button links does not narrow image sources', () => {
+    const result = parsePromotion(
+      {
+        ...valid,
+        cta: { label: 'Go', href: '/contact' },
+        media: {
+          src: '/img/launch.webp',
+          alt: 'Launch',
+          width: 1200,
+          height: 675,
+        },
+      },
+      { isAllowedHref: (href) => href === '/contact' },
+    )
+    expect(result.ok).toBe(true)
+  })
+
   test('https links are marked external', () => {
     const result = parsePromotion({
       ...valid,
@@ -235,14 +262,114 @@ describe('reviewPromotion', () => {
     }
     const codes = reviewPromotion(
       draft,
-      [promo({ id: 'other', placement: 'dialog' })],
+      [promo({ id: 'other', placement: 'corner' })],
       T0,
     ).map((w) => w.code)
     expect(codes).toEqual([
       'long-countdown',
       'external-cta',
-      'everywhere-dialog',
-      'dialog-overlap',
+      'everywhere-modal',
+      'overlay-overlap',
     ])
+  })
+
+  test('an offer needs terms for its code and a button to act on', () => {
+    const codes = reviewPromotion(
+      promo({ placement: 'card', offer: { code: 'EARLY20' } }),
+      [],
+      T0,
+    ).map((w) => w.code)
+    expect(codes).toEqual(['code-without-terms', 'offer-without-cta'])
+  })
+
+  test('overlays on unrelated pages do not collide', () => {
+    const codes = reviewPromotion(
+      promo({ placement: 'corner', include: ['/books'] }),
+      [promo({ id: 'x', placement: 'sheet', include: ['/courses/*'] })],
+      T0,
+    ).map((w) => w.code)
+    expect(codes).not.toContain('overlay-overlap')
+  })
+})
+
+describe('offers', () => {
+  const base = {
+    placement: 'card',
+    title: 'Early bird',
+    tone: 'brand',
+    startsAt: T0,
+    endsAt: T0 + DAY,
+  }
+
+  test('accepts a percentage, a price with a higher was, and a code', () => {
+    const result = parsePromotion({
+      ...base,
+      offer: {
+        percentOff: 20,
+        price: { amount: 6009, was: 8009, currency: 'inr' },
+        code: ' early20 ',
+        terms: 'New enrolments only.',
+      },
+      highlights: ['  Live classes ', '', 'Recorded on the app'],
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.offer).toEqual({
+      percentOff: 20,
+      price: { amount: 6009, was: 8009, currency: 'INR' },
+      code: 'EARLY20',
+      terms: 'New enrolments only.',
+    })
+    expect(result.value.highlights).toEqual([
+      'Live classes',
+      'Recorded on the app',
+    ])
+  })
+
+  test('refuses an inflated was-price, a silly percentage and a bad code', () => {
+    const result = parsePromotion({
+      ...base,
+      offer: {
+        percentOff: 99,
+        price: { amount: 100, was: 90, currency: 'INR' },
+        code: 'no spaces allowed',
+      },
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(Object.keys(result.errors).toSorted()).toEqual([
+      'offer.code',
+      'offer.percentOff',
+      'offer.price',
+    ])
+  })
+
+  test('an empty offer is an error, not a silent no-op', () => {
+    const result = parsePromotion({ ...base, offer: { terms: 'Hi' } })
+    expect(result.ok).toBe(false)
+  })
+
+  test('the badge says what the author wrote, or the saving', () => {
+    expect(offerBadge({ percentOff: 15 })).toBe('15% off')
+    expect(
+      offerBadge(
+        { price: { amount: 6009, was: 8009, currency: 'INR' } },
+        'en-IN',
+      ),
+    ).toBe(`Save ${formatPrice(2000, 'INR', 'en-IN')}`)
+    expect(offerBadge({ code: 'X12' })).toBeNull()
+  })
+
+  test('only overlays keep a trigger', () => {
+    const card = parsePromotion({ ...base, trigger: 'exit-intent' })
+    expect(card.ok && card.value.trigger).toBeFalsy()
+    const corner = parsePromotion({
+      ...base,
+      placement: 'corner',
+      trigger: 'exit-intent',
+    })
+    expect(corner.ok && corner.value.trigger).toBe('exit-intent')
+    expect(isOverlay('corner')).toBe(true)
+    expect(isOverlay('bar')).toBe(false)
   })
 })

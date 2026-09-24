@@ -5,6 +5,47 @@
 **First consumer:** Impact Career Tutorials (ICT) site, installed via `@kitsu/*`
 **Also in this change:** an `image` page kind for `BookPreview` (last section)
 
+## Revision 2 — 24 September 2026
+
+The first version worked but read as three unrelated widgets. This revision
+makes it a campaign system:
+
+- **Five placements, one overlay rule.** `bar`, `card`, `corner` (a floating
+  card that never blocks), `sheet` (a side panel with room for details) and
+  `dialog`. `corner`, `sheet` and `dialog` are overlays: at most one shows at
+  a time, chosen by priority. A corner sits beside the bar; a sheet or dialog
+  only replaces a visible bar when its priority is strictly higher.
+- **Triggers.** Overlays open after engagement (time on page and scroll) or on
+  exit intent (the pointer heading for the tabs), which falls back to
+  engagement on touch devices.
+- **Structured offers.** `offer = { percentOff?, price?: { amount, was?,
+currency }, code?, terms? }`, validated (1–95%, `was` must exceed `amount`,
+  codes are 3–24 upper-case characters) and rendered the same way in every
+  placement: badge, price with the earlier price struck through, a code the
+  visitor copies in one tap (reported as a `copy` event), and terms.
+  `highlights` adds up to five short points.
+- **One set of blocks.** Eyebrow, offer badge, countdown ("Ends in 3 days",
+  "Ends in 5h 20m"), price, coupon, highlights, terms, button and close are
+  shared by every placement, which is what makes them read as one system.
+  Sheets and dialogs without an image get a header in the campaign's tone.
+- **An admin preview that shows position, not just a component.** The
+  promotion is drawn on a mock page rendered at a real device size (1280×800
+  or 390×780) and scaled to fit, so breakpoints and container queries behave
+  as on the site. It says whether it would show at the chosen page and time,
+  and why not.
+- **Campaign timeline.** Every promotion on one date axis with a now line,
+  state styling and a warning where overlays compete for the same days and
+  pages. Rows double as the campaign list.
+- **Editor in planning order.** Placement (as described choices), message,
+  offer, button, audience and schedule, beside the sticky preview with page
+  and time controls and non-blocking review notes (a code without terms, an
+  offer without a button, overlays that collide, a modal on every page).
+- Image sources are validated separately from button links, so narrowing where
+  buttons may point never rejects images.
+
+The sections below describe the first version; where they differ, this
+revision wins.
+
 ## Objective
 
 A small family of registry items that lets any Next.js + shadcn site announce a

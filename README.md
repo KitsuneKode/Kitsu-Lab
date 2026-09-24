@@ -28,12 +28,12 @@ anything else it needs.
 
 ## Items
 
-| Item                                    | What it is                                                                                     |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `book-preview` (+ `book-preview-*`)     | Accessible book and PDF reader with optional page, spread, scroll, curl, PDF and WebGL engines |
-| `promotions` (+ `promotion`, `promo-*`) | Scheduled announcement bar, inline card and dialog with dismissal, targeting and an editor     |
-| `keyboard-button`                       | Tactile keycap with spring press physics                                                       |
-| `email-domain-input`                    | Email input restricted to approved domains                                                     |
+| Item                                    | What it is                                                                                                                               |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `book-preview` (+ `book-preview-*`)     | Accessible book and PDF reader with optional page, spread, scroll, curl, PDF and WebGL engines                                           |
+| `promotions` (+ `promotion`, `promo-*`) | Campaign system: bar, inline card, corner card, side panel and dialog, with offers and codes, a device preview, a timeline and an editor |
+| `keyboard-button`                       | Tactile keycap with spring press physics                                                                                                 |
+| `email-domain-input`                    | Email input restricted to approved domains                                                                                               |
 
 ## Develop
 

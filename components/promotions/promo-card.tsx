@@ -58,6 +58,14 @@ export function PromoCard({
             campaign: promotion.campaign,
           })
         }
+        onCopy={() =>
+          report({
+            type: 'copy',
+            id: promotion.id,
+            placement: promotion.placement,
+            campaign: promotion.campaign,
+          })
+        }
         onDismiss={dismissible ? () => dismiss(promotion) : undefined}
       />
     </div>

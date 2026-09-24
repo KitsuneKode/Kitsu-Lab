@@ -1,0 +1,20 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "promo-pill",
+  "title": "Promo pill",
+  "description": "The “New: … →” announcement pill above a hero, filled from a card slot. In the page flow; never interrupts.",
+  "dependencies": [
+    "@tabler/icons-react"
+  ],
+  "registryDependencies": [
+    "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+  ],
+  "files": [
+    {
+      "path": "components/promotions/promo-pill.tsx",
+      "content": "'use client'\n\nimport * as React from 'react'\nimport { IconArrowRight } from '@tabler/icons-react'\nimport { cn } from '@/lib/utils'\n\nimport type { Promotion } from './promotion'\nimport { useImpression, usePromotions } from './promotion-provider'\n\n/**\n * The \"New: … →\" pill above a hero headline. It reads a card slot, so any\n * `card` promotion with `slot: 'announcement'` (or your own slot name) fills\n * it. It sits in the page flow and never interrupts, which makes it the\n * right default for launches on landing pages.\n *\n * ```tsx\n * <PromoPill slot=\"announcement\" className=\"mb-6\" />\n * <h1>…</h1>\n * ```\n */\nexport function PromoPill({\n  slot = 'announcement',\n  fallback = null,\n  className,\n}: {\n  slot?: string\n  fallback?: React.ReactNode\n  className?: string\n}) {\n  const { card, pathname, report, Link } = usePromotions()\n  const promotion = card(slot)\n  const onImpression = React.useCallback(\n    (p: Promotion) => report('impression', p),\n    [report],\n  )\n  const ref = useImpression(promotion, onImpression, pathname)\n  if (!promotion) return <>{fallback}</>\n\n  const inner = (\n    <>\n      <span className=\"bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold\">\n        {promotion.eyebrow ?? 'New'}\n      </span>\n      <span className=\"min-w-0 truncate\">{promotion.title}</span>\n      {promotion.cta ? (\n        <IconArrowRight\n          aria-hidden\n          className=\"text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover/pill:translate-x-0.5 motion-reduce:transition-none rtl:-scale-x-100\"\n        />\n      ) : null}\n    </>\n  )\n  const classes = cn(\n    'group/pill bg-background text-foreground inline-flex max-w-full items-center gap-2 rounded-full border py-1 ps-1 pe-3 text-sm shadow-xs transition-[border-color,transform] duration-150 ease-out forced-colors:border print:hidden',\n    promotion.cta &&\n      'hover:border-primary/40 active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-ring/50 outline-none',\n    className,\n  )\n\n  return (\n    <span\n      ref={ref as React.RefObject<HTMLSpanElement>}\n      data-slot=\"promo-pill\"\n      className=\"inline-flex max-w-full\"\n    >\n      {promotion.cta ? (\n        <Link\n          href={promotion.cta.href}\n          className={classes}\n          onClick={() => report('click', promotion)}\n          {...(promotion.cta.external\n            ? { target: '_blank', rel: 'noopener noreferrer' }\n            : {})}\n        >\n          {inner}\n        </Link>\n      ) : (\n        <span className={classes}>{inner}</span>\n      )}\n    </span>\n  )\n}\n",
+      "type": "registry:component"
+    }
+  ],
+  "type": "registry:component"
+}

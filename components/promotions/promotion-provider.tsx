@@ -5,15 +5,23 @@ import * as React from 'react'
 import {
   dismissalExpiry,
   dismissalKey,
+  dismissScope,
+  frequencyAllows,
+  localizePromotion,
   matchRoute,
   nextBoundary,
   sanitizePromotions,
   selectPromotions,
   targetsRoute,
+  type DismissScope,
   type Promotion,
   type PromotionPlacement,
   type PromotionSelection,
 } from './promotion'
+import type { PromotionPlugin } from './promotion-plugins'
+import { browserDismissalStore, type DismissalStore } from './promotion-stores'
+
+export { browserDismissalStore, type DismissalStore }
 
 /* -------------------------------------------------------------------------- */
 /*  Contracts the host provides                                               */
@@ -25,24 +33,12 @@ export type PromotionSource =
   | { load: (signal: AbortSignal) => Promise<readonly unknown[]> }
 
 export type PromotionEvent = {
-  type: 'impression' | 'click' | 'dismiss' | 'copy'
+  type: 'impression' | 'click' | 'dismiss' | 'copy' | 'reveal'
   id: string
   placement: PromotionPlacement
   campaign?: string
   /** The route the visitor was on, so conversions can be attributed per page. */
   pathname: string
-}
-
-/** Where dismissals live. Values are the epoch ms the visitor dismissed at. */
-export type DismissalStore = {
-  get: (key: string) => number | null
-  set: (
-    key: string,
-    dismissedAt: number,
-    scope: 'session' | 'persistent',
-  ) => void
-  /** Optional: call `onChange` when another tab writes, so dismissals sync. */
-  subscribe?: (onChange: () => void) => () => void
 }
 
 export type PromotionLinkProps = {
@@ -66,6 +62,9 @@ export type PromotionLabels = {
   copied: string
   minimize: string
   restore: (title: string) => string
+  reveal: string
+  openOffer: string
+  hideOffer: string
 }
 
 export const defaultPromotionLabels: PromotionLabels = {
@@ -80,52 +79,14 @@ export const defaultPromotionLabels: PromotionLabels = {
   copied: 'Copied',
   minimize: 'Minimise',
   restore: (title) => `Show offer: ${title}`,
+  reveal: 'Reveal code',
+  openOffer: 'Open offer',
+  hideOffer: 'Hide this offer',
 }
 
 /* -------------------------------------------------------------------------- */
 /*  Defaults                                                                  */
 /* -------------------------------------------------------------------------- */
-
-function safeStorage(kind: 'local' | 'session'): Storage | null {
-  try {
-    return kind === 'local' ? window.localStorage : window.sessionStorage
-  } catch {
-    return null
-  }
-}
-
-/** localStorage for lasting dismissals, sessionStorage for per-visit ones. */
-export const browserDismissalStore: DismissalStore = {
-  get(key) {
-    for (const kind of ['session', 'local'] as const) {
-      try {
-        const raw = safeStorage(kind)?.getItem(key)
-        const value = raw ? Number(raw) : Number.NaN
-        if (Number.isFinite(value)) return value
-      } catch {
-        // Storage can throw in private windows; treat as not dismissed.
-      }
-    }
-    return null
-  },
-  set(key, dismissedAt, scope) {
-    try {
-      safeStorage(scope === 'session' ? 'session' : 'local')?.setItem(
-        key,
-        String(dismissedAt),
-      )
-    } catch {
-      // Dismissal still applies for this render via provider state.
-    }
-  },
-  subscribe(onChange) {
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === null || event.key.startsWith('promo:')) onChange()
-    }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  },
-}
 
 function DefaultLink({
   href,
@@ -162,6 +123,16 @@ type PromotionContextValue = {
   /** The toast is folded into a small chip the visitor can reopen. */
   toastMinimized: boolean
   dialog: Promotion | null
+  /**
+   * Height of a bottom-docked bar (the sticky CTA) that floating surfaces
+   * should sit above, so a phone never stacks two things in the thumb zone.
+   */
+  bottomInset: number
+  setBottomInset: (px: number) => void
+  /** The offer behind the edge tab, and whether its sheet is open. */
+  sheet: Promotion | null
+  sheetOpen: boolean
+  closeSheet: () => void
   card: (slot: string) => Promotion | null
   /** Live promotions on this route whose button points at `href`. */
   pointingAt: (href: string) => Promotion | null
@@ -170,7 +141,7 @@ type PromotionContextValue = {
   complete: (promotion: Promotion) => void
   minimize: (promotion: Promotion) => void
   restore: (promotion: Promotion) => void
-  /** Opens a live toast or dialog now, skipping the engagement wait. */
+  /** Opens a live toast, sheet or dialog now, skipping the engagement wait. */
   openPromotion: (id: string) => void
   /** Called by floating surfaces once they are on screen. */
   markShown: (promotion: Promotion) => void
@@ -208,8 +179,6 @@ export type PromotionEngagement = {
   delayMs?: number
   /** Fraction of the page scrolled, 0–1. A page too short to scroll counts. */
   scrollDepth?: number
-  /** Also open when a desktop pointer leaves through the top of the window. */
-  exitIntent?: boolean
 }
 
 export type PromotionProviderProps = {
@@ -236,6 +205,17 @@ export type PromotionProviderProps = {
   /** A toast waits for this, usually less than a dialog. */
   toastEngagement?: PromotionEngagement
   onEvent?: (event: PromotionEvent) => void
+  /** Add-ons such as `exitIntent()`. Keep the array stable across renders. */
+  plugins?: readonly PromotionPlugin[]
+  /**
+   * At most one toast or dialog per visitor in this many hours, across every
+   * campaign. Each promotion's own `frequency` applies on top. 0 turns it off.
+   */
+  floatingBudgetHours?: number
+  /** Let a higher-priority toast or dialog join a visible bar. Default true. */
+  allowBarWithFloating?: boolean
+  /** BCP 47 tag used to pick each record's `translations`, e.g. `fr-CA`. */
+  locale?: string
   /** Your framework's link, so internal CTAs navigate client-side. */
   linkComponent?: React.ComponentType<PromotionLinkProps>
   labels?: Partial<PromotionLabels>
@@ -389,11 +369,7 @@ export function visitorIsBusy(): boolean {
 function useEngaged(
   pathname: string,
   enabled: boolean,
-  {
-    delayMs = 8000,
-    scrollDepth = 0.3,
-    exitIntent = false,
-  }: PromotionEngagement,
+  { delayMs = 8000, scrollDepth = 0.3 }: PromotionEngagement,
 ): boolean {
   const [engagedOn, setEngagedOn] = React.useState<string | null>(null)
 
@@ -425,9 +401,6 @@ function useEngaged(
         check()
       }
     }
-    const onLeave = (event: MouseEvent) => {
-      if (event.relatedTarget === null && event.clientY <= 0) engage()
-    }
     const timer = Number.isFinite(delayMs)
       ? window.setTimeout(() => {
           waited = true
@@ -436,14 +409,12 @@ function useEngaged(
         }, delayMs)
       : undefined
     window.addEventListener('scroll', onScroll, { passive: true })
-    if (exitIntent) document.addEventListener('mouseout', onLeave)
     return () => {
       window.clearTimeout(timer)
       window.clearTimeout(retry)
       window.removeEventListener('scroll', onScroll)
-      document.removeEventListener('mouseout', onLeave)
     }
-  }, [pathname, enabled, delayMs, scrollDepth, exitIntent])
+  }, [pathname, enabled, delayMs, scrollDepth])
 
   return engagedOn === pathname
 }
@@ -455,6 +426,8 @@ const DEFAULT_TOAST_ENGAGEMENT: PromotionEngagement = {
   scrollDepth: 0.15,
 }
 const NO_LABELS: Partial<PromotionLabels> = {}
+const NO_PLUGINS: readonly PromotionPlugin[] = []
+const BUDGET_KEY = 'promo:budget:floating'
 
 const shownKey = (promotion: Promotion) => `${dismissalKey(promotion)}:shown`
 const minimizedKey = (promotion: Promotion) => `${dismissalKey(promotion)}:min`
@@ -472,10 +445,21 @@ export function PromotionProvider({
   onEvent,
   linkComponent = DefaultLink,
   labels: labelOverrides = NO_LABELS,
+  plugins = NO_PLUGINS,
+  floatingBudgetHours = 24,
+  allowBarWithFloating = true,
+  locale,
   timeZone,
   children,
 }: PromotionProviderProps) {
-  const records = useLoadedRecords(source, sourceKey)
+  const loaded = useLoadedRecords(source, sourceKey)
+  const records = React.useMemo(
+    () =>
+      locale
+        ? loaded.map((record) => localizePromotion(record, locale))
+        : loaded,
+    [loaded, locale],
+  )
   const now = useClock(readNow, tickMs, records)
   // Local writes, so a dismissal applies at once even if storage throws.
   const [written, setWritten] = React.useState<ReadonlyMap<string, number>>(
@@ -484,6 +468,7 @@ export function PromotionProvider({
   // Bumped when another tab writes, so reads are redone.
   const [storageVersion, setStorageVersion] = React.useState(0)
   const [forced, setForced] = React.useState<string | null>(null)
+  const [bottomInset, setBottomInset] = React.useState(0)
   const [openFloating, setOpenFloating] = React.useState<{
     id: string
     pathname: string
@@ -494,20 +479,45 @@ export function PromotionProvider({
     [storage],
   )
 
+  // Triggers from add-ons (exit intent, idle) mark a placement engaged here.
+  const [pluginEngaged, setPluginEngaged] = React.useState<
+    Partial<Record<'toast' | 'dialog', string>>
+  >({})
+  const readNowRef = React.useRef(readNow)
+  React.useLayoutEffect(() => {
+    readNowRef.current = readNow
+  })
+  React.useEffect(() => {
+    const cleanups = plugins.map((plugin) =>
+      plugin.setup?.({
+        pathname,
+        now: () => readNowRef.current(),
+        engage: (placement) =>
+          setPluginEngaged((previous) =>
+            previous[placement] === pathname
+              ? previous
+              : { ...previous, [placement]: pathname },
+          ),
+      }),
+    )
+    return () => cleanups.forEach((cleanup) => cleanup?.())
+  }, [plugins, pathname])
+
   const read = React.useCallback(
-    (key: string) => {
+    (key: string, scope: DismissScope) => {
       // Re-read after a cross-tab write bumps the version.
       void storageVersion
-      const value = written.has(key) ? written.get(key) : storage.get(key)
+      const id = `${scope}|${key}`
+      const value = written.has(id) ? written.get(id) : storage.get(key, scope)
       return typeof value === 'number' && Number.isFinite(value) ? value : null
     },
     [written, storage, storageVersion],
   )
   const write = React.useCallback(
-    (key: string, scope: 'session' | 'persistent') => {
-      const at = readNow()
+    (key: string, scope: DismissScope, at = readNow()) => {
       storage.set(key, at, scope)
-      setWritten((previous) => new Map(previous).set(key, at))
+      setWritten((previous) => new Map(previous).set(`${scope}|${key}`, at))
+      return at
     },
     [readNow, storage],
   )
@@ -517,21 +527,24 @@ export function PromotionProvider({
     onEventRef.current = onEvent
   })
   const report = React.useCallback<PromotionContextValue['report']>(
-    (type, promotion) =>
-      onEventRef.current?.({
+    (type, promotion) => {
+      const event: PromotionEvent = {
         type,
         id: promotion.id,
         placement: promotion.placement,
         campaign: promotion.campaign,
         pathname,
-      }),
-    [pathname],
+      }
+      onEventRef.current?.(event)
+      for (const plugin of plugins) plugin.onEvent?.(event)
+    },
+    [pathname, plugins],
   )
 
   const isDismissed = React.useCallback(
     (promotion: Promotion) => {
       if (now === null) return true
-      const at = read(dismissalKey(promotion))
+      const at = read(dismissalKey(promotion), dismissScope(promotion.dismiss))
       if (at === null) return false
       const expiry = dismissalExpiry(promotion.dismiss, at)
       return expiry === null || now < expiry
@@ -541,10 +554,7 @@ export function PromotionProvider({
 
   const close = React.useCallback(
     (promotion: Promotion) => {
-      write(
-        dismissalKey(promotion),
-        promotion.dismiss.mode === 'session' ? 'session' : 'persistent',
-      )
+      write(dismissalKey(promotion), dismissScope(promotion.dismiss))
       setForced((id) => (id === promotion.id ? null : id))
       setOpenFloating((open) => (open?.id === promotion.id ? null : open))
     },
@@ -572,22 +582,46 @@ export function PromotionProvider({
         : selectPromotions(records, { pathname, now }),
     [now, pathname, records],
   )
+  const allowed = (promotion: Promotion) =>
+    now !== null &&
+    plugins.every(
+      (plugin) => plugin.allow?.(promotion, { pathname, now }) ?? true,
+    )
   const available = (promotion: Promotion | undefined) =>
-    !suppressed && promotion && !isDismissed(promotion) ? promotion : null
+    !suppressed && promotion && !isDismissed(promotion) && allowed(promotion)
+      ? promotion
+      : null
 
   const barCandidate = available(selection.bar)
   const toastCandidate = available(selection.toast)
   const dialogCandidate = available(selection.dialog)
+  const sheetCandidate =
+    selection.sheet && !isDismissed(selection.sheet) && allowed(selection.sheet)
+      ? selection.sheet
+      : null
 
-  // A floating surface opens once per visit. If it vanished without being
-  // answered (the visitor navigated away), it does not chase them.
+  // Frequency: a floating surface shows at most once per its window, and at
+  // most one of any campaign per budget window. An unanswered surface that
+  // the visitor navigated away from does not chase them to the next page.
+  const lastShown = (promotion: Promotion) =>
+    read(shownKey(promotion), 'browser')
+  const withinFrequency = (promotion: Promotion) =>
+    now !== null &&
+    frequencyAllows(lastShown(promotion), now, promotion.frequency?.hours)
+  const budgetAt = read(BUDGET_KEY, 'browser')
+  const withinBudget = (promotion: Promotion) =>
+    floatingBudgetHours <= 0 ||
+    now === null ||
+    frequencyAllows(budgetAt, now, floatingBudgetHours) ||
+    // The budget was spent on this very promotion; its frequency decides.
+    (budgetAt !== null && lastShown(promotion) === budgetAt)
   const stillOpen = (promotion: Promotion) =>
     openFloating?.id === promotion.id && openFloating.pathname === pathname
   const fresh = (promotion: Promotion | null) =>
     promotion &&
     (forced === promotion.id ||
       stillOpen(promotion) ||
-      read(shownKey(promotion)) === null)
+      (withinFrequency(promotion) && withinBudget(promotion)))
       ? promotion
       : null
 
@@ -605,13 +639,16 @@ export function PromotionProvider({
   // A floating surface only joins a visible bar when it outranks it. The bar
   // never steps aside: it is in the page flow, and moving it shifts layout.
   const outranksBar = (promotion: Promotion) =>
-    !barCandidate || promotion.priority > barCandidate.priority
+    !barCandidate ||
+    (allowBarWithFloating && promotion.priority > barCandidate.priority)
+  const engagedBy = (placement: 'toast' | 'dialog', engaged: boolean) =>
+    engaged || pluginEngaged[placement] === pathname
   const dialog =
     dialogCandidate &&
     fresh(dialogCandidate) &&
     (forced === dialogCandidate.id ||
       stillOpen(dialogCandidate) ||
-      (dialogEngaged && outranksBar(dialogCandidate)))
+      (engagedBy('dialog', dialogEngaged) && outranksBar(dialogCandidate)))
       ? dialogCandidate
       : null
   // An ignored toast does not vanish on the next page, nor chase the visitor
@@ -620,22 +657,27 @@ export function PromotionProvider({
     toastCandidate &&
     (forced === toastCandidate.id || stillOpen(toastCandidate)),
   )
-  const toastShownBefore = Boolean(
-    toastCandidate && read(shownKey(toastCandidate)) !== null,
+  const toastShownRecently = Boolean(
+    toastCandidate &&
+    lastShown(toastCandidate) !== null &&
+    !withinFrequency(toastCandidate),
   )
   const toastMinimized = Boolean(
     toastCandidate &&
     !toastOpenNow &&
-    (toastShownBefore || read(minimizedKey(toastCandidate)) !== null),
+    (toastShownRecently || read(minimizedKey(toastCandidate), 'tab') !== null),
   )
   const toast =
     !dialog &&
     toastCandidate &&
     (toastMinimized ||
       toastOpenNow ||
-      (toastEngaged && outranksBar(toastCandidate)))
+      (fresh(toastCandidate) &&
+        engagedBy('toast', toastEngaged) &&
+        outranksBar(toastCandidate)))
       ? toastCandidate
       : null
+  const sheetOpen = Boolean(sheetCandidate && forced === sheetCandidate.id)
 
   const value: PromotionContextValue = {
     now,
@@ -645,6 +687,12 @@ export function PromotionProvider({
     toast,
     toastMinimized: Boolean(toast) && toastMinimized,
     dialog,
+    bottomInset,
+    setBottomInset,
+    sheet: sheetCandidate,
+    sheetOpen,
+    closeSheet: () =>
+      setForced((id) => (id === sheetCandidate?.id ? null : id)),
     card: (slot) => {
       const candidate = selection.cards[slot]
       return candidate && !isDismissed(candidate) ? candidate : null
@@ -654,6 +702,7 @@ export function PromotionProvider({
       const all = [
         selection.bar,
         selection.toast,
+        selection.sheet,
         selection.dialog,
         ...Object.values(selection.cards),
       ]
@@ -669,22 +718,21 @@ export function PromotionProvider({
     dismiss,
     complete: close,
     minimize: (promotion) => {
-      write(minimizedKey(promotion), 'session')
+      write(minimizedKey(promotion), 'tab')
       setForced((id) => (id === promotion.id ? null : id))
       setOpenFloating((open) => (open?.id === promotion.id ? null : open))
     },
     restore: (promotion) => {
       // NaN reads as "never written", in this map and in the browser store.
-      storage.set(minimizedKey(promotion), Number.NaN, 'session')
-      setWritten((previous) =>
-        new Map(previous).set(minimizedKey(promotion), Number.NaN),
-      )
+      write(minimizedKey(promotion), 'tab', Number.NaN)
       setForced(promotion.id)
     },
     openPromotion: setForced,
     markShown: (promotion) => {
       if (stillOpen(promotion)) return
-      write(shownKey(promotion), 'session')
+      const at = write(shownKey(promotion), 'browser')
+      // Only interruptions spend the budget; an offer the visitor opened does not.
+      if (promotion.placement !== 'sheet') write(BUDGET_KEY, 'browser', at)
       setOpenFloating({ id: promotion.id, pathname })
       report('impression', promotion)
     },

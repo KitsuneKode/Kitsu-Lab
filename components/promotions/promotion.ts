@@ -3,7 +3,17 @@
  * every rule here is testable with plain data and an injected clock.
  */
 
-export const PROMOTION_PLACEMENTS = ['bar', 'card', 'toast', 'dialog'] as const
+/**
+ * `sheet` is an offer that waits behind an edge tab and opens only when the
+ * visitor asks, so it never counts as an interruption.
+ */
+export const PROMOTION_PLACEMENTS = [
+  'bar',
+  'card',
+  'toast',
+  'sheet',
+  'dialog',
+] as const
 export type PromotionPlacement = (typeof PROMOTION_PLACEMENTS)[number]
 
 export const PROMOTION_TONES = ['neutral', 'brand', 'highlight'] as const
@@ -25,10 +35,28 @@ export type PromotionDeliveryState =
   | 'ended'
   | 'archived'
 
-export type PromotionDismiss =
+/**
+ * Where a dismissal is remembered. `tab` forgets when the tab closes,
+ * `browser` survives restarts, `cookie` is readable by the server (so an
+ * inline bar can render without a layout shift), `account` follows a
+ * signed-in visitor across devices. The host supplies the stores.
+ */
+export const DISMISS_SCOPES = ['tab', 'browser', 'cookie', 'account'] as const
+export type DismissScope = (typeof DISMISS_SCOPES)[number]
+
+export type PromotionDismiss = (
   | { mode: 'session' }
   | { mode: 'days'; days: number }
   | { mode: 'never-again' }
+) & { scope?: DismissScope }
+
+/** Campaign copy in another language. Missing fields fall back to the default. */
+export type PromotionCopy = {
+  eyebrow?: string
+  title?: string
+  body?: string
+  ctaLabel?: string
+}
 
 export type PromotionMedia = {
   src: string
@@ -72,6 +100,15 @@ export type PromotionContent = {
   dismiss: PromotionDismiss
   /** Only honoured when the window closes within COUNTDOWN_MAX_DAYS. */
   showCountdown?: boolean
+  /** Hide the code behind a "Reveal" button: one small, honest commitment. */
+  revealCode?: boolean
+  /**
+   * Toast and dialog: at most once every `hours` per visitor, even across
+   * tabs and without a dismissal. Defaults to DEFAULT_FREQUENCY_HOURS.
+   */
+  frequency?: { hours: number }
+  /** Copy per locale, e.g. `{ fr: { title: '…' } }`. See localizePromotion. */
+  translations?: Record<string, PromotionCopy>
   /** Opaque id handed to analytics callbacks. */
   campaign?: string
 }
@@ -93,6 +130,8 @@ export const EYEBROW_MAX = 40
 export const CTA_LABEL_MAX = 32
 export const CODE_MAX = 24
 export const COUNTDOWN_MAX_DAYS = 14
+/** Industry guidance is at most twice a day; we default to once. */
+export const DEFAULT_FREQUENCY_HOURS = 24
 
 /* -------------------------------------------------------------------------- */
 /*  Routes                                                                    */
@@ -188,6 +227,7 @@ export function formatTimeLeft(endsAt: number, now: number): string | null {
 export type PromotionSelection = {
   bar?: Promotion
   toast?: Promotion
+  sheet?: Promotion
   dialog?: Promotion
   cards: Record<string, Promotion>
 }
@@ -234,6 +274,48 @@ export function dismissalKey(
   return `promo:${encodeURIComponent(promotion.id)}:${promotion.dismissalVersion}`
 }
 
+/** The store a dismissal goes to. `session` dismissals default to the tab. */
+export function dismissScope(dismiss: PromotionDismiss): DismissScope {
+  return dismiss.scope ?? (dismiss.mode === 'session' ? 'tab' : 'browser')
+}
+
+/**
+ * Whether a floating surface last shown at `lastShownAt` may show again.
+ * Frequency is separate from dismissal: an ignored toast is not a rejected
+ * one, but it still should not come back on every page.
+ */
+export function frequencyAllows(
+  lastShownAt: number | null,
+  now: number,
+  hours: number = DEFAULT_FREQUENCY_HOURS,
+): boolean {
+  if (lastShownAt === null || !Number.isFinite(lastShownAt)) return true
+  return now - lastShownAt >= hours * 60 * MINUTE
+}
+
+/**
+ * The best translation for `locale`: an exact tag, then its language
+ * (`fr-CA` → `fr`), then the record's own copy.
+ */
+export function localizePromotion<T extends PromotionContent>(
+  promotion: T,
+  locale: string | undefined,
+): T {
+  const table = promotion.translations
+  if (!locale || !table) return promotion
+  const copy = table[locale] ?? table[locale.split('-')[0] ?? '']
+  if (!copy) return promotion
+  return {
+    ...promotion,
+    ...(copy.eyebrow ? { eyebrow: copy.eyebrow } : {}),
+    ...(copy.title ? { title: copy.title } : {}),
+    ...(copy.body ? { body: copy.body } : {}),
+    ...(copy.ctaLabel && promotion.cta
+      ? { cta: { ...promotion.cta, label: copy.ctaLabel } }
+      : {}),
+  }
+}
+
 /** When a dismissal recorded at `dismissedAt` stops applying, or null for never. */
 export function dismissalExpiry(
   dismiss: PromotionDismiss,
@@ -277,6 +359,8 @@ export type PromotionField =
   | 'endsAt'
   | 'priority'
   | 'dismiss'
+  | 'frequency'
+  | 'translations'
 
 const SAFE_HREF = /^(\/(?![/\\])|https:\/\/|tel:|mailto:)/i
 
@@ -345,11 +429,45 @@ function routeList(
 
 function parseDismiss(value: unknown): PromotionDismiss | null {
   if (!isRecord(value)) return null
-  if (value.mode === 'session') return { mode: 'session' }
-  if (value.mode === 'never-again') return { mode: 'never-again' }
+  if (
+    value.scope !== undefined &&
+    !DISMISS_SCOPES.some((s) => s === value.scope)
+  )
+    return null
+  const scope =
+    value.scope === undefined ? {} : { scope: value.scope as DismissScope }
+  if (value.mode === 'session') return { mode: 'session', ...scope }
+  if (value.mode === 'never-again') return { mode: 'never-again', ...scope }
   if (value.mode === 'days' && isInt(value.days, 1, 365))
-    return { mode: 'days', days: value.days }
+    return { mode: 'days', days: value.days, ...scope }
   return null
+}
+
+const LOCALE_TAG = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/
+
+function parseTranslations(
+  value: unknown,
+): Record<string, PromotionCopy> | undefined | null {
+  if (value === undefined || value === null) return undefined
+  if (!isRecord(value)) return null
+  const entries = Object.entries(value)
+  if (entries.length > 24) return null
+  const out: Record<string, PromotionCopy> = {}
+  for (const [locale, raw] of entries) {
+    if (!LOCALE_TAG.test(locale) || !isRecord(raw)) return null
+    const eyebrow = plainText(raw.eyebrow, EYEBROW_MAX, false)
+    const title = plainText(raw.title, TITLE_MAX, false)
+    const body = plainText(raw.body, BODY_MAX, false)
+    const ctaLabel = plainText(raw.ctaLabel, CTA_LABEL_MAX, false)
+    if (!eyebrow.ok || !title.ok || !body.ok || !ctaLabel.ok) return null
+    out[locale] = {
+      ...(eyebrow.value ? { eyebrow: eyebrow.value } : {}),
+      ...(title.value ? { title: title.value } : {}),
+      ...(body.value ? { body: body.value } : {}),
+      ...(ctaLabel.value ? { ctaLabel: ctaLabel.value } : {}),
+    }
+  }
+  return Object.keys(out).length ? out : undefined
 }
 
 /**
@@ -461,6 +579,17 @@ export function parsePromotion(
   if (!dismiss)
     errors.dismiss = 'Choose how long a dismissal lasts (1–365 days).'
 
+  const rawFrequency = isRecord(input.frequency)
+    ? input.frequency.hours
+    : undefined
+  if (input.frequency !== undefined && !isInt(rawFrequency, 1, 24 * 90))
+    errors.frequency = 'Show it at most once every 1 to 2160 hours.'
+
+  const translations = parseTranslations(input.translations)
+  if (translations === null)
+    errors.translations =
+      'Translations need locale codes like fr or pt-BR and plain-text copy.'
+
   if (
     Object.keys(errors).length > 0 ||
     !placement ||
@@ -497,6 +626,11 @@ export function parsePromotion(
       priority,
       dismiss,
       ...(input.showCountdown === true ? { showCountdown: true } : {}),
+      ...(code && input.revealCode === true ? { revealCode: true } : {}),
+      ...(isInt(rawFrequency, 1, 24 * 90)
+        ? { frequency: { hours: rawFrequency } }
+        : {}),
+      ...(translations ? { translations } : {}),
       ...(typeof input.campaign === 'string' && input.campaign.trim()
         ? { campaign: input.campaign.trim().slice(0, 64) }
         : {}),

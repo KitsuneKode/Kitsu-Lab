@@ -17,174 +17,94 @@ import {
   PromoBar,
   PromoCard,
   PromoDialog,
+  PromoPill,
+  PromoProgress,
+  PromoSheet,
+  PromoStickyCta,
   PromoToast,
   PromotionProvider,
   deliveryState,
+  exitIntent,
+  isRightToLeft,
+  memoryDismissalStore,
+  promotionLabels,
   usePromotions,
-  type DismissalStore,
   type Promotion,
   type PromotionEvent,
+  type PromotionLabelLocale,
   type PromotionLinkProps,
+  type PromotionPlugin,
 } from '@/components/promotions'
 import { PromotionEditor } from '@/components/promotions/promotion-editor'
+import { SCENARIOS, type Scenario, type ScenarioId } from './scenarios'
 
 const HOUR = 3_600_000
-const DAY = 24 * HOUR
-
-const PAGES = [
-  { value: '/', label: 'Home' },
-  { value: '/courses', label: 'Courses' },
-  { value: '/courses/night-batch', label: 'A course' },
-  { value: '/books', label: 'Books' },
-  { value: '/checkout', label: 'Checkout' },
-] as const
-
-const EDITOR_ROUTES: { value: string; label: string }[] = [
-  ...PAGES,
-  { value: '/courses/*', label: 'Every course' },
-  { value: '/courses/**', label: 'Courses and every course' },
-]
-
-const TARGETS = [
-  { value: '/courses', label: 'Courses page' },
-  { value: '/courses/night-batch', label: 'Night batch' },
-  { value: '/books', label: 'Books' },
-  { value: 'https://wa.me/910000000000', label: 'WhatsApp (external)' },
-]
 
 const DEVICES = {
   wide: {
     label: 'Desktop',
     icon: IconDeviceDesktop,
     width: '100%',
-    height: 620,
+    height: 640,
   },
   laptop: {
     label: 'Laptop',
     icon: IconDeviceLaptop,
     width: '52rem',
-    height: 560,
+    height: 580,
   },
   phone: {
     label: 'Phone',
     icon: IconDeviceMobile,
     width: '24.375rem',
-    height: 700,
+    height: 720,
   },
 } as const
 type Device = keyof typeof DEVICES
 
-function seed(base: number): Promotion[] {
-  return [
-    {
-      id: 'night-batch',
-      state: 'published',
-      placement: 'bar',
-      eyebrow: 'New batch',
-      title: 'The night batch starts Monday',
-      body: '8 to 10 PM, for people who work days.',
-      cta: { label: 'See timings', href: '/courses/night-batch' },
-      tone: 'brand',
-      include: [],
-      exclude: ['/checkout'],
-      startsAt: base - DAY,
-      endsAt: base + 5 * DAY,
-      priority: 60,
-      dismiss: { mode: 'days', days: 3 },
-      dismissalVersion: 1,
-      showCountdown: true,
-      campaign: 'night-batch-sep',
-      revision: 1,
-    },
-    {
-      id: 'mock-series',
-      state: 'published',
-      placement: 'card',
-      slot: 'hero',
-      eyebrow: 'Test series',
-      title: '20 prelims mocks, reviewed by the faculty who set them',
-      body: 'Every paper is discussed in class the following week.',
-      cta: { label: 'View the series', href: '/courses' },
-      tone: 'highlight',
-      include: ['/', '/courses'],
-      exclude: [],
-      startsAt: base - 2 * DAY,
-      endsAt: base + 20 * DAY,
-      priority: 50,
-      dismiss: { mode: 'session' },
-      dismissalVersion: 1,
-      revision: 1,
-    },
-    {
-      id: 'early-bird',
-      state: 'published',
-      placement: 'toast',
-      eyebrow: 'Early bird',
-      title: '20% off the night batch until Friday',
-      body: 'Use the code at checkout. Seats are capped at 40.',
-      code: 'EARLY20',
-      cta: { label: 'Enrol', href: '/courses/night-batch' },
-      tone: 'brand',
-      include: ['/courses/**'],
-      exclude: [],
-      startsAt: base - DAY,
-      endsAt: base + 4 * DAY,
-      priority: 70,
-      dismiss: { mode: 'days', days: 2 },
-      dismissalVersion: 1,
-      showCountdown: true,
-      campaign: 'early-bird-sep',
-      revision: 1,
-    },
-    {
-      id: 'books-launch',
-      state: 'published',
-      placement: 'dialog',
-      eyebrow: 'Just printed',
-      title: 'Our Assam GK book is here',
-      body: 'Printed notes from the classroom, shipped anywhere in Assam or collected at the centre.',
-      media: {
-        src: '/sample-pages/page-1.svg',
-        alt: 'The first page of the Assam GK book',
-        width: 1600,
-        height: 900,
+const LANGUAGES: {
+  value: PromotionLabelLocale
+  label: string
+  name: string
+}[] = [
+  { value: 'en', label: 'EN', name: 'English' },
+  { value: 'fr', label: 'FR', name: 'Français' },
+  { value: 'de', label: 'DE', name: 'Deutsch' },
+  { value: 'ja', label: '日本', name: '日本語' },
+  { value: 'hi', label: 'हि', name: 'हिन्दी' },
+  { value: 'ar', label: 'ع', name: 'العربية' },
+]
+
+const EXIT_INTENT: readonly PromotionPlugin[] = [
+  exitIntent({ placement: 'dialog', minDwellMs: 1500 }),
+]
+const NO_PLUGINS: readonly PromotionPlugin[] = []
+
+/** Keeps the demo on one page: internal CTAs switch the mock route. */
+function useDemoLink(navigate: (href: string) => void) {
+  return React.useMemo(
+    () =>
+      function DemoLink({
+        href,
+        className,
+        children,
+        onClick,
+      }: PromotionLinkProps) {
+        return (
+          <a
+            href={href}
+            className={className}
+            onClick={(event) => {
+              event.preventDefault()
+              onClick?.()
+              if (href.startsWith('/')) navigate(href.split('?')[0] ?? '/')
+            }}
+          >
+            {children}
+          </a>
+        )
       },
-      cta: { label: 'Look inside', href: '/books' },
-      tone: 'neutral',
-      include: ['/courses/**'],
-      exclude: [],
-      startsAt: base + 2 * DAY,
-      endsAt: base + 9 * DAY,
-      priority: 80,
-      dismiss: { mode: 'never-again' },
-      dismissalVersion: 1,
-      revision: 1,
-    },
-  ]
-}
-
-function memoryStore(): DismissalStore & { clear: () => void } {
-  const map = new Map<string, number>()
-  return {
-    get: (key) => map.get(key) ?? null,
-    set: (key, at) => void map.set(key, at),
-    clear: () => map.clear(),
-  }
-}
-
-/** Keeps the demo on one page: CTAs log a click instead of navigating. */
-function DemoLink({ href, className, children, onClick }: PromotionLinkProps) {
-  return (
-    <a
-      href={href}
-      className={className}
-      onClick={(event) => {
-        event.preventDefault()
-        onClick?.()
-      }}
-    >
-      {children}
-    </a>
+    [navigate],
   )
 }
 
@@ -196,16 +116,16 @@ function Label({ children, id }: { children: React.ReactNode; id?: string }) {
   )
 }
 
-/** Manual triggers, the same `openPromotion` a host would wire to a button. */
+/** Manual triggers: the same `openPromotion` a host would wire to a button. */
 function Triggers() {
   const { selection, openPromotion } = usePromotions()
-  const floating = [selection.toast, selection.dialog].filter(
+  const floating = [selection.toast, selection.sheet, selection.dialog].filter(
     (p): p is Promotion => Boolean(p),
   )
   if (floating.length === 0)
     return (
       <p className="text-muted-foreground text-xs">
-        No toast or dialog is live on this page.
+        No toast, sheet or dialog is live on this page.
       </p>
     )
   return (
@@ -224,14 +144,40 @@ function Triggers() {
   )
 }
 
-/** A believable page for the promotions to live on. */
-function MockSite({ pathname, phone }: { pathname: string; phone: boolean }) {
-  const quiet = pathname === '/checkout'
+function MockSite({
+  scenario,
+  pathname,
+  phone,
+  scroller,
+  navigate,
+}: {
+  scenario: Scenario
+  pathname: string
+  phone: boolean
+  scroller: HTMLElement | null
+  navigate: (href: string) => void
+}) {
+  const page =
+    scenario.pages.find((p) => p.value === pathname) ?? scenario.pages[0]!
+  const pricing = React.useRef<HTMLDivElement>(null)
+  const [cart, setCart] = React.useState(scenario.cartStart ?? 0)
+  const money = new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  })
+
   return (
     <>
       <PromoBar />
       <header className="border-border/60 flex items-center gap-6 border-b px-5 py-3">
-        <span className="font-medium tracking-tight">Impact Tutorials</span>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="font-medium tracking-tight"
+        >
+          {scenario.brand}
+        </button>
         {phone ? (
           <IconMenu2
             aria-hidden
@@ -242,64 +188,128 @@ function MockSite({ pathname, phone }: { pathname: string; phone: boolean }) {
             aria-label="Mock site"
             className="text-muted-foreground ms-auto flex items-center gap-5 text-sm"
           >
-            <span>Courses</span>
-            <span className="inline-flex items-center gap-1.5">
-              Books <PromoBadge href="/books" />
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              Night batch{' '}
-              <PromoBadge href="/courses/night-batch" variant="dot" />
-            </span>
+            {scenario.nav.map((item) => (
+              <button
+                key={item.href}
+                type="button"
+                onClick={() => navigate(item.href)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 hover:text-foreground',
+                  pathname === item.href && 'text-foreground',
+                )}
+              >
+                {item.label}
+                <PromoBadge
+                  href={item.href}
+                  variant={item.dot ? 'dot' : 'pill'}
+                />
+              </button>
+            ))}
           </nav>
         )}
       </header>
       <main className="flex flex-col gap-6 p-5 sm:p-8">
-        <p className="text-muted-foreground font-mono text-xs">{pathname}</p>
-        <h2
-          className={cn(
-            'max-w-lg font-medium tracking-tight text-balance',
-            phone ? 'text-2xl' : 'text-3xl',
-          )}
-        >
-          {quiet
-            ? 'Checkout stays quiet.'
-            : 'A calm page that can still announce things.'}
-        </h2>
-        <p className="text-muted-foreground max-w-lg text-sm">
-          Drag the clock to watch promotions open and close on schedule. Switch
-          pages to see targeting, and devices to see each surface adapt.
-        </p>
+        <div className="flex flex-col items-start gap-4">
+          <PromoPill slot="announcement" />
+          <h2
+            className={cn(
+              'max-w-xl font-medium tracking-tight text-balance',
+              phone ? 'text-2xl' : 'text-3xl',
+            )}
+          >
+            {page.heading}
+          </h2>
+          <p className="text-muted-foreground max-w-lg text-sm">{page.lede}</p>
+        </div>
         <PromoCard slot="hero" dismissible className="max-w-2xl" />
+
+        {page.kind === 'cart' ? (
+          <div className="border-border/60 flex max-w-md flex-col gap-4 rounded-xl border p-4">
+            <PromoProgress
+              value={cart}
+              goal={50}
+              reward="free shipping"
+              format={(n) => money.format(n)}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCart((c) => c + 9)}
+              >
+                Add socks · {money.format(9)}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setCart(scenario.cartStart ?? 0)}
+              >
+                Empty cart
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {page.kind === 'product' ? (
+          <div
+            ref={pricing}
+            className="border-border/60 flex max-w-md flex-col gap-2 rounded-xl border p-4"
+          >
+            <p className="font-medium">{page.priceTitle}</p>
+            <p className="text-muted-foreground text-sm">{page.priceNote}</p>
+            <p className="text-2xl font-medium tabular-nums">{page.price}</p>
+            <Button className="self-start">Enrol</Button>
+          </div>
+        ) : null}
+
         <div className={cn('grid gap-3', !phone && 'grid-cols-3')}>
-          {['Prelims', 'Mains', 'Interview'].map((name) => (
-            <div key={name} className="border-border/60 rounded-xl border p-4">
-              <p className="font-medium">{name}</p>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Weekly classes, notes and a doubt hour.
-              </p>
+          {scenario.tiles.map((tile) => (
+            <div
+              key={tile.title}
+              className="border-border/60 rounded-xl border p-4"
+            >
+              <p className="font-medium">{tile.title}</p>
+              <p className="text-muted-foreground mt-1 text-sm">{tile.body}</p>
             </div>
           ))}
         </div>
-        <div className="bg-muted/40 h-64 rounded-xl" aria-hidden />
+        <div className="bg-muted/40 h-72 rounded-xl" aria-hidden />
+        <div className="bg-muted/40 h-72 rounded-xl" aria-hidden />
       </main>
+      {page.kind === 'product' ? (
+        <PromoStickyCta
+          slot="sticky"
+          watch={pricing}
+          root={scroller}
+          mobileOnly={false}
+        />
+      ) : null}
     </>
   )
 }
 
 export function PromotionsDemo() {
   const [base] = React.useState(() => Math.floor(Date.now() / HOUR) * HOUR)
-  const [records, setRecords] = React.useState<Promotion[]>(() => seed(base))
-  const [pathname, setPathname] = React.useState<string>('/courses')
+  const [scenarioId, setScenarioId] = React.useState<ScenarioId>('launch')
+  const scenario = SCENARIOS[scenarioId]
+  const [records, setRecords] = React.useState<Promotion[]>(() =>
+    scenario.seed(base),
+  )
+  const [pathname, setPathname] = React.useState<string>(scenario.startPath)
   const [offsetHours, setOffsetHours] = React.useState(0)
   const [device, setDevice] = React.useState<Device>('wide')
+  const [lang, setLang] = React.useState<PromotionLabelLocale>('en')
+  const [budget, setBudget] = React.useState(true)
+  const [exit, setExit] = React.useState(false)
   const [events, setEvents] = React.useState<
     (PromotionEvent & { seq: number })[]
   >([])
   const seq = React.useRef(0)
   const [view, setView] = React.useState<'site' | 'editor'>('site')
-  const [store] = React.useState(memoryStore)
+  const [store, setStore] = React.useState(memoryDismissalStore)
   const [resetKey, setResetKey] = React.useState(0)
   const [frame, setFrame] = React.useState<HTMLDivElement | null>(null)
+  const [scroller, setScroller] = React.useState<HTMLDivElement | null>(null)
 
   const now = React.useCallback(
     () => base + offsetHours * HOUR,
@@ -308,11 +318,33 @@ export function PromotionsDemo() {
   const onEvent = React.useCallback(
     (event: PromotionEvent) =>
       setEvents((previous) =>
-        [{ ...event, seq: ++seq.current }, ...previous].slice(0, 10),
+        [{ ...event, seq: ++seq.current }, ...previous].slice(0, 12),
       ),
     [],
   )
-  const clock = new Intl.DateTimeFormat(undefined, {
+  const navigate = React.useCallback(
+    (href: string) => {
+      setPathname(href)
+      scroller?.scrollTo({ top: 0 })
+    },
+    [scroller],
+  )
+  const DemoLink = useDemoLink(navigate)
+
+  const resetVisitor = () => {
+    setStore(memoryDismissalStore())
+    setEvents([])
+    setResetKey((k) => k + 1)
+  }
+  const pickScenario = (id: ScenarioId) => {
+    setScenarioId(id)
+    setRecords(SCENARIOS[id].seed(base))
+    setPathname(SCENARIOS[id].startPath)
+    setOffsetHours(0)
+    resetVisitor()
+  }
+
+  const clock = new Intl.DateTimeFormat(lang, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -320,6 +352,7 @@ export function PromotionsDemo() {
   }).format(now())
   const spec = DEVICES[device]
   const phone = device === 'phone'
+  const rtl = isRightToLeft(lang)
 
   return (
     <div className="flex w-full max-w-5xl flex-col gap-6 px-4 pb-16">
@@ -336,48 +369,27 @@ export function PromotionsDemo() {
           <ToggleGroupItem value="site">Live site</ToggleGroupItem>
           <ToggleGroupItem value="editor">Editor</ToggleGroupItem>
         </ToggleGroup>
-        {view === 'site' ? (
-          <div className="flex items-center gap-2">
-            <ToggleGroup
-              aria-label="Device"
-              value={[device]}
-              onValueChange={(value) => {
-                if (value[0]) setDevice(value[0] as Device)
-              }}
-              variant="outline"
-              size="sm"
-            >
-              {(Object.keys(DEVICES) as Device[]).map((key) => {
-                const Icon = DEVICES[key].icon
-                return (
-                  <ToggleGroupItem
-                    key={key}
-                    value={key}
-                    aria-label={DEVICES[key].label}
-                  >
-                    <Icon aria-hidden />
-                  </ToggleGroupItem>
-                )
-              })}
-            </ToggleGroup>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                store.clear()
-                setEvents([])
-                setResetKey((k) => k + 1)
-              }}
-            >
-              Reset visitor
-            </Button>
-          </div>
-        ) : null}
+        <ToggleGroup
+          aria-label="Scenario"
+          value={[scenarioId]}
+          onValueChange={(value) => {
+            if (value[0]) pickScenario(value[0] as ScenarioId)
+          }}
+          variant="outline"
+          size="sm"
+          className="flex-wrap"
+        >
+          {(Object.keys(SCENARIOS) as ScenarioId[]).map((id) => (
+            <ToggleGroupItem key={id} value={id}>
+              {SCENARIOS[id].label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       </div>
 
       {view === 'site' ? (
         <PromotionProvider
-          key={resetKey}
+          key={`${scenarioId}-${resetKey}`}
           source={records}
           pathname={pathname}
           now={now}
@@ -386,23 +398,27 @@ export function PromotionsDemo() {
           suppressOn={['/checkout']}
           dialogEngagement={{ delayMs: 2500, scrollDepth: 0 }}
           toastEngagement={{ delayMs: 1200, scrollDepth: 0 }}
+          floatingBudgetHours={budget ? 24 : 0}
+          plugins={exit ? EXIT_INTENT : NO_PLUGINS}
+          labels={promotionLabels[lang]}
+          locale={lang}
           onEvent={onEvent}
           linkComponent={DemoLink}
         >
-          <div className="border-border/60 grid gap-4 rounded-xl border p-4 sm:grid-cols-[1.4fr_1fr]">
+          <div className="border-border/60 grid gap-4 rounded-xl border p-4 md:grid-cols-[1.3fr_1fr]">
             <div className="flex flex-col gap-2">
               <Label>Page</Label>
               <ToggleGroup
                 aria-label="Page"
                 value={[pathname]}
                 onValueChange={(value) => {
-                  if (value[0]) setPathname(value[0])
+                  if (value[0]) navigate(value[0])
                 }}
                 variant="outline"
                 size="sm"
                 className="flex-wrap"
               >
-                {PAGES.map((page) => (
+                {scenario.pages.map((page) => (
                   <ToggleGroupItem key={page.value} value={page.value}>
                     {page.label}
                   </ToggleGroupItem>
@@ -410,42 +426,125 @@ export function PromotionsDemo() {
               </ToggleGroup>
               <Triggers />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label id="promo-demo-clock">Clock · {clock}</Label>
-              <Slider
-                aria-labelledby="promo-demo-clock"
-                min={-48}
-                max={24 * 12}
-                step={6}
-                value={[offsetHours]}
-                onValueChange={(value) =>
-                  setOffsetHours(Array.isArray(value) ? (value[0] ?? 0) : value)
-                }
-                className="mt-2 w-full"
-              />
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
+                <Label id="promo-demo-clock">Clock · {clock}</Label>
+                <Slider
+                  aria-labelledby="promo-demo-clock"
+                  min={-48}
+                  max={24 * 12}
+                  step={6}
+                  value={[offsetHours]}
+                  onValueChange={(value) =>
+                    setOffsetHours(
+                      Array.isArray(value) ? (value[0] ?? 0) : value,
+                    )
+                  }
+                  className="mt-1 w-full"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <ToggleGroup
+                  aria-label="Device"
+                  value={[device]}
+                  onValueChange={(value) => {
+                    if (value[0]) setDevice(value[0] as Device)
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  {(Object.keys(DEVICES) as Device[]).map((key) => {
+                    const Icon = DEVICES[key].icon
+                    return (
+                      <ToggleGroupItem
+                        key={key}
+                        value={key}
+                        aria-label={DEVICES[key].label}
+                      >
+                        <Icon aria-hidden />
+                      </ToggleGroupItem>
+                    )
+                  })}
+                </ToggleGroup>
+                <ToggleGroup
+                  aria-label="Language"
+                  value={[lang]}
+                  onValueChange={(value) => {
+                    if (value[0]) setLang(value[0] as PromotionLabelLocale)
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  {LANGUAGES.map((l) => (
+                    <ToggleGroupItem
+                      key={l.value}
+                      value={l.value}
+                      lang={l.value}
+                      aria-label={l.name}
+                    >
+                      {l.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant={budget ? 'secondary' : 'ghost'}
+                  aria-pressed={budget}
+                  onClick={() => setBudget((b) => !b)}
+                >
+                  Daily budget {budget ? 'on' : 'off'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={exit ? 'secondary' : 'ghost'}
+                  aria-pressed={exit}
+                  onClick={() => setExit((e) => !e)}
+                >
+                  Exit intent {exit ? 'on' : 'off'}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={resetVisitor}>
+                  Reset visitor
+                </Button>
+              </div>
             </div>
           </div>
 
           {/*
-            The frame is a stand-in viewport: `transform` makes it the
-            containing block for the fixed toast and floating bar, and the
-            dialog portals into it, so every surface lands where it would on
-            a real screen of this size.
+            A stand-in viewport: `transform` makes it the containing block for
+            the fixed surfaces, and the dialogs portal into it.
           */}
           <div className="flex justify-center">
             <div
               ref={setFrame}
-              data-device={device}
+              dir={rtl ? 'rtl' : 'ltr'}
+              lang={lang}
               style={{ width: spec.width, height: spec.height }}
               className={cn(
                 'border-border bg-background relative max-w-full transform-gpu overflow-hidden border shadow-sm transition-[width] duration-300 ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none',
                 phone ? 'rounded-[2rem] border-4' : 'rounded-xl',
               )}
             >
-              <div className="h-full overflow-y-auto overscroll-contain">
-                <MockSite pathname={pathname} phone={phone} />
+              <div
+                ref={setScroller}
+                className="h-full overflow-y-auto overscroll-contain"
+              >
+                <MockSite
+                  key={scenarioId}
+                  scenario={scenario}
+                  pathname={pathname}
+                  phone={phone}
+                  scroller={scroller}
+                  navigate={navigate}
+                />
               </div>
               <PromoToast />
+              <PromoSheet
+                layout={phone ? 'bottom' : 'side'}
+                container={frame}
+                dir={rtl ? 'rtl' : 'ltr'}
+              />
               <PromoDialog
                 layout={phone ? 'sheet' : 'dialog'}
                 container={frame}
@@ -453,7 +552,7 @@ export function PromotionsDemo() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             <section className="border-border/60 rounded-xl border p-4 text-sm">
               <h3 className="mb-2 font-medium">Records</h3>
               <ul className="grid min-w-0 gap-1.5">
@@ -464,7 +563,9 @@ export function PromotionsDemo() {
                   >
                     <span className="min-w-0 truncate">{record.title}</span>
                     <span className="text-muted-foreground shrink-0 font-mono text-xs">
-                      {record.placement} · {deliveryState(record, now())}
+                      {record.placement}
+                      {record.slot ? `:${record.slot}` : ''} ·{' '}
+                      {deliveryState(record, now())}
                     </span>
                   </li>
                 ))}
@@ -474,28 +575,55 @@ export function PromotionsDemo() {
               <h3 className="mb-2 font-medium">Events</h3>
               {events.length === 0 ? (
                 <p className="text-muted-foreground">
-                  Impressions, clicks, copies and dismissals appear here.
+                  Impressions, clicks, copies, reveals and dismissals appear
+                  here.
                 </p>
               ) : (
                 <ul className="grid gap-1 font-mono text-xs">
                   {events.map((event) => (
                     <li key={event.seq} className="truncate">
-                      {event.type} · {event.id} · {event.placement} ·{' '}
-                      {event.pathname}
+                      {event.type} · {event.id} · {event.pathname}
                     </li>
                   ))}
                 </ul>
               )}
             </section>
           </div>
+
+          <section className="border-border/60 flex flex-col gap-2 rounded-xl border p-4 text-sm">
+            <h3 className="font-medium">Use it</h3>
+            <pre className="bg-muted/50 overflow-x-auto rounded-lg p-3 font-mono text-xs leading-relaxed">
+              {`npx shadcn@latest add @kitsu/promotions
+
+<PromotionProvider
+  source={promotions}
+  pathname={usePathname()}
+  locale="${lang}"
+  labels={promotionLabels.${lang}}
+  plugins={[${exit ? 'exitIntent()' : ''}]}
+  suppressOn={['/checkout']}
+  onEvent={track}
+>
+  <PromoBar />
+  {children}
+  <PromoToast />
+  <PromoSheet />
+  <PromoDialog />
+</PromotionProvider>`}
+            </pre>
+          </section>
         </PromotionProvider>
       ) : (
         <PromotionEditor
-          routes={EDITOR_ROUTES}
-          targets={TARGETS}
-          slots={[{ value: 'hero', label: 'Home hero' }]}
+          routes={scenario.pages.map(({ value, label }) => ({ value, label }))}
+          targets={scenario.targets}
+          slots={[
+            { value: 'hero', label: 'Hero card' },
+            { value: 'announcement', label: 'Announcement pill' },
+            { value: 'sticky', label: 'Sticky CTA' },
+          ]}
           others={records}
-          timeZone="Asia/Kolkata"
+          timeZone="Europe/Paris"
           submitLabel="Publish to the demo"
           onSubmit={(content) => {
             setRecords((previous) => [

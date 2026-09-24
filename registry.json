@@ -433,7 +433,7 @@
       "name": "promotion-provider",
       "type": "registry:component",
       "title": "Promotion provider",
-      "description": "Loads and sanitises promotions, keeps time to the exact start and end, applies dismissal, once-per-visit and one-floating-surface rules, waits for engagement without interrupting, and reports impressions, clicks, copies and dismissals.",
+      "description": "Loads and sanitises promotions, keeps time to the exact start and end, routes dismissals to per-scope stores, applies frequency windows and a daily interruption budget, waits for engagement without interrupting, runs plugins such as exit intent, and reports impressions, clicks, copies, reveals and dismissals.",
       "dependencies": ["@tabler/icons-react", "motion"],
       "registryDependencies": [
         "https://kitsu-lab.vercel.app/r/promotion.json",
@@ -447,9 +447,17 @@
         {
           "path": "components/promotions/promotion-views.tsx",
           "type": "registry:component"
+        },
+        {
+          "path": "components/promotions/promotion-stores.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/promotion-plugins.ts",
+          "type": "registry:lib"
         }
       ],
-      "docs": "Pass your router's pathname and, for client-side navigation, your Link as `linkComponent`. A `{ load }` source runs once per mount; change `sourceKey` to reload. Translate every string with `labels`. Set `--promo-highlight` and `--promo-highlight-foreground` to theme the highlight tone."
+      "docs": "Pass your router's pathname and, for client-side navigation, your Link as `linkComponent`. A `{ load }` source runs once per mount; change `sourceKey` to reload. Add behaviour with `plugins={[exitIntent()]}` (keep the array stable). Route dismissals with `storage={composeStores({ cookie: cookieDismissalStore(), account })}`. Set `locale` to pick record translations and pass a `labels` pack. Theme the highlight tone with `--promo-highlight` and `--promo-highlight-foreground`."
     },
     {
       "name": "promo-bar",
@@ -531,6 +539,84 @@
       "dependencies": ["@base-ui/react", "@tabler/icons-react"]
     },
     {
+      "name": "promotion-labels",
+      "type": "registry:lib",
+      "title": "Promotion labels",
+      "description": "Label packs for English, French, German, Japanese, Hindi and Arabic, with countdowns from Intl.RelativeTimeFormat, plus createPromotionLabels for your own languages.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-labels.ts",
+          "type": "registry:lib"
+        }
+      ]
+    },
+    {
+      "name": "promo-pill",
+      "type": "registry:component",
+      "title": "Promo pill",
+      "description": "The “New: … →” announcement pill above a hero, filled from a card slot. In the page flow; never interrupts.",
+      "dependencies": ["@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-pill.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-sheet",
+      "type": "registry:component",
+      "title": "Promo offer sheet",
+      "description": "An edge tab that opens an offer sheet from its side (a bottom sheet on phones) with a revealable code and an apply link. Opens only when asked.",
+      "dependencies": ["@base-ui/react", "@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "button"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-sheet.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the swipeable Drawer."
+    },
+    {
+      "name": "promo-progress",
+      "type": "registry:component",
+      "title": "Promo progress",
+      "description": "Progress towards a reward, such as free shipping. Standalone: pass the value, goal and reward.",
+      "dependencies": ["@tabler/icons-react"],
+      "files": [
+        {
+          "path": "components/promotions/promo-progress.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-sticky-cta",
+      "type": "registry:component",
+      "title": "Promo sticky CTA",
+      "description": "A thumb-zone bar that appears once the element you watch (usually pricing) has scrolled away, and hides when it returns.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "button"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-sticky-cta.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
       "name": "promotion-editor",
       "type": "registry:block",
       "title": "Promotion editor",
@@ -556,14 +642,19 @@
       "name": "promotions",
       "type": "registry:block",
       "title": "Promotions",
-      "description": "The full promotion system: core, provider, bar, card, toast, badge, dialog and editor.",
+      "description": "The full promotion system: core, provider, stores, plugins, label packs, bar, card, pill, toast, badge, offer sheet, progress, sticky CTA, dialog and editor.",
       "registryDependencies": [
         "https://kitsu-lab.vercel.app/r/promotion.json",
         "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "https://kitsu-lab.vercel.app/r/promotion-labels.json",
         "https://kitsu-lab.vercel.app/r/promo-bar.json",
         "https://kitsu-lab.vercel.app/r/promo-card.json",
+        "https://kitsu-lab.vercel.app/r/promo-pill.json",
         "https://kitsu-lab.vercel.app/r/promo-toast.json",
         "https://kitsu-lab.vercel.app/r/promo-badge.json",
+        "https://kitsu-lab.vercel.app/r/promo-sheet.json",
+        "https://kitsu-lab.vercel.app/r/promo-progress.json",
+        "https://kitsu-lab.vercel.app/r/promo-sticky-cta.json",
         "https://kitsu-lab.vercel.app/r/promo-dialog.json",
         "https://kitsu-lab.vercel.app/r/promotion-editor.json"
       ],

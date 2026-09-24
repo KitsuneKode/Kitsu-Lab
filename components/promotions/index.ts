@@ -1,14 +1,15 @@
 export * from './promotion'
+export * from './promotion-stores'
+export * from './promotion-plugins'
+export * from './promotion-labels'
 export {
   PromotionProvider,
-  browserDismissalStore,
   defaultPromotionLabels,
   moveFocusPast,
   useImpression,
   usePromotionLabels,
   usePromotions,
   visitorIsBusy,
-  type DismissalStore,
   type PromotionEngagement,
   type PromotionEvent,
   type PromotionLabels,
@@ -31,3 +32,7 @@ export { PromoBar } from './promo-bar'
 export { PromoCard } from './promo-card'
 export { PromoDialog } from './promo-dialog'
 export { PromoToast } from './promo-toast'
+export { PromoPill } from './promo-pill'
+export { PromoProgress } from './promo-progress'
+export { PromoSheet } from './promo-sheet'
+export { PromoStickyCta } from './promo-sticky-cta'

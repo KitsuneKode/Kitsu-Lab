@@ -99,6 +99,7 @@ const PLACEMENT_LABELS: Record<PromotionPlacement, string> = {
   bar: 'Announcement bar',
   card: 'Inline card',
   toast: 'Toast',
+  sheet: 'Offer sheet',
   dialog: 'Dialog',
 }
 
@@ -106,6 +107,7 @@ const PLACEMENT_HINTS: Record<PromotionPlacement, string> = {
   bar: 'A strip above the header. Quiet, seen by everyone.',
   card: 'Sits inside a page slot you name. Never interrupts.',
   toast: 'A small card in the corner after a few seconds. Folds to a chip.',
+  sheet: 'Waits behind a tab on the screen edge; opens only when asked.',
   dialog: 'Interrupts once per visit, after engagement. Use sparingly.',
 }
 

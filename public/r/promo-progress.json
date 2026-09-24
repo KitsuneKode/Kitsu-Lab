@@ -1,0 +1,17 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "promo-progress",
+  "title": "Promo progress",
+  "description": "Progress towards a reward, such as free shipping. Standalone: pass the value, goal and reward.",
+  "dependencies": [
+    "@tabler/icons-react"
+  ],
+  "files": [
+    {
+      "path": "components/promotions/promo-progress.tsx",
+      "content": "'use client'\n\nimport * as React from 'react'\nimport { IconCheck } from '@tabler/icons-react'\nimport { cn } from '@/lib/utils'\n\n/**\n * \"€16 away from free shipping\". Progress towards a reward the visitor\n * already wants, so it helps rather than interrupts. It needs no provider:\n * the host passes the current value (a cart total, lessons completed) and the\n * goal, and decides what the reward is.\n *\n * The fill animates with `scaleX` (transform only) on a strong ease-out.\n * The text is a polite live region, so a screen reader hears the change once\n * the cart updates, not on every render.\n */\nexport function PromoProgress({\n  value,\n  goal,\n  reward,\n  format = (n) => String(n),\n  remaining = (left, rewardText) => (\n    <>\n      You’re <b className=\"font-semibold tabular-nums\">{left}</b> away from{' '}\n      {rewardText}\n    </>\n  ),\n  reached = (rewardText) => (\n    <>\n      You’ve unlocked <b className=\"font-semibold\">{rewardText}</b>\n    </>\n  ),\n  className,\n}: {\n  value: number\n  goal: number\n  /** e.g. \"free shipping\", \"a free notebook\". */\n  reward: string\n  /** Formats amounts, e.g. `(n) => euro.format(n)`. */\n  format?: (n: number) => string\n  remaining?: (left: string, reward: string) => React.ReactNode\n  reached?: (reward: string) => React.ReactNode\n  className?: string\n}) {\n  const safeGoal = goal > 0 ? goal : 1\n  const ratio = Math.min(1, Math.max(0, value / safeGoal))\n  const done = ratio >= 1\n  const left = Math.max(0, safeGoal - value)\n  return (\n    <div\n      data-slot=\"promo-progress\"\n      data-state={done ? 'reached' : 'progress'}\n      className={cn('flex flex-col gap-2 text-sm', className)}\n    >\n      <p aria-live=\"polite\" className=\"flex items-center gap-1.5\">\n        {done ? (\n          <IconCheck\n            aria-hidden\n            className=\"size-4 text-emerald-600 dark:text-emerald-400\"\n          />\n        ) : null}\n        <span>{done ? reached(reward) : remaining(format(left), reward)}</span>\n      </p>\n      <div\n        role=\"progressbar\"\n        aria-label={reward}\n        aria-valuemin={0}\n        aria-valuemax={safeGoal}\n        aria-valuenow={Math.min(value, safeGoal)}\n        aria-valuetext={done ? reward : format(left)}\n        className=\"bg-muted h-2 overflow-hidden rounded-full forced-colors:border\"\n      >\n        <div\n          className={cn(\n            'h-full origin-left rounded-full transition-[transform,background-color] duration-400 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none rtl:origin-right',\n            done ? 'bg-emerald-600 dark:bg-emerald-400' : 'bg-primary',\n          )}\n          style={{ transform: `scaleX(${ratio})` }}\n        />\n      </div>\n    </div>\n  )\n}\n",
+      "type": "registry:component"
+    }
+  ],
+  "type": "registry:component"
+}

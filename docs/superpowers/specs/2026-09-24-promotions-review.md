@@ -128,18 +128,7 @@ sheet, and a minimised toast is a 36px chip, not a banner.
    buttons, spotlight borders and animated beams on promotions; they read as
    ads.
 
-## Open questions for the owner
+## Decisions
 
-1. Should a **toast and a bar coexist** on the same page when the toast has
-   the higher priority (current rule), or is one floating surface plus a bar
-   too much for ICT?
-2. **Once per visit** for dialogs: is a _visit_ a browser session (current),
-   or a fixed window such as 24 hours?
-3. Is **exit intent** acceptable for your brand? It is off by default.
-4. Do you want **`code` copy events** fed to analytics as conversions, or
-   kept separate from clicks (current)?
-5. **Server dismissals:** are visitors signed in often enough that
-   dismissals should follow the account (a custom `DismissalStore`) rather
-   than the browser?
-6. **Languages:** English only, or do we ship Assamese and Hindi `labels`
-   presets in the registry?
+The open questions from this review were settled on 24 September; see
+`2026-09-24-promotions-v3.md` for what each decision became.

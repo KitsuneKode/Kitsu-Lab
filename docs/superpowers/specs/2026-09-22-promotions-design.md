@@ -2,7 +2,7 @@
 
 **Date:** 22 September 2026
 **Status:** Draft for implementation
-**First consumer:** Impact Career Tutorials (ICT) site, installed via `@kitsu/*`
+**Audience:** any Next.js + shadcn site, installed via `@kitsu/*`. Client-specific needs live in the client's repo as an add-on (see `2026-09-24-promotions-v3.md`).
 **Also in this change:** an `image` page kind for `BookPreview` (last section)
 
 ## Objective
@@ -82,7 +82,7 @@ Validation (`parsePromotion`) is pure and host-configurable:
 
 ```ts
 parsePromotion(input, {
-  isAllowedHref?: (href: string) => boolean   // e.g. internal routes + one WhatsApp intent
+  isAllowedHref?: (href: string) => boolean   // e.g. internal routes + one messaging deep link
   isAllowedRoute?: (pattern: string) => boolean
   maxWindowDays?: number                      // default 365
 })

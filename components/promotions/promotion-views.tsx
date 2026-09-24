@@ -39,7 +39,7 @@ export const promotionToneClasses: Record<PromotionTone, string> = {
   neutral: 'bg-muted text-foreground',
   brand: 'bg-primary text-primary-foreground',
   highlight:
-    'bg-[var(--promo-highlight,var(--accent))] text-[var(--promo-highlight-foreground,var(--accent-foreground))]',
+    'bg-[var(--promo-highlight,color-mix(in_oklch,var(--primary)_12%,var(--background)))] text-[var(--promo-highlight-foreground,var(--foreground))]',
 }
 
 /** Strong ease-out: starts fast, so an entrance feels like a response. */
@@ -165,15 +165,22 @@ async function writeClipboard(text: string): Promise<boolean> {
 export function PromoCode({
   code,
   onCopy,
+  reveal = false,
+  onReveal,
   className,
 }: {
   code: string
   onCopy?: () => void
+  /** Start hidden behind a "Reveal code" button. */
+  reveal?: boolean
+  onReveal?: () => void
   className?: string
 }) {
   const labels = usePromotionLabels()
   const reduce = useReducedMotion()
   const [copied, setCopied] = React.useState(false)
+  const [revealed, setRevealed] = React.useState(!reveal)
+  const revealRef = React.useRef<HTMLButtonElement>(null)
   React.useEffect(() => {
     if (!copied) return
     const timer = window.setTimeout(() => setCopied(false), 1600)
@@ -183,6 +190,33 @@ export function PromoCode({
   const hidden = reduce
     ? { opacity: 0 }
     : { opacity: 0, scale: 0.8, filter: 'blur(2px)' }
+
+  if (!revealed) {
+    return (
+      <span className={cn('inline-flex items-center gap-2 text-sm', className)}>
+        <span
+          aria-hidden
+          className="rounded-lg border border-dashed border-current/35 px-2 py-0.5 font-mono font-medium tracking-wider opacity-60 blur-[5px] select-none"
+        >
+          {code.replace(/./g, '•')}
+        </span>
+        <Button
+          ref={revealRef}
+          type="button"
+          size="sm"
+          variant="outline"
+          className="border-current/25 bg-transparent text-current hover:bg-current/10 hover:text-current"
+          onClick={() => {
+            setRevealed(true)
+            onReveal?.()
+          }}
+        >
+          {labels.reveal}
+        </Button>
+      </span>
+    )
+  }
+
   return (
     <span
       className={cn(
@@ -190,7 +224,13 @@ export function PromoCode({
         className,
       )}
     >
-      <span className="font-mono font-medium tracking-wider select-all">
+      <span
+        className={cn(
+          'font-mono font-medium tracking-wider select-all',
+          reveal &&
+            'animate-in duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] fade-in-0 motion-reduce:animate-none',
+        )}
+      >
         {code}
       </span>
       <button
@@ -309,7 +349,11 @@ export function PromoBarView({
           ) : null}
           <Countdown promotion={promotion} now={now} />
           {promotion.code ? (
-            <PromoCode code={promotion.code} onCopy={onCopy} />
+            <PromoCode
+              code={promotion.code}
+              reveal={promotion.revealCode}
+              onCopy={onCopy}
+            />
           ) : null}
           <CtaLink
             promotion={promotion}
@@ -395,7 +439,11 @@ export function PromoCardView({
           {promotion.code || promotion.cta ? (
             <div className="mt-1 flex flex-wrap items-center gap-3">
               {promotion.code ? (
-                <PromoCode code={promotion.code} onCopy={onCopy} />
+                <PromoCode
+                  code={promotion.code}
+                  reveal={promotion.revealCode}
+                  onCopy={onCopy}
+                />
               ) : null}
               <CtaLink
                 promotion={promotion}
@@ -480,7 +528,11 @@ export function PromoToastView({
         {promotion.code || promotion.cta ? (
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             {promotion.code ? (
-              <PromoCode code={promotion.code} onCopy={onCopy} />
+              <PromoCode
+                code={promotion.code}
+                reveal={promotion.revealCode}
+                onCopy={onCopy}
+              />
             ) : null}
             {promotion.cta ? (
               <Button
@@ -572,6 +624,7 @@ export function PromoDialogContentView({
         {promotion.code ? (
           <PromoCode
             code={promotion.code}
+            reveal={promotion.revealCode}
             onCopy={onCopy}
             className="mt-2 self-start"
           />

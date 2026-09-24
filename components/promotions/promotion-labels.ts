@@ -15,6 +15,8 @@ type Words = {
   reveal: string
   openOffer: string
   hideOffer: string
+  inboxCount: (count: number) => string
+  inboxHidden: string
 }
 
 /**
@@ -54,6 +56,8 @@ export const promotionLabels = {
     reveal: 'Reveal code',
     openOffer: 'Open offer',
     hideOffer: 'Hide this offer',
+    inboxCount: (n) => `${n} offer${n === 1 ? '' : 's'}`,
+    inboxHidden: 'Hidden',
   }),
   fr: createPromotionLabels('fr', {
     announcement: 'Annonce',
@@ -69,6 +73,8 @@ export const promotionLabels = {
     reveal: 'Afficher le code',
     openOffer: 'Voir l’offre',
     hideOffer: 'Masquer cette offre',
+    inboxCount: (n) => `${n} offre${n > 1 ? 's' : ''}`,
+    inboxHidden: 'Masquée',
   }),
   de: createPromotionLabels('de', {
     announcement: 'Ankündigung',
@@ -84,6 +90,8 @@ export const promotionLabels = {
     reveal: 'Code anzeigen',
     openOffer: 'Angebot öffnen',
     hideOffer: 'Angebot ausblenden',
+    inboxCount: (n) => `${n} Angebot${n === 1 ? '' : 'e'}`,
+    inboxHidden: 'Ausgeblendet',
   }),
   ja: createPromotionLabels('ja', {
     announcement: 'お知らせ',
@@ -99,6 +107,8 @@ export const promotionLabels = {
     reveal: 'コードを表示',
     openOffer: 'オファーを開く',
     hideOffer: 'このオファーを非表示',
+    inboxCount: (n) => `${n}件のオファー`,
+    inboxHidden: '非表示',
   }),
   hi: createPromotionLabels('hi', {
     announcement: 'घोषणा',
@@ -114,6 +124,8 @@ export const promotionLabels = {
     reveal: 'कोड दिखाएँ',
     openOffer: 'ऑफ़र खोलें',
     hideOffer: 'यह ऑफ़र छिपाएँ',
+    inboxCount: (n) => `${n} ऑफ़र`,
+    inboxHidden: 'छिपाया गया',
   }),
   ar: createPromotionLabels('ar', {
     announcement: 'إعلان',
@@ -129,6 +141,8 @@ export const promotionLabels = {
     reveal: 'إظهار الرمز',
     openOffer: 'فتح العرض',
     hideOffer: 'إخفاء هذا العرض',
+    inboxCount: (n) => (n === 1 ? 'عرض واحد' : n === 2 ? 'عرضان' : `${n} عروض`),
+    inboxHidden: 'مخفي',
   }),
 } satisfies Record<string, PromotionLabels>
 

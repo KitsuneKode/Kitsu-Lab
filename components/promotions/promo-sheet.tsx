@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
 import { usePromotions } from './promotion-provider'
+import { PromoGallery } from './promo-gallery'
 import { PromoCode } from './promotion-views'
 
 const WIDE = '(min-width: 768px)'
@@ -163,15 +164,14 @@ export function PromoSheet({
                     <span className="sr-only">{labels.dismiss}</span>
                   </Drawer.Close>
                 </div>
-                {sheet.media ? (
-                  // oxlint-disable-next-line nextjs/no-img-element
-                  <img
-                    src={sheet.media.src}
-                    alt={sheet.media.alt}
-                    width={sheet.media.width}
-                    height={sheet.media.height}
-                    decoding="async"
-                    className="aspect-[16/9] w-full rounded-lg object-cover"
+                {sheet.gallery?.length || sheet.media ? (
+                  <PromoGallery
+                    images={
+                      sheet.gallery?.length ? sheet.gallery : [sheet.media!]
+                    }
+                    eager
+                    label={sheet.title}
+                    className="rounded-lg"
                   />
                 ) : null}
                 {sheet.body ? (

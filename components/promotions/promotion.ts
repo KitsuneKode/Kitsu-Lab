@@ -84,6 +84,11 @@ export type PromotionContent = {
   title: string
   body?: string
   media?: PromotionMedia
+  /**
+   * Up to GALLERY_MAX images shown as a swipeable carousel on cards, sheets
+   * and dialogs. `media` stays the single image for compact surfaces.
+   */
+  gallery?: PromotionMedia[]
   cta?: PromotionCta
   /** A code the visitor can copy, e.g. `NIGHT20`. Shown with a copy button. */
   code?: string
@@ -129,6 +134,7 @@ export const BODY_MAX = 320
 export const EYEBROW_MAX = 40
 export const CTA_LABEL_MAX = 32
 export const CODE_MAX = 24
+export const GALLERY_MAX = 8
 export const COUNTDOWN_MAX_DAYS = 14
 /** Industry guidance is at most twice a day; we default to once. */
 export const DEFAULT_FREQUENCY_HOURS = 24
@@ -225,6 +231,8 @@ export function formatTimeLeft(endsAt: number, now: number): string | null {
 /* -------------------------------------------------------------------------- */
 
 export type PromotionSelection = {
+  /** Every live, targeted record, best first. For carousels and the inbox. */
+  live: Promotion[]
   bar?: Promotion
   toast?: Promotion
   sheet?: Promotion
@@ -248,10 +256,15 @@ export function selectPromotions(
   promotions: readonly Promotion[],
   { pathname, now }: { pathname: string; now: number },
 ): PromotionSelection {
-  const selection: PromotionSelection = { cards: {} }
-  for (const promotion of promotions) {
-    if (deliveryState(promotion, now) !== 'live') continue
-    if (!targetsRoute(promotion, pathname)) continue
+  const live = promotions
+    .filter(
+      (promotion) =>
+        deliveryState(promotion, now) === 'live' &&
+        targetsRoute(promotion, pathname),
+    )
+    .sort((a, b) => (beats(a, b) ? -1 : 1))
+  const selection: PromotionSelection = { live, cards: {} }
+  for (const promotion of live) {
     if (promotion.placement === 'card') {
       const slot = promotion.slot ?? 'default'
       if (beats(promotion, selection.cards[slot]))
@@ -261,6 +274,46 @@ export function selectPromotions(
     }
   }
   return selection
+}
+
+/** Every live card for a slot, best first: the carousel's slides. */
+export function slotPromotions(
+  selection: Pick<PromotionSelection, 'live'>,
+  slot: string,
+): Promotion[] {
+  return selection.live.filter(
+    (promotion) =>
+      promotion.placement === 'card' && (promotion.slot ?? 'default') === slot,
+  )
+}
+
+/** Two records belong to one campaign only when both name it. */
+export function sharesCampaign(
+  a: Pick<Promotion, 'campaign'> | null | undefined,
+  b: Pick<Promotion, 'campaign'> | null | undefined,
+): boolean {
+  return Boolean(a?.campaign && b?.campaign && a.campaign === b.campaign)
+}
+
+/**
+ * The offers worth listing in an inbox: live records with something to do
+ * (a button or a code), one per campaign, best first. Cards filling layout
+ * slots such as a sticky bar stay out unless they carry a code.
+ */
+export function inboxPromotions(
+  selection: Pick<PromotionSelection, 'live'>,
+): Promotion[] {
+  const seen = new Set<string>()
+  const out: Promotion[] = []
+  for (const promotion of selection.live) {
+    if (!promotion.cta && !promotion.code) continue
+    if (promotion.placement === 'card' && !promotion.code) continue
+    const key = promotion.campaign ?? `id:${promotion.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(promotion)
+  }
+  return out
 }
 
 /* -------------------------------------------------------------------------- */
@@ -349,6 +402,7 @@ export type PromotionField =
   | 'title'
   | 'body'
   | 'media'
+  | 'gallery'
   | 'cta.label'
   | 'cta.href'
   | 'code'
@@ -527,9 +581,8 @@ export function parsePromotion(
     }
   }
 
-  let media: PromotionMedia | undefined
-  if (input.media !== undefined && input.media !== null) {
-    const raw = isRecord(input.media) ? input.media : {}
+  const parseMedia = (value: unknown): PromotionMedia | null => {
+    const raw = isRecord(value) ? value : {}
     const alt = plainText(raw.alt, 160, true)
     if (
       typeof raw.src !== 'string' ||
@@ -537,16 +590,30 @@ export function parsePromotion(
       !alt.ok ||
       !isInt(raw.width, 1, 10_000) ||
       !isInt(raw.height, 1, 10_000)
-    ) {
-      errors.media = 'Images need a source, a description and a size.'
-    } else {
-      media = {
-        src: raw.src,
-        alt: alt.value ?? '',
-        width: raw.width,
-        height: raw.height,
-      }
+    )
+      return null
+    return {
+      src: raw.src,
+      alt: alt.value ?? '',
+      width: raw.width,
+      height: raw.height,
     }
+  }
+
+  let media: PromotionMedia | undefined
+  if (input.media !== undefined && input.media !== null) {
+    media = parseMedia(input.media) ?? undefined
+    if (!media) errors.media = 'Images need a source, a description and a size.'
+  }
+
+  let gallery: PromotionMedia[] | undefined
+  if (input.gallery !== undefined && input.gallery !== null) {
+    const items = Array.isArray(input.gallery)
+      ? input.gallery.map(parseMedia)
+      : [null]
+    if (items.length > GALLERY_MAX || items.some((item) => item === null))
+      errors.gallery = `Up to ${GALLERY_MAX} images, each with a source, a description and a size.`
+    else if (items.length > 0) gallery = items as PromotionMedia[]
   }
 
   let code: string | undefined
@@ -616,6 +683,7 @@ export function parsePromotion(
       title: title.value,
       ...(body.ok && body.value ? { body: body.value } : {}),
       ...(media ? { media } : {}),
+      ...(gallery ? { gallery } : {}),
       ...(cta ? { cta } : {}),
       ...(code ? { code } : {}),
       tone,
@@ -672,6 +740,14 @@ export function isPromotion(value: unknown): value is Promotion {
         typeof value.cta.label === 'string' &&
         typeof value.cta.href === 'string' &&
         defaultIsAllowedHref(value.cta.href))) &&
+    (value.gallery === undefined ||
+      (Array.isArray(value.gallery) &&
+        value.gallery.every(
+          (item) =>
+            isRecord(item) &&
+            typeof item.src === 'string' &&
+            typeof item.alt === 'string',
+        ))) &&
     (value.media === undefined ||
       (isRecord(value.media) &&
         typeof value.media.src === 'string' &&

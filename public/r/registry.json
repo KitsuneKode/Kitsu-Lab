@@ -455,6 +455,10 @@
         {
           "path": "components/promotions/promotion-plugins.ts",
           "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/promo-gallery.tsx",
+          "type": "registry:component"
         }
       ],
       "docs": "Pass your router's pathname and, for client-side navigation, your Link as `linkComponent`. A `{ load }` source runs once per mount; change `sourceKey` to reload. Add behaviour with `plugins={[exitIntent()]}` (keep the array stable). Route dismissals with `storage={composeStores({ cookie: cookieDismissalStore(), account })}`. Set `locale` to pick record translations and pass a `labels` pack. Theme the highlight tone with `--promo-highlight` and `--promo-highlight-foreground`."
@@ -617,6 +621,67 @@
       ]
     },
     {
+      "name": "promo-carousel",
+      "type": "registry:component",
+      "title": "Promo carousel",
+      "description": "Every live card in a slot as a swipeable row with a peeking next card, so several campaigns share one place. Never auto-advances.",
+      "dependencies": ["@tabler/icons-react", "motion"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-carousel.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-inbox",
+      "type": "registry:component",
+      "title": "Promo inbox",
+      "description": "A gift button with a count that lists every live offer on the page, one per campaign, including ones the visitor hid.",
+      "dependencies": ["@base-ui/react", "@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-inbox.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the Popover."
+    },
+    {
+      "name": "promotion-kits",
+      "type": "registry:lib",
+      "title": "Promotion kits",
+      "description": "Ready-made campaigns: storeSaleKit, productLaunchKit and courseEnrolmentKit, each with records in six languages and the provider settings they were designed for.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-kit.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/kit-store-sale.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/kit-product-launch.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/kit-course-enrolment.ts",
+          "type": "registry:lib"
+        }
+      ],
+      "docs": "Kits reference sample images under /promo-samples and /sample-pages; pass `images` with your own."
+    },
+    {
       "name": "promotion-editor",
       "type": "registry:block",
       "title": "Promotion editor",
@@ -642,17 +707,20 @@
       "name": "promotions",
       "type": "registry:block",
       "title": "Promotions",
-      "description": "The full promotion system: core, provider, stores, plugins, label packs, bar, card, pill, toast, badge, offer sheet, progress, sticky CTA, dialog and editor.",
+      "description": "The full promotion system: core, provider, stores, plugins, label packs, kits, and every surface (bar, card, carousel, pill, toast, badge, offer sheet, inbox, progress, sticky CTA, dialog) plus the editor.",
       "registryDependencies": [
         "https://kitsu-lab.vercel.app/r/promotion.json",
         "https://kitsu-lab.vercel.app/r/promotion-provider.json",
         "https://kitsu-lab.vercel.app/r/promotion-labels.json",
+        "https://kitsu-lab.vercel.app/r/promotion-kits.json",
         "https://kitsu-lab.vercel.app/r/promo-bar.json",
         "https://kitsu-lab.vercel.app/r/promo-card.json",
+        "https://kitsu-lab.vercel.app/r/promo-carousel.json",
         "https://kitsu-lab.vercel.app/r/promo-pill.json",
         "https://kitsu-lab.vercel.app/r/promo-toast.json",
         "https://kitsu-lab.vercel.app/r/promo-badge.json",
         "https://kitsu-lab.vercel.app/r/promo-sheet.json",
+        "https://kitsu-lab.vercel.app/r/promo-inbox.json",
         "https://kitsu-lab.vercel.app/r/promo-progress.json",
         "https://kitsu-lab.vercel.app/r/promo-sticky-cta.json",
         "https://kitsu-lab.vercel.app/r/promo-dialog.json",

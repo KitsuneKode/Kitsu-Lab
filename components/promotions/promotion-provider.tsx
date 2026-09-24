@@ -7,7 +7,10 @@ import {
   dismissalKey,
   dismissScope,
   frequencyAllows,
+  inboxPromotions,
   localizePromotion,
+  sharesCampaign,
+  slotPromotions,
   matchRoute,
   nextBoundary,
   sanitizePromotions,
@@ -65,6 +68,8 @@ export type PromotionLabels = {
   reveal: string
   openOffer: string
   hideOffer: string
+  inboxCount: (count: number) => string
+  inboxHidden: string
 }
 
 export const defaultPromotionLabels: PromotionLabels = {
@@ -82,6 +87,8 @@ export const defaultPromotionLabels: PromotionLabels = {
   reveal: 'Reveal code',
   openOffer: 'Open offer',
   hideOffer: 'Hide this offer',
+  inboxCount: (count) => `${count} offer${count === 1 ? '' : 's'}`,
+  inboxHidden: 'Hidden',
 }
 
 /* -------------------------------------------------------------------------- */
@@ -134,6 +141,15 @@ type PromotionContextValue = {
   sheetOpen: boolean
   closeSheet: () => void
   card: (slot: string) => Promotion | null
+  /** Every live card in a slot, best first, for carousels. */
+  cards: (slot: string) => Promotion[]
+  /**
+   * Live offers on this route, one per campaign, including ones the visitor
+   * hid: dismissing stops the interruption, not access to the offer.
+   */
+  inbox: { promotion: Promotion; hidden: boolean }[]
+  inboxOpen: boolean
+  setInboxOpen: (open: boolean) => void
   /** Live promotions on this route whose button points at `href`. */
   pointingAt: (href: string) => Promotion | null
   dismiss: (promotion: Promotion) => void
@@ -469,6 +485,7 @@ export function PromotionProvider({
   const [storageVersion, setStorageVersion] = React.useState(0)
   const [forced, setForced] = React.useState<string | null>(null)
   const [bottomInset, setBottomInset] = React.useState(0)
+  const [inboxOpen, setInboxOpen] = React.useState(false)
   const [openFloating, setOpenFloating] = React.useState<{
     id: string
     pathname: string
@@ -578,7 +595,7 @@ export function PromotionProvider({
   const selection = React.useMemo<PromotionSelection>(
     () =>
       now === null
-        ? { cards: {} }
+        ? { live: [], cards: {} }
         : selectPromotions(records, { pathname, now }),
     [now, pathname, records],
   )
@@ -638,9 +655,13 @@ export function PromotionProvider({
 
   // A floating surface only joins a visible bar when it outranks it. The bar
   // never steps aside: it is in the page flow, and moving it shifts layout.
+  // One campaign, one surface: if the bar already carries this campaign, its
+  // toast or dialog would only repeat it louder.
   const outranksBar = (promotion: Promotion) =>
     !barCandidate ||
-    (allowBarWithFloating && promotion.priority > barCandidate.priority)
+    (allowBarWithFloating &&
+      !sharesCampaign(promotion, barCandidate) &&
+      promotion.priority > barCandidate.priority)
   const engagedBy = (placement: 'toast' | 'dialog', engaged: boolean) =>
     engaged || pluginEngaged[placement] === pathname
   const dialog =
@@ -697,6 +718,17 @@ export function PromotionProvider({
       const candidate = selection.cards[slot]
       return candidate && !isDismissed(candidate) ? candidate : null
     },
+    cards: (slot) =>
+      slotPromotions(selection, slot).filter(
+        (promotion) => !isDismissed(promotion) && allowed(promotion),
+      ),
+    inbox: suppressed
+      ? []
+      : inboxPromotions(selection)
+          .filter(allowed)
+          .map((promotion) => ({ promotion, hidden: isDismissed(promotion) })),
+    inboxOpen,
+    setInboxOpen,
     pointingAt: (href) => {
       if (now === null) return null
       const all = [

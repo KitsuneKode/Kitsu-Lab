@@ -13,6 +13,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
+import { PromoGallery } from './promo-gallery'
 import {
   countdownVisible,
   timeLeft,
@@ -402,17 +403,21 @@ export function PromoCardView({
   className,
 }: ViewProps & { className?: string }) {
   const labels = usePromotionLabels()
-  const media = promotion.media
+  const gallery = promotion.gallery?.length ? promotion.gallery : null
+  const media = gallery ? null : promotion.media
   return (
     <aside
       aria-label={promotion.eyebrow ?? promotion.title}
       className={cn(
-        '@container relative overflow-hidden rounded-xl text-sm ring-1 ring-black/5 forced-colors:border dark:ring-white/10',
+        '@container relative overflow-hidden rounded-[var(--promo-radius,0.75rem)] text-sm ring-1 ring-black/5 forced-colors:border dark:ring-white/10',
         promotionToneClasses[promotion.tone],
         className,
       )}
     >
       <div className={cn('flex flex-col', media && '@md:flex-row')}>
+        {gallery ? (
+          <PromoGallery images={gallery} label={promotion.title} />
+        ) : null}
         {media ? (
           <Media
             media={media}
@@ -428,7 +433,7 @@ export function PromoCardView({
             ) : null}
             <Countdown promotion={promotion} now={now} />
           </div>
-          <p className="text-base leading-snug font-medium text-balance">
+          <p className="[font-family:var(--promo-display,inherit)] text-base leading-snug font-medium text-balance">
             {promotion.title}
           </p>
           {promotion.body ? (
@@ -486,7 +491,7 @@ export function PromoToastView({
   return (
     <div
       className={cn(
-        'relative flex gap-3 rounded-2xl bg-popover p-3 text-sm text-popover-foreground shadow-xl ring-1 shadow-black/10 ring-black/5 forced-colors:border dark:ring-white/10',
+        'relative flex gap-3 rounded-[calc(var(--promo-radius,0.75rem)+0.25rem)] bg-popover p-3 text-sm text-popover-foreground shadow-xl ring-1 shadow-black/10 ring-black/5 forced-colors:border dark:ring-white/10',
         className,
       )}
     >
@@ -517,7 +522,7 @@ export function PromoToastView({
           ) : null}
           <Countdown promotion={promotion} now={now} />
         </div>
-        <p className="leading-snug font-medium text-balance">
+        <p className="[font-family:var(--promo-display,inherit)] leading-snug font-medium text-balance">
           {promotion.title}
         </p>
         {promotion.body ? (
@@ -594,14 +599,19 @@ export function PromoDialogContentView({
   Description = DefaultDescription,
 }: ViewProps & { Title?: TextComponent; Description?: TextComponent }) {
   const labels = usePromotionLabels()
-  const media = promotion.media
+  const images = promotion.gallery?.length
+    ? promotion.gallery
+    : promotion.media
+      ? [promotion.media]
+      : []
   return (
     <div className="flex flex-col gap-4">
-      {media ? (
-        <Media
-          media={media}
+      {images.length ? (
+        <PromoGallery
+          images={images}
           eager
-          className="aspect-[16/9] w-full rounded-lg"
+          label={promotion.title}
+          className="rounded-[calc(var(--promo-radius,0.75rem)-0.25rem)]"
         />
       ) : null}
       <div className="flex flex-col gap-1.5">
@@ -615,7 +625,7 @@ export function PromoDialogContentView({
             <Countdown promotion={promotion} now={now} />
           </span>
         </div>
-        <Title className="text-lg leading-snug text-balance">
+        <Title className="[font-family:var(--promo-display,inherit)] text-lg leading-snug text-balance">
           {promotion.title}
         </Title>
         {promotion.body ? (

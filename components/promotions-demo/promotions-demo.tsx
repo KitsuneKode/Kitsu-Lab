@@ -15,7 +15,8 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   PromoBadge,
   PromoBar,
-  PromoCard,
+  PromoCarousel,
+  PromoInbox,
   PromoDialog,
   PromoPill,
   PromoProgress,
@@ -36,6 +37,7 @@ import {
   type PromotionPlugin,
 } from '@/components/promotions'
 import { PromotionEditor } from '@/components/promotions/promotion-editor'
+import { PromotionsDocs } from './promotions-docs'
 import { SCENARIOS, type Scenario, type ScenarioId } from './scenarios'
 
 const HOUR = 3_600_000
@@ -149,12 +151,14 @@ function MockSite({
   pathname,
   phone,
   scroller,
+  frame,
   navigate,
 }: {
   scenario: Scenario
   pathname: string
   phone: boolean
   scroller: HTMLElement | null
+  frame: HTMLElement | null
   navigate: (href: string) => void
 }) {
   const page =
@@ -179,10 +183,10 @@ function MockSite({
           {scenario.brand}
         </button>
         {phone ? (
-          <IconMenu2
-            aria-hidden
-            className="text-muted-foreground ms-auto size-5"
-          />
+          <div className="ms-auto flex items-center gap-2">
+            <PromoInbox container={frame} />
+            <IconMenu2 aria-hidden className="text-muted-foreground size-5" />
+          </div>
         ) : (
           <nav
             aria-label="Mock site"
@@ -205,6 +209,7 @@ function MockSite({
                 />
               </button>
             ))}
+            <PromoInbox container={frame} />
           </nav>
         )}
       </header>
@@ -221,7 +226,12 @@ function MockSite({
           </h2>
           <p className="text-muted-foreground max-w-lg text-sm">{page.lede}</p>
         </div>
-        <PromoCard slot="hero" dismissible className="max-w-2xl" />
+        <PromoCarousel
+          slot="hero"
+          dismissible
+          label="Offers"
+          className="max-w-2xl"
+        />
 
         {page.kind === 'cart' ? (
           <div className="border-border/60 flex max-w-md flex-col gap-4 rounded-xl border p-4">
@@ -305,7 +315,7 @@ export function PromotionsDemo() {
     (PromotionEvent & { seq: number })[]
   >([])
   const seq = React.useRef(0)
-  const [view, setView] = React.useState<'site' | 'editor'>('site')
+  const [view, setView] = React.useState<'site' | 'editor' | 'docs'>('site')
   const [store, setStore] = React.useState(memoryDismissalStore)
   const [resetKey, setResetKey] = React.useState(0)
   const [frame, setFrame] = React.useState<HTMLDivElement | null>(null)
@@ -361,13 +371,14 @@ export function PromotionsDemo() {
           aria-label="Demo view"
           value={[view]}
           onValueChange={(value) => {
-            if (value[0]) setView(value[0] as 'site' | 'editor')
+            if (value[0]) setView(value[0] as 'site' | 'editor' | 'docs')
           }}
           variant="outline"
           size="sm"
         >
           <ToggleGroupItem value="site">Live site</ToggleGroupItem>
           <ToggleGroupItem value="editor">Editor</ToggleGroupItem>
+          <ToggleGroupItem value="docs">Docs</ToggleGroupItem>
         </ToggleGroup>
         <ToggleGroup
           aria-label="Scenario"
@@ -536,6 +547,7 @@ export function PromotionsDemo() {
                   pathname={pathname}
                   phone={phone}
                   scroller={scroller}
+                  frame={frame}
                   navigate={navigate}
                 />
               </div>
@@ -613,6 +625,8 @@ export function PromotionsDemo() {
             </pre>
           </section>
         </PromotionProvider>
+      ) : view === 'docs' ? (
+        <PromotionsDocs />
       ) : (
         <PromotionEditor
           routes={scenario.pages.map(({ value, label }) => ({ value, label }))}

@@ -4,7 +4,7 @@
   "title": "Book preview - Premier",
   "description": "Flagship reader: flip book, single, spread, and scroll views with page-level search, continuous read-aloud, zoom, and thumbnails for page data or a PDF. Requires the curl engine.",
   "registryDependencies": [
-    "https://lab.kitsunelabs.xyz/r/book-preview-curl.json",
+    "https://kitsulabs.kitsunekode.in/r/book-preview-curl.json",
     "input"
   ],
   "files": [

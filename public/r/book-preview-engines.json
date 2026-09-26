@@ -4,13 +4,13 @@
   "title": "Book preview - all engines",
   "description": "Convenience bundle installing every optional engine. Prefer the individual engines unless you genuinely want all of them.",
   "registryDependencies": [
-    "https://lab.kitsunelabs.xyz/r/book-preview-pdf.json",
-    "https://lab.kitsunelabs.xyz/r/book-preview-curl.json",
-    "https://lab.kitsunelabs.xyz/r/book-preview-archival-curl.json",
-    "https://lab.kitsunelabs.xyz/r/book-preview-premier.json",
-    "https://lab.kitsunelabs.xyz/r/book-preview-scroll.json",
-    "https://lab.kitsunelabs.xyz/r/book-preview-spread.json",
-    "https://lab.kitsunelabs.xyz/r/book-preview-webgl.json"
+    "https://kitsulabs.kitsunekode.in/r/book-preview-pdf.json",
+    "https://kitsulabs.kitsunekode.in/r/book-preview-curl.json",
+    "https://kitsulabs.kitsunekode.in/r/book-preview-archival-curl.json",
+    "https://kitsulabs.kitsunekode.in/r/book-preview-premier.json",
+    "https://kitsulabs.kitsunekode.in/r/book-preview-scroll.json",
+    "https://kitsulabs.kitsunekode.in/r/book-preview-spread.json",
+    "https://kitsulabs.kitsunekode.in/r/book-preview-webgl.json"
   ],
   "files": [
     {

@@ -1,0 +1,1240 @@
+'use client'
+
+import * as React from 'react'
+
+import {
+  dismissalExpiry,
+  dismissalKey,
+  dismissScope,
+  frequencyAllows,
+  inboxPromotions,
+  localizePromotion,
+  assignVariant,
+  audienceAllows,
+  conversionKeys,
+  deliveryState,
+  opensOnItsOwn,
+  sharesCampaign,
+  triggeredBy,
+  slotPromotions,
+  matchRoute,
+  sanitizePromotions,
+  selectPromotions,
+  targetsRoute,
+  type DismissScope,
+  type Promotion,
+  type PromotionPlacement,
+  type PromotionSelection,
+} from './promotion'
+import type { PromotionPlugin } from './promotion-plugins'
+import { browserDismissalStore, type DismissalStore } from './promotion-stores'
+
+export { browserDismissalStore, type DismissalStore }
+
+/* -------------------------------------------------------------------------- */
+/*  Contracts the host provides                                               */
+/* -------------------------------------------------------------------------- */
+
+/** Records the provider chooses from. An array, or anything that can load one. */
+export type PromotionSource =
+  | readonly Promotion[]
+  | { load: (signal: AbortSignal) => Promise<readonly unknown[]> }
+
+export type PromotionEvent = {
+  /**
+   * `convert` comes from the host (a purchase, a sign-up); `apply` from a
+   * code applied in one tap; `holdout` once per page for a visitor kept out
+   * of a record, so its lift can be measured.
+   */
+  type:
+    | 'impression'
+    | 'click'
+    | 'dismiss'
+    | 'copy'
+    | 'reveal'
+    | 'apply'
+    | 'convert'
+    | 'holdout'
+  id: string
+  placement: PromotionPlacement
+  campaign?: string
+  /** The experiment arm this visitor was assigned, when the record has variants. */
+  variant?: string
+  /** The route the visitor was on, so conversions can be attributed per page. */
+  pathname: string
+}
+
+export type PromotionLinkProps = {
+  href: string
+  className?: string
+  children: React.ReactNode
+  onClick?: () => void
+  target?: string
+  rel?: string
+}
+
+/** Every visible string, so a site can translate without forking. */
+export type PromotionLabels = {
+  announcement: string
+  dismiss: string
+  dismissNamed: (title: string) => string
+  notNow: string
+  opensInNewTab: string
+  endsIn: (left: { unit: 'day' | 'hour' | 'minute'; value: number }) => string
+  copyCode: (code: string) => string
+  copied: string
+  /** One-tap apply, shown when the host passes `onApplyCode`. */
+  apply: string
+  applied: string
+  minimize: string
+  restore: (title: string) => string
+  reveal: string
+  openOffer: string
+  hideOffer: string
+  inboxCount: (count: number) => string
+  inboxHidden: string
+  gotIt: string
+  whatsOn: string
+  previous: string
+  next: string
+}
+
+export const defaultPromotionLabels: PromotionLabels = {
+  announcement: 'Announcement',
+  dismiss: 'Dismiss announcement',
+  dismissNamed: (title) => `Dismiss ${title}`,
+  notNow: 'Not now',
+  opensInNewTab: '(opens in a new tab)',
+  endsIn: ({ unit, value }) =>
+    `Ends in ${value} ${unit}${value === 1 ? '' : 's'}`,
+  copyCode: (code) => `Copy code ${code}`,
+  copied: 'Copied',
+  apply: 'Apply',
+  applied: 'Applied',
+  minimize: 'Minimise',
+  restore: (title) => `Show offer: ${title}`,
+  reveal: 'Reveal code',
+  openOffer: 'Open offer',
+  hideOffer: 'Hide this offer',
+  inboxCount: (count) => `${count} offer${count === 1 ? '' : 's'}`,
+  inboxHidden: 'Hidden',
+  gotIt: 'Got it',
+  whatsOn: 'What’s on',
+  previous: 'Previous',
+  next: 'Next',
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Defaults                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/** Plain anchor used when the host passes no `linkComponent`. */
+function DefaultLink({
+  href,
+  className,
+  children,
+  onClick,
+  target,
+  rel,
+}: PromotionLinkProps) {
+  return (
+    <a
+      href={href}
+      className={className}
+      onClick={onClick}
+      target={target}
+      rel={rel}
+    >
+      {children}
+    </a>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Context                                                                   */
+/* -------------------------------------------------------------------------- */
+
+type PromotionContextValue = {
+  /** Null until mounted: time-dependent UI never renders on the server. */
+  now: number | null
+  pathname: string
+  selection: PromotionSelection
+  bar: Promotion | null
+  toast: Promotion | null
+  /** The toast is folded into a small chip the visitor can reopen. */
+  toastMinimized: boolean
+  dialog: Promotion | null
+  /**
+   * Height of a bottom-docked bar (the sticky CTA) that floating surfaces
+   * should sit above, so a phone never stacks two things in the thumb zone.
+   */
+  bottomInset: number
+  setBottomInset: (px: number) => void
+  /**
+   * Height of the side card in the bottom end corner, so a toast in the
+   * same corner stacks above it instead of covering it.
+   */
+  sideInset: number
+  setSideInset: (px: number) => void
+  /** The offer behind the edge tab, and whether its sheet is open. */
+  sheet: Promotion | null
+  sheetOpen: boolean
+  /** The spotlight to show now, if its anchor is on the page. */
+  spotlight: Promotion | null
+  /** Called by PromoSpotlight so the provider knows which anchors exist. */
+  registerAnchor: (name: string) => () => void
+  /** Live side cards, best first. */
+  sides: Promotion[]
+  closeSheet: () => void
+  card: (slot: string) => Promotion | null
+  /** Every live card in a slot, best first, for carousels. */
+  cards: (slot: string) => Promotion[]
+  /**
+   * Live offers on this route, one per campaign, including ones the visitor
+   * hid: dismissing stops the interruption, not access to the offer.
+   */
+  inbox: { promotion: Promotion; hidden: boolean }[]
+  inboxOpen: boolean
+  setInboxOpen: (open: boolean) => void
+  /** Live promotions on this route whose button points at `href`. */
+  pointingAt: (href: string) => Promotion | null
+  dismiss: (promotion: Promotion) => void
+  /**
+   * Closes a surface the visitor opened themselves (a story) without
+   * recording a dismissal, so it can be watched again.
+   */
+  release: (promotion: Promotion) => void
+  /** Closes a surface after its button was used. Not reported as a dismissal. */
+  complete: (promotion: Promotion) => void
+  minimize: (promotion: Promotion) => void
+  restore: (promotion: Promotion) => void
+  /** Opens a live toast, sheet or dialog now, skipping the engagement wait. */
+  openPromotion: (id: string) => void
+  /**
+   * Opens the best live record whose `triggers` include `event`, if it is
+   * not dismissed and its frequency allows. True when something opened.
+   */
+  trigger: (event: string) => boolean
+  /**
+   * Records a conversion for a campaign (or a record id): every record in it
+   * stops showing for `conversionDays`. Call it from your purchase or
+   * sign-up success. True when it matched something.
+   */
+  convert: (target: string) => boolean
+  /** Applies a code through the host's `onApplyCode`; null when not wired. */
+  applyCode: ((code: string) => Promise<boolean>) | null
+  /** The visitor's segments, including the provider's `new` or `returning`. */
+  segments: ReadonlySet<string>
+  /** Called by floating surfaces once they are on screen. */
+  markShown: (promotion: Promotion) => void
+  report: (
+    type: PromotionEvent['type'],
+    promotion: Pick<Promotion, 'id' | 'placement' | 'campaign' | 'variant'>,
+  ) => void
+  Link: React.ComponentType<PromotionLinkProps>
+  labels: PromotionLabels
+  timeZone?: string
+}
+
+const PromotionContext = React.createContext<PromotionContextValue | null>(null)
+
+/** Everything a surface needs: the current selection, the clock, labels and the actions. Throws outside a provider. */
+export function usePromotions(): PromotionContextValue {
+  const value = React.useContext(PromotionContext)
+  if (!value)
+    throw new Error(
+      'Promotion components must be rendered inside <PromotionProvider>.',
+    )
+  return value
+}
+
+/** Labels for views rendered outside a provider, such as the editor preview. */
+export function usePromotionLabels(): PromotionLabels {
+  return React.useContext(PromotionContext)?.labels ?? defaultPromotionLabels
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Provider                                                                  */
+/* -------------------------------------------------------------------------- */
+
+export type PromotionEngagement = {
+  /** Time on the page before it may open. `Infinity` waits for another trigger. */
+  delayMs?: number
+  /** Fraction of the page scrolled, 0–1. A page too short to scroll counts. */
+  scrollDepth?: number
+}
+
+export type PromotionProviderProps = {
+  source: PromotionSource
+  /**
+   * A loader runs once per mount, so an inline `{ load }` object is safe.
+   * Change this key to load again (a new CMS revision, a signed-in user).
+   */
+  sourceKey?: string | number
+  /** The current route. Pass your router's pathname, e.g. `usePathname()`. */
+  pathname: string
+  /** Injectable clock for previews and tests. */
+  now?: () => number
+  /**
+   * The longest the clock sleeps. It also wakes exactly when a record starts
+   * or ends, and whenever the tab becomes visible again.
+   */
+  tickMs?: number
+  storage?: DismissalStore
+  /** Route patterns where the bar, toast and dialog never appear (checkout, sign-in). */
+  suppressOn?: readonly string[]
+  /** A dialog waits for this much time and scroll depth before it may open. */
+  dialogEngagement?: PromotionEngagement
+  /** A toast waits for this, usually less than a dialog. */
+  toastEngagement?: PromotionEngagement
+  onEvent?: (event: PromotionEvent) => void
+  /** Add-ons such as `exitIntent()`. Keep the array stable across renders. */
+  plugins?: readonly PromotionPlugin[]
+  /**
+   * At most one toast or dialog per visitor in this many hours, across every
+   * campaign. Each promotion's own `frequency` applies on top. 0 turns it off.
+   */
+  floatingBudgetHours?: number
+  /** Let a higher-priority toast or dialog join a visible bar. Default true. */
+  allowBarWithFloating?: boolean
+  /** BCP 47 tag used to pick each record's `translations`, e.g. `fr-CA`. */
+  locale?: string
+  /** Your framework's link, so internal CTAs navigate client-side. */
+  linkComponent?: React.ComponentType<PromotionLinkProps>
+  labels?: Partial<PromotionLabels>
+  /** Shown next to schedule text in countdowns and editors. */
+  timeZone?: string
+  /**
+   * The visitor's segments for `audience` targeting, e.g. `['member',
+   * 'plan:pro']`. The provider adds `new` or `returning` itself.
+   */
+  segments?: readonly string[]
+  /**
+   * Applies a code to the cart in one tap. Return false when it could not be
+   * applied. Without it, codes are copy-only.
+   */
+  onApplyCode?: (
+    code: string,
+    promotion: Promotion,
+  ) => boolean | void | Promise<boolean | void>
+  /** How long a conversion hides its campaign. Defaults to 30 days. */
+  conversionDays?: number
+  children: React.ReactNode
+}
+
+/** Resolves `source` (an array or an async loader) to records, reloading only when `sourceKey` changes. */
+function useLoadedRecords(
+  source: PromotionSource,
+  sourceKey: string | number | undefined,
+): readonly Promotion[] {
+  const isArray = Array.isArray(source)
+  const [loaded, setLoaded] = React.useState<readonly Promotion[]>([])
+  // Latest loader in a ref, so a new object identity each render never reloads.
+  const latest = React.useRef(source)
+  React.useLayoutEffect(() => {
+    latest.current = source
+  })
+
+  React.useEffect(() => {
+    const current = latest.current
+    if (Array.isArray(current)) return
+    const controller = new AbortController()
+    ;(current as Exclude<PromotionSource, readonly Promotion[]>)
+      .load(controller.signal)
+      .then((records) => {
+        if (!controller.signal.aborted) setLoaded(sanitizePromotions(records))
+      })
+      .catch(() => {
+        // A promotion is never worth an error screen. Show nothing.
+      })
+    return () => controller.abort()
+  }, [isArray, sourceKey])
+
+  const fromArray = React.useMemo(
+    () => (isArray ? sanitizePromotions(source) : null),
+    [isArray, source],
+  )
+  return fromArray ?? loaded
+}
+
+/** True while the tab is in the background, when nothing should open. */
+function isHidden() {
+  return (
+    typeof document !== 'undefined' && document.visibilityState === 'hidden'
+  )
+}
+
+/**
+ * A clock that sleeps until the next start or end (at most `tickMs`), and
+ * re-reads on tab focus, so a window opens on time even after a laptop sleeps.
+ */
+function createClockStore(
+  now: () => number,
+  tickMs: number,
+  edges: readonly number[],
+) {
+  // The snapshot is taken once here and only refreshed by `tick`, so what
+  // React rendered is what it reads back after subscribing.
+  let value = now()
+  return {
+    subscribe(onChange: () => void) {
+      let timer: number | undefined
+      const tick = () => {
+        value = now()
+        onChange()
+        schedule()
+      }
+      const schedule = () => {
+        window.clearTimeout(timer)
+        const current = now()
+        const edge = edges.find((at) => at > current) ?? null
+        const untilEdge = edge === null ? tickMs : edge - current + 20
+        timer = window.setTimeout(
+          tick,
+          Math.max(250, Math.min(tickMs, untilEdge)),
+        )
+      }
+      const onVisible = () => {
+        if (!isHidden()) tick()
+      }
+      schedule()
+      document.addEventListener('visibilitychange', onVisible)
+      return () => {
+        window.clearTimeout(timer)
+        document.removeEventListener('visibilitychange', onVisible)
+      }
+    },
+    get: () => value,
+  }
+}
+
+const serverClock = () => null
+
+/**
+ * The clock as an external store: SSR and hydration read null, so nothing
+ * time-dependent renders until the browser's own clock is known.
+ */
+function useClock(
+  now: () => number,
+  tickMs: number,
+  records: readonly Promotion[],
+): number | null {
+  // Keyed on the schedule's content, not the array's identity: a host that
+  // builds `source` during render (a kit call) must not get a new store, and
+  // a new subscription, on every render.
+  const signature = React.useMemo(() => {
+    const at = new Set<number>()
+    for (const record of records) {
+      if (record.state !== 'published') continue
+      at.add(record.startsAt)
+      at.add(record.endsAt)
+    }
+    return [...at].sort((a, b) => a - b).join(',')
+  }, [records])
+  const store = React.useMemo(
+    () =>
+      createClockStore(
+        now,
+        tickMs,
+        signature ? signature.split(',').map(Number) : [],
+      ),
+    [now, tickMs, signature],
+  )
+  return React.useSyncExternalStore(store.subscribe, store.get, serverClock)
+}
+
+const NON_TEXT_INPUTS = new Set([
+  'button',
+  'checkbox',
+  'color',
+  'file',
+  'hidden',
+  'image',
+  'radio',
+  'range',
+  'reset',
+  'submit',
+])
+
+/** Typing targets only: a focused slider, checkbox or button is not typing. */
+function isTextEntry(element: HTMLElement): boolean {
+  if (element.isContentEditable) return true
+  if (element instanceof HTMLTextAreaElement) return !element.readOnly
+  if (element instanceof HTMLInputElement)
+    return !element.readOnly && !NON_TEXT_INPUTS.has(element.type)
+  return false
+}
+
+/**
+ * True while the visitor is mid-task: typing in a field, inside another
+ * modal, or selecting text. Nothing floating should open over that.
+ */
+export function visitorIsBusy(): boolean {
+  if (typeof document === 'undefined') return false
+  const active = document.activeElement
+  if (active instanceof HTMLElement && isTextEntry(active)) return true
+  if (
+    document.querySelector(
+      'dialog[open], [role="dialog"][aria-modal="true"]:not([data-slot^="promo-"]), [role="alertdialog"]',
+    )
+  )
+    return true
+  const selection = window.getSelection?.()
+  return Boolean(selection && !selection.isCollapsed)
+}
+
+/** Engagement is per page: navigating resets it without a state write. */
+function useEngaged(
+  pathname: string,
+  enabled: boolean,
+  { delayMs = 8000, scrollDepth = 0.3 }: PromotionEngagement,
+): boolean {
+  const [engagedOn, setEngagedOn] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (!enabled) return
+    let waited = delayMs <= 0
+    let scrolled = scrollDepth <= 0
+    let done = false
+    let retry: number | undefined
+    const engage = () => {
+      if (done) return
+      // Never interrupt: wait out typing, other modals and hidden tabs.
+      if (isHidden() || visitorIsBusy()) {
+        window.clearTimeout(retry)
+        retry = window.setTimeout(engage, 1500)
+        return
+      }
+      done = true
+      setEngagedOn(pathname)
+    }
+    const check = () => {
+      if (waited && scrolled) engage()
+    }
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight
+      const depth = max <= 0 ? 1 : window.scrollY / max
+      if (depth >= scrollDepth) {
+        scrolled = true
+        check()
+      }
+    }
+    const timer = Number.isFinite(delayMs)
+      ? window.setTimeout(() => {
+          waited = true
+          onScroll()
+          check()
+        }, delayMs)
+      : undefined
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.clearTimeout(timer)
+      window.clearTimeout(retry)
+      window.removeEventListener('scroll', onScroll)
+    }
+  }, [pathname, enabled, delayMs, scrollDepth])
+
+  return engagedOn === pathname
+}
+
+const NO_ROUTES: readonly string[] = []
+const DEFAULT_DIALOG_ENGAGEMENT: PromotionEngagement = {}
+const DEFAULT_TOAST_ENGAGEMENT: PromotionEngagement = {
+  delayMs: 4000,
+  scrollDepth: 0.15,
+}
+const NO_LABELS: Partial<PromotionLabels> = {}
+const NO_PLUGINS: readonly PromotionPlugin[] = []
+const NO_SEGMENTS: readonly string[] = []
+const VISITOR_KEY = 'promo:visitor'
+const VISITS_KEY = 'promo:visits'
+const VISIT_MARK = 'promo:visit'
+
+/**
+ * The DOM event `convertPromotion` sends, so a checkout page or payment
+ * callback outside React can record a conversion.
+ */
+export const PROMOTION_CONVERT_EVENT = 'promo:convert'
+
+/** Records a conversion from anywhere; see `usePromotions().convert`. */
+export function convertPromotion(target: string) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(
+    new CustomEvent<string>(PROMOTION_CONVERT_EVENT, { detail: target }),
+  )
+}
+
+/** The host's one-tap apply, or null outside a provider or when not wired. */
+export function usePromotionApply() {
+  return React.useContext(PromotionContext)?.applyCode ?? null
+}
+
+/**
+ * The DOM event `triggerPromotion` sends, so code outside React (analytics,
+ * a payment callback, a web component) can open an event-triggered offer.
+ */
+export const PROMOTION_TRIGGER_EVENT = 'promo:trigger'
+
+/**
+ * Fires a promotion event from anywhere: every mounted provider opens the
+ * best record listening for it. Inside React, prefer `usePromotions().trigger`,
+ * which also tells you whether anything opened.
+ */
+export function triggerPromotion(event: string) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(
+    new CustomEvent<string>(PROMOTION_TRIGGER_EVENT, { detail: event }),
+  )
+}
+const BUDGET_KEY = 'promo:budget:floating'
+
+const shownKey = (promotion: Promotion) => `${dismissalKey(promotion)}:shown`
+const minimizedKey = (promotion: Promotion) => `${dismissalKey(promotion)}:min`
+
+/** Holds promotion state for one page tree: selection, frequency, dismissals, plugins and events. Surfaces read it with `usePromotions`. */
+export function PromotionProvider({
+  source,
+  sourceKey,
+  pathname,
+  now: readNow = Date.now,
+  tickMs = 60_000,
+  storage = browserDismissalStore,
+  suppressOn = NO_ROUTES,
+  dialogEngagement = DEFAULT_DIALOG_ENGAGEMENT,
+  toastEngagement = DEFAULT_TOAST_ENGAGEMENT,
+  onEvent,
+  linkComponent = DefaultLink,
+  labels: labelOverrides = NO_LABELS,
+  plugins = NO_PLUGINS,
+  floatingBudgetHours = 24,
+  allowBarWithFloating = true,
+  locale,
+  timeZone,
+  segments: hostSegments = NO_SEGMENTS,
+  onApplyCode,
+  conversionDays = 30,
+  children,
+}: PromotionProviderProps) {
+  const loaded = useLoadedRecords(source, sourceKey)
+  const records = React.useMemo(
+    () =>
+      locale
+        ? loaded.map((record) => localizePromotion(record, locale))
+        : loaded,
+    [loaded, locale],
+  )
+  const now = useClock(readNow, tickMs, records)
+  // Local writes, so a dismissal applies at once even if storage throws.
+  const [written, setWritten] = React.useState<ReadonlyMap<string, number>>(
+    () => new Map(),
+  )
+  // Bumped when another tab writes, so reads are redone.
+  const [storageVersion, setStorageVersion] = React.useState(0)
+  const [forced, setForced] = React.useState<string | null>(null)
+  const [bottomInset, setBottomInset] = React.useState(0)
+  const [sideInset, setSideInset] = React.useState(0)
+  const [inboxOpen, setInboxOpen] = React.useState(false)
+  // Spotlight anchors present on the page right now (registered on mount).
+  const [anchors, setAnchors] = React.useState<ReadonlyMap<string, number>>(
+    () => new Map(),
+  )
+  const registerAnchor = React.useCallback((name: string) => {
+    setAnchors((previous) =>
+      new Map(previous).set(name, (previous.get(name) ?? 0) + 1),
+    )
+    return () =>
+      setAnchors((previous) => {
+        const next = new Map(previous)
+        const count = (next.get(name) ?? 1) - 1
+        if (count <= 0) next.delete(name)
+        else next.set(name, count)
+        return next
+      })
+  }, [])
+  const [openFloating, setOpenFloating] = React.useState<{
+    id: string
+    pathname: string
+  } | null>(null)
+
+  React.useEffect(
+    () => storage.subscribe?.(() => setStorageVersion((v) => v + 1)),
+    [storage],
+  )
+
+  // Triggers from add-ons (exit intent, idle) mark a placement engaged here.
+  const [pluginEngaged, setPluginEngaged] = React.useState<
+    Partial<Record<'toast' | 'dialog', string>>
+  >({})
+  const readNowRef = React.useRef(readNow)
+  React.useLayoutEffect(() => {
+    readNowRef.current = readNow
+  })
+  React.useEffect(() => {
+    const cleanups = plugins.map((plugin) =>
+      plugin.setup?.({
+        pathname,
+        now: () => readNowRef.current(),
+        engage: (placement) =>
+          setPluginEngaged((previous) =>
+            previous[placement] === pathname
+              ? previous
+              : { ...previous, [placement]: pathname },
+          ),
+      }),
+    )
+    return () => cleanups.forEach((cleanup) => cleanup?.())
+  }, [plugins, pathname])
+
+  const read = React.useCallback(
+    (key: string, scope: DismissScope) => {
+      // Re-read after a cross-tab write bumps the version.
+      void storageVersion
+      const id = `${scope}|${key}`
+      const value = written.has(id) ? written.get(id) : storage.get(key, scope)
+      return typeof value === 'number' && Number.isFinite(value) ? value : null
+    },
+    [written, storage, storageVersion],
+  )
+  const write = React.useCallback(
+    (key: string, scope: DismissScope, at = readNow()) => {
+      storage.set(key, at, scope)
+      setWritten((previous) => new Map(previous).set(`${scope}|${key}`, at))
+      return at
+    },
+    [readNow, storage],
+  )
+
+  const onEventRef = React.useRef(onEvent)
+  React.useLayoutEffect(() => {
+    onEventRef.current = onEvent
+  })
+  const report = React.useCallback<PromotionContextValue['report']>(
+    (type, promotion) => {
+      const event: PromotionEvent = {
+        type,
+        id: promotion.id,
+        placement: promotion.placement,
+        campaign: promotion.campaign,
+        ...(promotion.variant ? { variant: promotion.variant } : {}),
+        pathname,
+      }
+      onEventRef.current?.(event)
+      for (const plugin of plugins) plugin.onEvent?.(event)
+    },
+    [pathname, plugins],
+  )
+
+  const isDismissed = React.useCallback(
+    (promotion: Promotion) => {
+      if (now === null) return true
+      const at = read(dismissalKey(promotion), dismissScope(promotion.dismiss))
+      if (at === null) return false
+      const expiry = dismissalExpiry(promotion.dismiss, at)
+      return expiry === null || now < expiry
+    },
+    [now, read],
+  )
+
+  const close = React.useCallback(
+    (promotion: Promotion) => {
+      write(dismissalKey(promotion), dismissScope(promotion.dismiss))
+      setForced((id) => (id === promotion.id ? null : id))
+      setOpenFloating((open) => (open?.id === promotion.id ? null : open))
+    },
+    [write],
+  )
+
+  const dismiss = React.useCallback(
+    (promotion: Promotion) => {
+      close(promotion)
+      report('dismiss', promotion)
+    },
+    [close, report],
+  )
+
+  const labels = React.useMemo(
+    () => ({ ...defaultPromotionLabels, ...labelOverrides }),
+    [labelOverrides],
+  )
+
+  const suppressed = suppressOn.some((pattern) => matchRoute(pattern, pathname))
+  // A stable random number per visitor, so experiments keep each visitor in
+  // one arm. Records with variants or a holdout wait for it, so nobody sees
+  // one arm flash before another.
+  const seed = now === null ? null : read(VISITOR_KEY, 'browser')
+  React.useEffect(() => {
+    if (now !== null && seed === null)
+      // oxlint-disable-next-line react/set-state-in-effect -- persists a new visitor seed to the dismissal store (external) once
+      write(
+        VISITOR_KEY,
+        'browser',
+        1 + Math.floor(Math.random() * 2_147_483_646),
+      )
+  }, [now, seed, write])
+  const experiment = React.useMemo(() => {
+    const live: Promotion[] = []
+    const held: Promotion[] = []
+    for (const record of records) {
+      if (!record.variants?.length && !record.holdout) live.push(record)
+      else if (seed !== null) {
+        const assigned = assignVariant(record, seed)
+        if (assigned.held) held.push(record)
+        else live.push(assigned.promotion)
+      }
+    }
+    return { live, held }
+  }, [records, seed])
+
+  // One visit per tab session: `new` on the first, `returning` after.
+  const countedVisit = React.useRef(false)
+  React.useEffect(() => {
+    if (now === null || countedVisit.current) return
+    countedVisit.current = true
+    if (read(VISIT_MARK, 'tab') !== null) return
+    // oxlint-disable-next-line react/set-state-in-effect -- counts this visit in the dismissal store (external) once per tab
+    write(VISIT_MARK, 'tab')
+    write(VISITS_KEY, 'browser', (read(VISITS_KEY, 'browser') ?? 0) + 1)
+  }, [now, read, write])
+  const visits = read(VISITS_KEY, 'browser') ?? 0
+  const segments = React.useMemo(
+    () => new Set([...hostSegments, visits > 1 ? 'returning' : 'new']),
+    [hostSegments, visits],
+  )
+
+  const selection = React.useMemo<PromotionSelection>(
+    () =>
+      now === null
+        ? { live: [], cards: {} }
+        : selectPromotions(experiment.live, { pathname, now }),
+    [now, pathname, experiment],
+  )
+  const converted = (promotion: Promotion) =>
+    now !== null &&
+    conversionKeys(promotion).some((key) => {
+      const at = read(key, 'browser')
+      return at !== null && now - at < conversionDays * 86_400_000
+    })
+  const allowed = (promotion: Promotion) =>
+    now !== null &&
+    audienceAllows(promotion, segments) &&
+    !converted(promotion) &&
+    plugins.every(
+      (plugin) => plugin.allow?.(promotion, { pathname, now }) ?? true,
+    )
+  const available = (promotion: Promotion | undefined) =>
+    !suppressed && promotion && !isDismissed(promotion) && allowed(promotion)
+      ? promotion
+      : null
+
+  // Per floating placement: the record the visitor or host asked for, else
+  // the best one allowed to open by itself. A story or an event-triggered
+  // record on top never blocks the ones below it.
+  const pick = (
+    placement: PromotionPlacement,
+    gate: (promotion: Promotion) => boolean = (promotion) =>
+      available(promotion) !== null,
+  ) => {
+    const pool = selection.live.filter(
+      (promotion) => promotion.placement === placement && gate(promotion),
+    )
+    return (
+      pool.find((promotion) => promotion.id === forced) ??
+      pool.find(opensOnItsOwn) ??
+      null
+    )
+  }
+  const barCandidate = available(selection.bar)
+  const toastCandidate = pick('toast')
+  const dialogCandidate = pick('dialog')
+  // The edge tab is asked for by nature, so it ignores route suppression.
+  const sheetCandidate = pick(
+    'sheet',
+    (promotion) => !isDismissed(promotion) && allowed(promotion),
+  )
+  // A spotlight needs its anchor on this page; the best one that has it
+  // shows, so a dismissed or anchorless spotlight never blocks the rest.
+  const spotlightCandidate = pick(
+    'spotlight',
+    (promotion) =>
+      available(promotion) !== null && anchors.has(promotion.slot ?? 'default'),
+  )
+  const sides = suppressed
+    ? []
+    : selection.live.filter(
+        (promotion) =>
+          promotion.placement === 'side' &&
+          !isDismissed(promotion) &&
+          allowed(promotion),
+      )
+
+  // Frequency: a floating surface shows at most once per its window, and at
+  // most one of any campaign per budget window. An unanswered surface that
+  // the visitor navigated away from does not chase them to the next page.
+  const lastShown = (promotion: Promotion) =>
+    read(shownKey(promotion), 'browser')
+  const withinFrequency = (promotion: Promotion) =>
+    now !== null &&
+    frequencyAllows(lastShown(promotion), now, promotion.frequency?.hours)
+  const budgetAt = read(BUDGET_KEY, 'browser')
+  const withinBudget = (promotion: Promotion) =>
+    floatingBudgetHours <= 0 ||
+    now === null ||
+    frequencyAllows(budgetAt, now, floatingBudgetHours) ||
+    // The budget was spent on this very promotion; its frequency decides.
+    (budgetAt !== null && lastShown(promotion) === budgetAt)
+  const stillOpen = (promotion: Promotion) =>
+    openFloating?.id === promotion.id && openFloating.pathname === pathname
+  const fresh = (promotion: Promotion | null) =>
+    promotion &&
+    (forced === promotion.id ||
+      stillOpen(promotion) ||
+      (withinFrequency(promotion) && withinBudget(promotion)))
+      ? promotion
+      : null
+
+  const dialogEngaged = useEngaged(
+    pathname,
+    Boolean(fresh(dialogCandidate)),
+    dialogEngagement,
+  )
+  const spotlightEngaged = useEngaged(
+    pathname,
+    Boolean(fresh(spotlightCandidate)),
+    toastEngagement,
+  )
+  const toastEngaged = useEngaged(
+    pathname,
+    Boolean(fresh(toastCandidate)),
+    toastEngagement,
+  )
+
+  // A floating surface only joins a visible bar when it outranks it. The bar
+  // never steps aside: it is in the page flow, and moving it shifts layout.
+  // One campaign, one surface: if the bar already carries this campaign, its
+  // toast or dialog would only repeat it louder.
+  const outranksBar = (promotion: Promotion) =>
+    !barCandidate ||
+    (allowBarWithFloating &&
+      !sharesCampaign(promotion, barCandidate) &&
+      promotion.priority > barCandidate.priority)
+  const engagedBy = (placement: 'toast' | 'dialog', engaged: boolean) =>
+    engaged || pluginEngaged[placement] === pathname
+  const dialog =
+    dialogCandidate &&
+    (forced === dialogCandidate.id ||
+      stillOpen(dialogCandidate) ||
+      (fresh(dialogCandidate) &&
+        opensOnItsOwn(dialogCandidate) &&
+        engagedBy('dialog', dialogEngaged) &&
+        outranksBar(dialogCandidate)))
+      ? dialogCandidate
+      : null
+  // A spotlight points at something on this page, so it needs its anchor
+  // mounted. It ranks between the dialog and the toast: one at a time.
+  const spotlight =
+    !dialog &&
+    spotlightCandidate &&
+    (forced === spotlightCandidate.id ||
+      stillOpen(spotlightCandidate) ||
+      (fresh(spotlightCandidate) &&
+        // Small and anchored, it can sit beside an in-flow bar; it still
+        // counts as the one floating surface and spends the daily budget.
+        engagedBy('toast', spotlightEngaged)))
+      ? spotlightCandidate
+      : null
+  // An ignored toast does not vanish on the next page, nor chase the visitor
+  // at full size: it folds into a chip for the rest of the visit.
+  const toastOpenNow = Boolean(
+    toastCandidate &&
+    (forced === toastCandidate.id || stillOpen(toastCandidate)),
+  )
+  const toastShownRecently = Boolean(
+    toastCandidate &&
+    lastShown(toastCandidate) !== null &&
+    !withinFrequency(toastCandidate),
+  )
+  const toastMinimized = Boolean(
+    toastCandidate &&
+    !toastOpenNow &&
+    (toastShownRecently || read(minimizedKey(toastCandidate), 'tab') !== null),
+  )
+  const toast =
+    !dialog &&
+    toastCandidate &&
+    (toastMinimized ||
+      toastOpenNow ||
+      (!spotlight &&
+        fresh(toastCandidate) &&
+        engagedBy('toast', toastEngaged) &&
+        outranksBar(toastCandidate)))
+      ? toastCandidate
+      : null
+  const sheetOpen = Boolean(sheetCandidate && forced === sheetCandidate.id)
+
+  // The visitor just acted, so the engagement wait and the daily budget do
+  // not apply; the record's own frequency and dismissal still do.
+  const trigger = (event: string) => {
+    const match = triggeredBy(
+      selection,
+      event,
+      (promotion) =>
+        Boolean(available(promotion)) &&
+        (promotion.placement === 'sheet' || withinFrequency(promotion)),
+    )
+    if (!match) return false
+    setForced(match.id)
+    return true
+  }
+  const triggerRef = React.useRef(trigger)
+  React.useEffect(() => {
+    triggerRef.current = trigger
+  })
+  React.useEffect(() => {
+    const onTrigger = (event: Event) => {
+      const name = (event as CustomEvent<unknown>).detail
+      if (typeof name === 'string') triggerRef.current(name)
+    }
+    window.addEventListener(PROMOTION_TRIGGER_EVENT, onTrigger)
+    return () => window.removeEventListener(PROMOTION_TRIGGER_EVENT, onTrigger)
+  }, [])
+
+  const convert = (target: string) => {
+    const matches = records.filter(
+      (record) => record.id === target || record.campaign === target,
+    )
+    const first = matches[0]
+    if (!first) return false
+    const byCampaign = matches.some((record) => record.campaign === target)
+    write(
+      byCampaign ? `promo:converted:${target}` : `promo:converted:id:${target}`,
+      'browser',
+    )
+    setForced((id) => (matches.some((m) => m.id === id) ? null : id))
+    report('convert', first)
+    return true
+  }
+  const convertRef = React.useRef(convert)
+  React.useEffect(() => {
+    convertRef.current = convert
+  })
+  React.useEffect(() => {
+    const onConvert = (event: Event) => {
+      const target = (event as CustomEvent<unknown>).detail
+      if (typeof target === 'string') convertRef.current(target)
+    }
+    window.addEventListener(PROMOTION_CONVERT_EVENT, onConvert)
+    return () => window.removeEventListener(PROMOTION_CONVERT_EVENT, onConvert)
+  }, [])
+
+  const onApplyRef = React.useRef(onApplyCode)
+  React.useEffect(() => {
+    onApplyRef.current = onApplyCode
+  })
+  const applyCode = onApplyCode
+    ? async (code: string) => {
+        const promotion = selection.live.find((record) => record.code === code)
+        if (!promotion) return false
+        let ok = false
+        try {
+          ok = (await onApplyRef.current?.(code, promotion)) !== false
+        } catch {
+          ok = false
+        }
+        if (ok) report('apply', promotion)
+        return ok
+      }
+    : null
+
+  // A held-out visitor is still counted, once per page, so the lift of a
+  // record can be read against them.
+  const heldHere =
+    now === null || suppressed
+      ? ''
+      : experiment.held
+          .filter(
+            (record) =>
+              deliveryState(record, now) === 'live' &&
+              targetsRoute(record, pathname),
+          )
+          .map((record) => record.id)
+          .join(' ')
+  const reportedHeld = React.useRef(new Set<string>())
+  React.useEffect(() => {
+    for (const id of heldHere.split(' ')) {
+      const key = `${pathname}|${id}`
+      if (!id || reportedHeld.current.has(key)) continue
+      reportedHeld.current.add(key)
+      const record = experiment.held.find((held) => held.id === id)
+      if (record) report('holdout', record)
+    }
+  }, [heldHere, pathname, experiment, report])
+
+  const value: PromotionContextValue = {
+    now,
+    pathname,
+    selection,
+    bar: barCandidate,
+    toast,
+    toastMinimized: Boolean(toast) && toastMinimized,
+    dialog,
+    bottomInset,
+    setBottomInset,
+    sideInset,
+    setSideInset,
+    sheet: sheetCandidate,
+    sheetOpen,
+    spotlight,
+    registerAnchor,
+    sides,
+    closeSheet: () =>
+      setForced((id) => (id === sheetCandidate?.id ? null : id)),
+    // The best card in the slot the visitor has not dismissed and no plugin
+    // vetoed, so a lower card can take the place of an ineligible one.
+    card: (slot) =>
+      slotPromotions(selection, slot).find(
+        (promotion) => !isDismissed(promotion) && allowed(promotion),
+      ) ?? null,
+    cards: (slot) =>
+      slotPromotions(selection, slot).filter(
+        (promotion) => !isDismissed(promotion) && allowed(promotion),
+      ),
+    inbox: suppressed
+      ? []
+      : inboxPromotions(selection)
+          .filter(allowed)
+          .map((promotion) => ({ promotion, hidden: isDismissed(promotion) })),
+    inboxOpen,
+    setInboxOpen,
+    pointingAt: (href) => {
+      if (now === null) return null
+      const all = [
+        selection.bar,
+        selection.toast,
+        selection.sheet,
+        selection.side,
+        selection.dialog,
+        ...Object.values(selection.cards),
+      ]
+      return (
+        all.find(
+          (promotion): promotion is Promotion =>
+            promotion?.cta?.href === href &&
+            targetsRoute(promotion, pathname) &&
+            !isDismissed(promotion) &&
+            allowed(promotion),
+        ) ?? null
+      )
+    },
+    dismiss,
+    complete: close,
+    release: (promotion) => {
+      setForced((id) => (id === promotion.id ? null : id))
+      setOpenFloating((open) => (open?.id === promotion.id ? null : open))
+    },
+    minimize: (promotion) => {
+      write(minimizedKey(promotion), 'tab')
+      setForced((id) => (id === promotion.id ? null : id))
+      setOpenFloating((open) => (open?.id === promotion.id ? null : open))
+    },
+    restore: (promotion) => {
+      // NaN reads as "never written", in this map and in the browser store.
+      write(minimizedKey(promotion), 'tab', Number.NaN)
+      setForced(promotion.id)
+    },
+    openPromotion: setForced,
+    trigger,
+    convert,
+    applyCode,
+    segments,
+    markShown: (promotion) => {
+      if (stillOpen(promotion)) return
+      const at = write(shownKey(promotion), 'browser')
+      // Only interruptions spend the budget. An offer the visitor opened
+      // (a sheet, a story, one their own action triggered) does not.
+      if (promotion.placement !== 'sheet' && opensOnItsOwn(promotion))
+        write(BUDGET_KEY, 'browser', at)
+      setOpenFloating({ id: promotion.id, pathname })
+      report('impression', promotion)
+    },
+    report,
+    Link: linkComponent,
+    labels,
+    timeZone,
+  }
+
+  return (
+    <PromotionContext.Provider value={value}>
+      {children}
+    </PromotionContext.Provider>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Impressions and focus                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Fires once per page view when at least half the element has been visible
+ * for a second in a visible tab. Rendering is not an impression; being seen is.
+ */
+export function useImpression(
+  promotion: Promotion | null,
+  onImpression: ((promotion: Promotion) => void) | undefined,
+  viewKey = '',
+) {
+  const ref = React.useRef<HTMLElement | null>(null)
+  const seen = React.useRef<string | null>(null)
+
+  React.useEffect(() => {
+    const element = ref.current
+    if (!promotion || !element || !onImpression) return
+    const key = `${promotion.id}@${viewKey}`
+    if (seen.current === key) return
+    if (typeof IntersectionObserver === 'undefined') return
+
+    let timer: number | undefined
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting && !isHidden()) {
+          timer = window.setTimeout(() => {
+            seen.current = key
+            onImpression(promotion)
+            observer.disconnect()
+          }, 1000)
+        } else if (timer !== undefined) {
+          window.clearTimeout(timer)
+          timer = undefined
+        }
+      },
+      { threshold: 0.5 },
+    )
+    observer.observe(element)
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer)
+      observer.disconnect()
+    }
+  }, [promotion, onImpression, viewKey])
+
+  return ref
+}
+
+const TABBABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+/**
+ * When a surface holding focus goes away, focus would fall to <body> and a
+ * keyboard user would start over from the top. Move it to the next tabbable
+ * element after the surface instead.
+ */
+export function moveFocusPast(container: HTMLElement | null) {
+  if (!container || !container.contains(document.activeElement)) return
+  const all = Array.from(document.querySelectorAll<HTMLElement>(TABBABLE))
+  const next = all.find(
+    (element) =>
+      !container.contains(element) &&
+      container.compareDocumentPosition(element) &
+        Node.DOCUMENT_POSITION_FOLLOWING &&
+      element.offsetParent !== null,
+  )
+  next?.focus({ preventScroll: true })
+}

@@ -29,10 +29,10 @@ jobs:
         run: bunx oxfmt --check
 
       - name: Tests
-        run: bun test components/book-preview components/book-preview-demo
+        run: bun run test
 
       - name: Registry artifacts in sync
-        run: npx -y shadcn@4.21.0 build && git diff --exit-code --stat public/r registry.json
+        run: npx -y shadcn@4.21.0 build && npx -y shadcn@4.21.0 build registry-pro.json -o registry-pro/r && git diff --exit-code --stat public/r registry-pro registry.json registry-pro.json
 
       - name: Build
         run: bun run build

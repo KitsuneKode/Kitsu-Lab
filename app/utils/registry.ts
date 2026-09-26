@@ -1,6 +1,7 @@
 import { KeyboardButton } from '@/components/keyboard-button'
 import { EmailDomainInputDemo } from '@/components/email-domain-input-demo'
 import { BookPreviewDemo } from '@/components/book-preview-demo/book-preview-demo'
+import { PromotionsDemo } from '@/components/promotions-demo/promotions-demo'
 
 export const registry = {
   list: [
@@ -13,6 +14,17 @@ export const registry = {
       image: {
         url: '',
         alt: 'Interactive Book & PDF Reader',
+      },
+    },
+    {
+      name: 'Promotions',
+      path: 'promotions',
+      description:
+        'Scheduled announcement bar, inline card and dialog with route targeting, respectful dismissal and an editor with live preview.',
+      component: PromotionsDemo,
+      image: {
+        url: '',
+        alt: 'Promotions',
       },
     },
     {

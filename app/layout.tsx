@@ -2,7 +2,6 @@ import './globals.css'
 import { Orbitron, Space_Grotesk, JetBrains_Mono } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
 import { Provider } from '@/components/provider'
-import { CustomCursor } from '@/components/custom-cursor'
 import { Analytics } from '@vercel/analytics/next'
 
 const orbitron = Orbitron({
@@ -24,7 +23,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://kitsulab.vercel.app'),
+  metadataBase: new URL('https://kitsu-lab.vercel.app'),
   title: 'Kitsu Lab',
   description:
     'The destination for all your component. This website shows all the trial components by kitsunekode',
@@ -63,7 +62,6 @@ export default function RootLayout({
         className={`${orbitron.variable} ${grotesk.variable} ${jetbrainsMono.variable} min-h-screen font-sans antialiased`}
       >
         <Provider>{children}</Provider>
-        <CustomCursor />
         <Analytics />
       </body>
     </html>

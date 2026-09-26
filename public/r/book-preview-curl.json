@@ -7,7 +7,7 @@
     "page-flip"
   ],
   "registryDependencies": [
-    "https://kitsulab.vercel.app/r/book-preview-pdf.json"
+    "https://kitsu-lab.vercel.app/r/book-preview-pdf.json"
   ],
   "files": [
     {

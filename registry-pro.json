@@ -1,0 +1,253 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "kitsu-pro",
+  "homepage": "https://kitsu-lab.vercel.app",
+  "items": [
+    {
+      "name": "promo-pill",
+      "type": "registry:component",
+      "title": "Promo pill",
+      "description": "The “New: … →” announcement pill above a hero, filled from a card slot. In the page flow; never interrupts.",
+      "dependencies": ["@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-pill.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-sheet",
+      "type": "registry:component",
+      "title": "Promo offer sheet",
+      "description": "An edge tab that opens an offer sheet from its side (a bottom sheet on phones) with a revealable code and an apply link. Opens only when asked.",
+      "dependencies": ["@base-ui/react", "@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "button"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-sheet.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the swipeable Drawer."
+    },
+    {
+      "name": "promo-progress",
+      "type": "registry:component",
+      "title": "Promo progress",
+      "description": "Progress towards a reward, such as free shipping. Standalone: pass the value, goal and reward.",
+      "dependencies": ["@tabler/icons-react"],
+      "files": [
+        {
+          "path": "components/promotions/promo-progress.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-sticky-cta",
+      "type": "registry:component",
+      "title": "Promo sticky CTA",
+      "description": "A thumb-zone bar that appears once the element you watch (usually pricing) has scrolled away, and hides when it returns.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "button"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-sticky-cta.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-carousel",
+      "type": "registry:component",
+      "title": "Promo carousel",
+      "description": "Every live card in a slot as a swipeable row with a peeking next card, so several campaigns share one place. Never auto-advances.",
+      "dependencies": ["@tabler/icons-react", "motion"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-carousel.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-inbox",
+      "type": "registry:component",
+      "title": "Promo inbox",
+      "description": "A gift button with a count that lists every live offer on the page, one per campaign, including ones the visitor hid.",
+      "dependencies": ["@base-ui/react", "@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-inbox.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the Popover."
+    },
+    {
+      "name": "promotion-kits",
+      "type": "registry:lib",
+      "title": "Promotion kits",
+      "description": "Ready-made campaigns: storeSaleKit, productLaunchKit and courseEnrolmentKit, each with records in six languages and the provider settings they were designed for.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-kit.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/kit-store-sale.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/kit-product-launch.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/kit-course-enrolment.ts",
+          "type": "registry:lib"
+        }
+      ],
+      "docs": "Kits reference sample images under /promo-samples and /sample-pages; pass `images` with your own."
+    },
+    {
+      "name": "promo-spotlight",
+      "type": "registry:component",
+      "title": "Promo spotlight",
+      "description": "Points at one feature once: an anchored, non-modal popover with a soft halo on the element. Never takes focus; using the feature counts as a conversion.",
+      "dependencies": ["@base-ui/react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "button"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-spotlight.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Requires Base UI 1.8+ for the anchored Popover. Give the promotion `slot` the same value as the component's `name`."
+    },
+    {
+      "name": "promo-side-card",
+      "type": "registry:component",
+      "title": "Promo side card",
+      "description": "A “what’s on” card beside the page: docked in the free margin on wide screens, peeking from the edge elsewhere, with a pager when several campaigns run.",
+      "dependencies": ["@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "button"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-side-card.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promotion-editor",
+      "type": "registry:block",
+      "title": "Promotion editor",
+      "description": "Create and review a promotion with a live preview of every placement, a preview clock, a plain-language schedule in an explicit time zone and taste warnings. Owns no data.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "badge",
+        "input",
+        "label",
+        "slider",
+        "textarea",
+        "toggle-group"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-editor.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/promotions/promotion-editor-draft.ts",
+          "type": "registry:lib"
+        }
+      ],
+      "docs": "Requires Base UI primitives (a base-* shadcn project): ToggleGroup and Slider use array values. Pass `timeZone` so dates are entered in the campaign's zone, not the reviewer's."
+    },
+    {
+      "type": "registry:component",
+      "dependencies": ["@base-ui/react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "button"
+      ],
+      "name": "promo-story",
+      "title": "Promo story",
+      "description": "Full-screen “what’s new” story for dialog records with presentation: story. Pass it to PromoDialog as story={PromoStory}. It only opens when the visitor asks.",
+      "files": [
+        {
+          "path": "components/promotions/promo-story.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the Dialog. Render it through the free dialog: <PromoDialog story={PromoStory} />."
+    },
+    {
+      "name": "promotion-account-store",
+      "type": "registry:lib",
+      "title": "Account dismissal store",
+      "description": "Dismissals that follow the signed-in visitor across devices, for dismiss.scope: account. Synchronous reads from a local copy, batched saves, and a fetch transport.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-account-store.ts",
+          "type": "registry:lib"
+        }
+      ]
+    },
+    {
+      "name": "promotions-pro",
+      "type": "registry:block",
+      "title": "Promotions Pro",
+      "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, inbox, spotlight, side card, story, kits, editor and the account store.",
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotions.json",
+        "@kitsu-pro/promo-pill",
+        "@kitsu-pro/promo-sheet",
+        "@kitsu-pro/promo-progress",
+        "@kitsu-pro/promo-sticky-cta",
+        "@kitsu-pro/promo-carousel",
+        "@kitsu-pro/promo-inbox",
+        "@kitsu-pro/promotion-kits",
+        "@kitsu-pro/promo-spotlight",
+        "@kitsu-pro/promo-side-card",
+        "@kitsu-pro/promotion-editor",
+        "@kitsu-pro/promo-story",
+        "@kitsu-pro/promotion-account-store"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/pro.ts",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Pro items install from the authenticated @kitsu-pro registry. Add it to components.json with your key in KITSU_PRO_KEY; see the Docs tab on the promotions exhibit."
+    }
+  ]
+}

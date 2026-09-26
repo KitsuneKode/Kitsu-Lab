@@ -4,7 +4,7 @@
   "title": "Book preview - Archival curl",
   "description": "Facsimile curl reader adding search and read-aloud. Requires the curl engine.",
   "registryDependencies": [
-    "https://kitsulab.vercel.app/r/book-preview-curl.json",
+    "https://kitsu-lab.vercel.app/r/book-preview-curl.json",
     "input"
   ],
   "files": [

@@ -7,7 +7,7 @@
     "pdfjs-dist"
   ],
   "registryDependencies": [
-    "https://kitsulab.vercel.app/r/book-preview.json",
+    "https://kitsu-lab.vercel.app/r/book-preview.json",
     "badge",
     "spinner",
     "button",

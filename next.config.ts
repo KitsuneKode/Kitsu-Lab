@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   // compiler on — automatic memoization, no manual useMemo audits needed.
   reactCompiler: true,
   poweredByHeader: false,
+  // The pro registry route reads its built JSON at request time.
+  outputFileTracingIncludes: {
+    '/pro/r/*': ['./registry-pro/r/**/*.json'],
+  },
   experimental: {
     optimizePackageImports: [
       '@tabler/icons-react',

@@ -52,6 +52,7 @@ import type {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -219,7 +220,10 @@ function useEngineLoader({
 
     let cancelled = false
     const engineId = activeEngine.id
-    dispatch({ type: 'engine-loading' })
+    // A new source for an engine that is already loaded remounts that engine,
+    // which reports ready itself. Only a module that still has to load is
+    // "loading"; announcing it here would overwrite the engine's own report.
+    if (loadedRef.current !== engineId) dispatch({ type: 'engine-loading' })
     loadedRef.current = engineId
     activeEngine
       .load()
@@ -283,27 +287,29 @@ function usePersistedPageIndex({
   goToPage: (next: number, behavior?: BookPreviewNavigationBehavior) => void
   dispatch: Dispatch<BookPreviewAction>
 }) {
-  const sourceReady = useRef(false)
-  const resetPageRef = useRef({ pageControlled, pageIndex, defaultPageIndex })
-  useEffect(() => {
-    resetPageRef.current = { pageControlled, pageIndex, defaultPageIndex }
-  })
-
-  // Reset only when the source itself changes. Page props live in a ref so a
-  // controlled consumer's pageIndex updates do not trigger a source reset.
-  useEffect(() => {
-    if (!sourceReady.current) {
-      sourceReady.current = true
-      return
-    }
-    const reset = resetPageRef.current
+  // Reset when the source itself changes. A passive effect here would run
+  // *after* the remounted engine's own passive effect reported ready (effects
+  // run child-first) and leave the reader loading forever; dispatching during
+  // render mutated the external store from render, which React may discard.
+  // A layout effect is both pure-render and early enough: every layout effect
+  // in the tree flushes before any passive effect, and engines report ready
+  // from passive effects or later.
+  const resetFor = useRef(sourceKey)
+  // Which source the store's status and pages describe. The render that
+  // brings a new sourceKey still carries the old source's ready state, and
+  // its passive effects run before the reset re-renders, so the effects
+  // below skip while the two disagree.
+  const [stateFor, setStateFor] = useState(sourceKey)
+  const stale = stateFor !== sourceKey
+  useLayoutEffect(() => {
+    if (resetFor.current === sourceKey) return
+    resetFor.current = sourceKey
     dispatch({
       type: 'reset-source',
-      pageIndex: reset.pageControlled
-        ? reset.pageIndex
-        : reset.defaultPageIndex,
+      pageIndex: pageControlled ? pageIndex : defaultPageIndex,
     })
-  }, [sourceKey, dispatch])
+    setStateFor(sourceKey)
+  }, [sourceKey, pageControlled, pageIndex, defaultPageIndex, dispatch])
 
   const restoredKeyRef = useRef<string | null>(null)
   const persistKey = `book-preview:page:${sourceKey}`
@@ -318,6 +324,7 @@ function usePersistedPageIndex({
     // ready state that must not consume the deep link before the document
     // is actually open.
     if (
+      stale ||
       status !== 'ready' ||
       totalPages === 0 ||
       restoredKeyRef.current === sourceKey
@@ -348,6 +355,7 @@ function usePersistedPageIndex({
     pageControlled,
     sourceKey,
     persistKey,
+    stale,
     status,
     totalPages,
     goToPage,
@@ -355,6 +363,7 @@ function usePersistedPageIndex({
 
   useEffect(() => {
     if (
+      stale ||
       !persistPage ||
       pageControlled ||
       status !== 'ready' ||
@@ -366,12 +375,20 @@ function usePersistedPageIndex({
     } catch {
       // localStorage may be unavailable.
     }
-  }, [persistPage, pageControlled, status, totalPages, persistKey, activePage])
+  }, [
+    stale,
+    persistPage,
+    pageControlled,
+    status,
+    totalPages,
+    persistKey,
+    activePage,
+  ])
 
   // Keep the deep link current as the reader moves. replaceState only —
   // turning pages must never spam the back stack.
   useEffect(() => {
-    if (!pageParam || status !== 'ready' || totalPages === 0) return
+    if (stale || !pageParam || status !== 'ready' || totalPages === 0) return
     try {
       const url = new URL(window.location.href)
       const next = String(activePage + 1)
@@ -381,7 +398,7 @@ function usePersistedPageIndex({
     } catch {
       // history may be unavailable (sandboxed iframe).
     }
-  }, [pageParam, status, totalPages, activePage])
+  }, [stale, pageParam, status, totalPages, activePage])
 }
 
 // Appearance and mode are "how I like my reader" settings — they belong to
@@ -475,6 +492,7 @@ function useUploadedPdf({
 // The public action surface: each callback notifies the controlled listener
 // and only dispatches to internal state when that prop is uncontrolled.
 function useBookPreviewActions({
+  sourceKey,
   modeControlled,
   pageControlled,
   appearanceControlled,
@@ -489,6 +507,7 @@ function useBookPreviewActions({
   onSoundChange,
   onCapabilitiesChange,
 }: {
+  sourceKey: string
   modeControlled: boolean
   pageControlled: boolean
   appearanceControlled: boolean
@@ -549,8 +568,17 @@ function useBookPreviewActions({
 
   const retry = useCallback(() => dispatch({ type: 'retry' }), [dispatch])
 
+  // Engines remount per source; a late report from the previous instance
+  // (an async load that resolved after the switch) must not mark the new
+  // source ready. Each handler remembers the source it was made for.
+  const readyFor = sourceKey
+  const liveSourceKey = useRef(sourceKey)
+  useLayoutEffect(() => {
+    liveSourceKey.current = sourceKey
+  }, [sourceKey])
   const handleEngineReady = useCallback(
     (info: BookPreviewEngineReadyInfo) => {
+      if (liveSourceKey.current !== readyFor) return
       dispatch({
         type: 'engine-ready',
         totalPages: info.totalPages,
@@ -559,7 +587,8 @@ function useBookPreviewActions({
       })
       onCapabilitiesChange?.(info.capabilities)
     },
-    [onCapabilitiesChange, dispatch],
+    // readyFor pins this handler to one source.
+    [onCapabilitiesChange, dispatch, readyFor],
   )
 
   const handleEngineError = useCallback(
@@ -740,6 +769,7 @@ export function BookPreview({
     handleEngineReady,
     handleEngineError,
   } = useBookPreviewActions({
+    sourceKey,
     modeControlled,
     pageControlled,
     appearanceControlled,

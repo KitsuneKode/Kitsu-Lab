@@ -17,6 +17,7 @@ import { useStableHandler } from '../hooks/use-stable-handler'
 import { usePdfSheets, type PdfSheet } from '../hooks/use-pdf-sheets'
 import type { BookPreviewEngineProps, BookPreviewPage } from '../types'
 import { DEFAULT_CAPABILITIES, hasSpeechSupport } from '../capabilities'
+import { SUPPORT_NOTES } from '../support'
 import { CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from './curl-geometry'
 
 type SearchMatch = { key: string; label: string; index: number }
@@ -101,6 +102,11 @@ function ArchivalSearchControls({
         size="sm"
         onClick={onToggleSpeech}
         disabled={speechDisabled}
+        title={
+          hasSpeechSupport()
+            ? undefined
+            : `${SUPPORT_NOTES.speech.reason} ${SUPPORT_NOTES.speech.suggestion}`
+        }
         aria-pressed={speaking}
         data-book-preview-press
       >

@@ -25,7 +25,7 @@
         "tabs"
       ],
       "dependencies": ["@tabler/icons-react"],
-      "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, scalar Slider values, and array-valued ToggleGroup state. Do not treat qualitative capability labels as measured performance guarantees. The core also ships highlights, notes, bookmarks and freehand ink (pen, marker, eraser; page-relative strokes) (CSS Custom Highlight API; controlled via annotations/onAnnotationsChange or persisted with persistAnnotations), the Aa reading settings, shareable URL state (urlState), auto-hiding fullscreen chrome, and a provider-agnostic Ask panel (pass an `ai` adapter from ai.ts: on-device, OpenAI-compatible/Ollama, or your own route). Tabs and Popover rely on Base UI.",
+      "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, array-valued Slider and ToggleGroup state. Orientation styling keys off Base UI's data-orientation attribute. Do not treat qualitative capability labels as measured performance guarantees. The core also ships highlights, notes, bookmarks and freehand ink (pen, marker, eraser; page-relative strokes) (CSS Custom Highlight API; controlled via annotations/onAnnotationsChange or persisted with persistAnnotations), the Aa reading settings, shareable URL state (urlState), auto-hiding fullscreen chrome, and a provider-agnostic Ask panel (pass an `ai` adapter from ai.ts: on-device, OpenAI-compatible/Ollama, or your own route). Tabs and Popover rely on Base UI.",
       "files": [
         {
           "path": "components/book-preview/index.ts",
@@ -197,6 +197,14 @@
         },
         {
           "path": "components/book-preview/share.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/support.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-chrome-controls.tsx",
           "type": "registry:component"
         }
       ]

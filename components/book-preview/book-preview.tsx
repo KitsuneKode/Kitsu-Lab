@@ -21,6 +21,8 @@ import { createInitialState, type BookPreviewAction } from './reducer'
 import { isInteractiveTarget, isReaderKeyboardEvent } from './keyboard'
 import { BookPreviewEngineBoundary } from './book-preview-engine-boundary'
 import { useImmersiveChrome } from './hooks/use-immersive-chrome'
+import { engineSupportNote } from './support'
+import { BookPreviewChromeHandle } from './book-preview-chrome-controls'
 import { useAnnotations } from './hooks/use-annotations'
 import { toggleBookmark } from './annotations'
 import { BookPreviewCompanion } from './book-preview-companion'
@@ -325,9 +327,11 @@ function useEngineLoader({
       return
     }
     if (activeEngine.isSupported && !activeEngine.isSupported()) {
+      const note = engineSupportNote(activeEngine.id, false)
       dispatch({
         type: 'engine-unsupported',
-        message: `${activeEngine.label} is not supported in this browser.`,
+        message:
+          `${activeEngine.label}: ${note?.reason ?? 'not supported in this browser.'} ${note?.suggestion ?? ''}`.trim(),
       })
       return
     }
@@ -984,11 +988,47 @@ export function BookPreview({
       }) as CSSProperties,
     [typography],
   )
-  const { chromeHidden, showChrome, hideForReading, chromeHandlers } =
-    useImmersiveChrome({
-      enabled: fullscreen,
-      rootRef,
-    })
+  const {
+    chromeHidden,
+    chromePinned,
+    showChrome,
+    toggleChrome,
+    togglePinned,
+    hideForReading,
+    chromeHandlers,
+  } = useImmersiveChrome({
+    enabled: fullscreen,
+    rootRef,
+  })
+  const [shortcutsOpen, setShortcutsOpenState] = useState(false)
+  const [engineShortcutsAvailable, setEngineShortcutsAvailable] = useState({
+    search: false,
+    zoom: false,
+  })
+  const setShortcutsOpen = useCallback(
+    (open: boolean) => {
+      if (open) {
+        // The sheet anchors to the toolbar; in fullscreen, bring it back.
+        showChrome()
+        const engine = engineShortcutsRef.current
+        setEngineShortcutsAvailable({
+          search: Boolean(engine.search),
+          zoom: Boolean(engine.zoomIn),
+        })
+      }
+      setShortcutsOpenState(open)
+    },
+    [showChrome],
+  )
+  const chrome = useMemo(
+    () => ({
+      hidden: chromeHidden,
+      pinned: chromePinned,
+      toggle: toggleChrome,
+      togglePinned,
+    }),
+    [chromeHidden, chromePinned, toggleChrome, togglePinned],
+  )
 
   const activeMode = pickControlled(mode, state.mode)
   const activePage = pickControlled(pageIndex, state.pageIndex)
@@ -1317,6 +1357,20 @@ export function BookPreview({
         event.preventDefault()
         setDraw({ active: !draw.active })
       }
+      if (
+        (event.key === 'c' || event.key === 'C') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        fullscreen
+      ) {
+        event.preventDefault()
+        toggleChrome()
+      }
+      if (event.key === '?' && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault()
+        setShortcutsOpen(true)
+      }
       if (event.key === 'Escape' && draw.active) {
         // Putting the pen down comes before closing any overlay.
         event.preventDefault()
@@ -1344,6 +1398,9 @@ export function BookPreview({
       toggleFullscreen,
       updateAnnotations,
       annotate,
+      fullscreen,
+      toggleChrome,
+      setShortcutsOpen,
       draw.active,
       inkAvailable,
       setDraw,
@@ -1476,6 +1533,10 @@ export function BookPreview({
       engineShortcutsRef,
       toggleFullscreen,
       fullscreen,
+      chrome,
+      shortcutsOpen,
+      setShortcutsOpen,
+      engineShortcutsAvailable,
       chromeHost,
       setChromeHost,
       rootRef,
@@ -1519,6 +1580,10 @@ export function BookPreview({
       activeSound,
       finePointer,
       fullscreen,
+      chrome,
+      shortcutsOpen,
+      setShortcutsOpen,
+      engineShortcutsAvailable,
       goToPage,
       label,
       moreContrast,
@@ -1611,13 +1676,15 @@ export function BookPreview({
           <BookPreviewAnnotationLayer />
           <BookPreviewInkLayer />
           <BookPreviewCompanion />
+          <BookPreviewChromeHandle />
           <p className="sr-only">
             Arrow keys, Page Up and Page Down turn pages while this reader is
             focused. Space moves forward, F toggles fullscreen, B bookmarks the
             page, D picks up the pen to draw on it, slash or Control F opens
             search when the active reader supports it, and plus, minus and zero
-            control zoom. Select text to highlight it. Typing in fields is
-            ignored.
+            control zoom. In fullscreen, C shows or hides the controls; question
+            mark lists every shortcut. Select text to highlight it. Typing in
+            fields is ignored.
           </p>
           {dropActive ? (
             <div

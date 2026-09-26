@@ -223,8 +223,11 @@ export function usePdfSheets({
               }
             : current,
         )
-      } catch {
+      } catch (error) {
         if (cancelled) return
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(`book-preview: page ${pageNumber} raster failed`, error)
+        }
         const count = (failures.get(pageNumber) ?? 0) + 1
         failures.set(pageNumber, count)
         if (count < MAX_PAGE_FAILURES) {

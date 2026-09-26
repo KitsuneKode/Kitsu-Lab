@@ -693,6 +693,10 @@ export function CurlStage({
         variant="ghost"
         size="icon"
         aria-label="Previous page"
+        // A pointer affordance: keyboard readers have arrow keys and the
+        // pager, so these stay out of the tab order.
+        tabIndex={-1}
+        data-book-preview-stage-arrow
         disabled={!canGoPrev}
         className="absolute top-1/2 left-1 z-10 hidden min-h-11 min-w-11 -translate-y-1/2 [@media(hover:hover)_and_(pointer:fine)]:inline-flex"
         data-book-preview-press
@@ -751,43 +755,49 @@ export function CurlStage({
             className="pointer-events-none absolute top-0 left-0 z-[3] origin-top-left"
             style={{ opacity: 0 }}
           />
-          {window_.map((index) => (
-            <div
-              key={`back-${index}`}
-              ref={(node) => {
-                if (node) backsRef.current.set(index, node)
-                else backsRef.current.delete(index)
-              }}
-              aria-hidden
-              inert
-              data-book-preview-curl-back
-              className="pointer-events-none absolute inset-0 origin-top-left overflow-hidden"
-              style={{ visibility: 'hidden', backgroundColor: leafBack }}
-            >
-              {/* The page shows faintly through its own paper, mirrored —
-                  the fold mirrors it for free. */}
-              <div className="absolute inset-0 opacity-[0.07]">
-                {renderPage(index)}
-              </div>
+          {/* A filter on the clipped back itself would be clipped away with
+              it; on this wrapper it traces the lifted flap's edge, so white
+              paper still reads against white paper. */}
+          <div
+            data-book-preview-curl-backs
+            className="pointer-events-none absolute inset-0 z-[4]"
+          >
+            {window_.map((index) => (
               <div
-                data-book-preview-curl-gloss
-                className="absolute top-0 left-0 origin-top-left"
-              />
-            </div>
-          ))}
+                key={`back-${index}`}
+                ref={(node) => {
+                  if (node) backsRef.current.set(index, node)
+                  else backsRef.current.delete(index)
+                }}
+                aria-hidden
+                inert
+                data-book-preview-curl-back
+                className="pointer-events-none absolute inset-0 origin-top-left overflow-hidden"
+                style={{ visibility: 'hidden', backgroundColor: leafBack }}
+              >
+                {/* The page shows faintly through its own paper, mirrored —
+                  the fold mirrors it for free. */}
+                <div className="absolute inset-0 opacity-[0.07]">
+                  {renderPage(index)}
+                </div>
+                <div
+                  data-book-preview-curl-gloss
+                  className="absolute top-0 left-0 origin-top-left"
+                />
+              </div>
+            ))}
+          </div>
         </div>
-        <p
-          data-book-preview-curl-label
-          className="text-muted-foreground pointer-events-none absolute inset-x-0 -bottom-5 text-center font-mono text-xs"
-        >
-          {shown + 1}
-        </p>
       </div>
       <Button
         type="button"
         variant="ghost"
         size="icon"
         aria-label="Next page"
+        // A pointer affordance: keyboard readers have arrow keys and the
+        // pager, so these stay out of the tab order.
+        tabIndex={-1}
+        data-book-preview-stage-arrow
         disabled={!canGoNext}
         className="absolute top-1/2 right-1 z-10 hidden min-h-11 min-w-11 -translate-y-1/2 [@media(hover:hover)_and_(pointer:fine)]:inline-flex"
         data-book-preview-press

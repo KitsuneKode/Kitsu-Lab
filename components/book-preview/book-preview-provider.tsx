@@ -78,6 +78,18 @@ export type BookPreviewContextValue = {
   engineShortcutsRef: RefObject<BookPreviewEngineShortcuts>
   toggleFullscreen: () => void
   fullscreen: boolean
+  /** Fullscreen chrome: hidden while reading, optionally pinned up. */
+  chrome: {
+    hidden: boolean
+    pinned: boolean
+    toggle: () => void
+    togglePinned: () => void
+  }
+  /** The keyboard-shortcut sheet (`?`), with the engine shortcuts that
+      exist at the moment it opened. */
+  shortcutsOpen: boolean
+  engineShortcutsAvailable: { search: boolean; zoom: boolean }
+  setShortcutsOpen: (open: boolean) => void
   /** DOM node inside the toolbar an engine portals its controls into, so the
       reader chrome stays one bar instead of a second row floating above the
       stage. Null until the toolbar mounts its slot. */

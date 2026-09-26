@@ -33,8 +33,20 @@ export const TAP_TURN_EDGE_FRACTION = 0.3
 /** A thin strip along the top also summons the menu, where the eye (and the
     thumb, on a phone held one-handed) looks for it. */
 const TAP_TOP_BAND_FRACTION = 0.12
-/** Mouse within this distance of the top or bottom edge wakes the chrome. */
-const EDGE_WAKE_PX = 72
+/** Mouse within this distance of the top or bottom edge wakes the chrome.
+    Only the edges: a reader moving the mouse across the page is reading,
+    and chrome springing up at every twitch is the sloppiest thing a reader
+    can do. The handle, C, and a tap in the middle summon it deliberately. */
+const EDGE_WAKE_PX = 88
+const PIN_STORAGE_KEY = 'book-preview:chrome-pinned'
+
+function readPinned(): boolean {
+  try {
+    return window.localStorage.getItem(PIN_STORAGE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 /**
  * Fullscreen reading hands the whole screen to the page. Chrome floats over
@@ -45,7 +57,7 @@ const EDGE_WAKE_PX = 72
  *
  * The chrome never hides while it is in use: while focus sits inside it or
  * has left the reader (a menu or dialog portalled elsewhere), or while the
- * pointer rests on it.
+ * pointer rests on it. A reader who wants it for good pins it (remembered).
  */
 export function useImmersiveChrome({
   enabled,
@@ -55,6 +67,8 @@ export function useImmersiveChrome({
   rootRef: RefObject<HTMLElement | null>
 }) {
   const [hidden, setHidden] = useState(false)
+  const [pinned, setPinned] = useState(false)
+  const pinnedRef = useRef(false)
   const timerRef = useRef<number | null>(null)
   const cursorTimerRef = useRef<number | null>(null)
   const overChromeRef = useRef(false)
@@ -110,6 +124,7 @@ export function useImmersiveChrome({
 
   const scheduleHide = useCallback(() => {
     clear()
+    if (pinnedRef.current) return
     timerRef.current = window.setTimeout(function hideWhenIdle() {
       if (chromeInUse()) {
         timerRef.current = window.setTimeout(hideWhenIdle, CHROME_IDLE_MS)
@@ -124,6 +139,43 @@ export function useImmersiveChrome({
     setHidden(false)
     scheduleHide()
   }, [scheduleHide])
+
+  // The pin is a per-reader preference, read once fullscreen opens (never
+  // during render, so hydration stays clean).
+  useEffect(() => {
+    if (!enabled) return
+    const stored = readPinned()
+    pinnedRef.current = stored
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPinned(stored)
+  }, [enabled])
+
+  const togglePinned = useCallback(() => {
+    const next = !pinnedRef.current
+    pinnedRef.current = next
+    setPinned(next)
+    try {
+      window.localStorage.setItem(PIN_STORAGE_KEY, next ? '1' : '0')
+    } catch {
+      // Private mode: the pin just lasts this session.
+    }
+    setHidden(false)
+    if (next) clear()
+    else scheduleHide()
+  }, [clear, scheduleHide])
+
+  /** The handle and C: show when hidden, put away when shown. */
+  const toggleChrome = useCallback(() => {
+    if (!enabled) return
+    if (hidden) {
+      setHidden(false)
+      scheduleHide()
+      return
+    }
+    if (pinnedRef.current) return
+    clear()
+    setHidden(true)
+  }, [clear, enabled, hidden, scheduleHide])
 
   // Entering fullscreen starts the idle clock; leaving it restores chrome.
   useEffect(() => {
@@ -161,8 +213,7 @@ export function useImmersiveChrome({
         const nearEdge =
           event.clientY - rect.top < EDGE_WAKE_PX ||
           rect.bottom - event.clientY < EDGE_WAKE_PX
-        const brisk = Math.abs(event.movementX) + Math.abs(event.movementY) > 6
-        if (!nearEdge && !brisk) return
+        if (!nearEdge) return
       }
       show()
     },
@@ -236,7 +287,7 @@ export function useImmersiveChrome({
       const inTurnZone =
         ratioX <= TAP_TURN_EDGE_FRACTION || ratioX >= 1 - TAP_TURN_EDGE_FRACTION
       if (inTurnZone && ratioY >= TAP_TOP_BAND_FRACTION) {
-        if (!hidden) {
+        if (!hidden && !pinnedRef.current) {
           clear()
           setHidden(true)
         }
@@ -245,7 +296,7 @@ export function useImmersiveChrome({
       chromeTapAt = performance.now()
       if (hidden) {
         show()
-      } else {
+      } else if (!pinnedRef.current) {
         clear()
         setHidden(true)
       }
@@ -256,7 +307,7 @@ export function useImmersiveChrome({
   // A page turn means reading has resumed — put the chrome away, unless the
   // reader is using it (the turn came from the pager they are touching).
   const hideForReading = useCallback(() => {
-    if (!enabled || chromeInUse()) return
+    if (!enabled || pinnedRef.current || chromeInUse()) return
     clear()
     setHidden(true)
     // Turning from the keyboard: the cursor is not in use either.
@@ -265,7 +316,10 @@ export function useImmersiveChrome({
 
   return {
     chromeHidden: enabled && hidden,
+    chromePinned: enabled && pinned,
     showChrome: show,
+    toggleChrome,
+    togglePinned,
     hideForReading,
     chromeHandlers: {
       onPointerMove,

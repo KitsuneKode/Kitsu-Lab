@@ -149,8 +149,17 @@
 
 .book-preview [data-book-preview-curl-back] {
   will-change: transform, clip-path;
-  /* The lifted paper throws a soft shadow on whatever it lies over. */
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.04);
+}
+
+/* The lifted paper throws a soft shadow on whatever it lies over. */
+.book-preview [data-book-preview-curl-backs] {
+  filter: drop-shadow(0 0 6px rgb(0 0 0 / 0.22));
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .book-preview [data-book-preview-curl-backs] {
+    filter: drop-shadow(0 0 0.5px rgb(0 0 0 / 0.5));
+  }
 }
 
 /* Paper bending away from the fold: a highlight on the crease, easing into
@@ -215,7 +224,8 @@
   width: auto;
   border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
   border-radius: 0.875rem;
-  background: color-mix(in oklab, var(--card) 82%, transparent);
+  /* Near-solid: a see-through bar over a white page turns muddy grey. */
+  background: color-mix(in oklab, var(--card) 95%, transparent);
   backdrop-filter: blur(16px) saturate(1.4);
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
   box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.28);
@@ -251,10 +261,66 @@
   flex-shrink: 0;
 }
 
-/* Reading, not configuring: the engine picker and the flip book's own page
-   label (the pager already shows the page) step aside in fullscreen. */
-.book-preview[data-book-preview-immersive] [data-book-preview-mode-picker],
-.book-preview[data-book-preview-immersive] [data-book-preview-curl-label] {
+/* Carousel-style side arrows: present when the reader reaches for them
+   (pointer over the stage), out of the way while reading. */
+@media (hover: hover) and (pointer: fine) {
+  .book-preview [data-book-preview-stage-arrow] {
+    opacity: 0;
+    transition: opacity var(--book-preview-ui-ms) var(--book-preview-ease-out);
+  }
+
+  .book-preview
+    [data-book-preview-viewport]:hover
+    [data-book-preview-stage-arrow] {
+    opacity: 0.7;
+  }
+
+  .book-preview
+    [data-book-preview-viewport]
+    [data-book-preview-stage-arrow]:hover {
+    opacity: 1;
+  }
+}
+
+.book-preview[data-chrome-hidden] [data-book-preview-stage-arrow] {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+/* The fullscreen handle: one quiet pill in the corner while the controls are
+   away, gone while they are up (the bar carries its own pin and exit). */
+.book-preview [data-book-preview-chrome-handle] {
+  position: absolute;
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+  z-index: 45;
+  opacity: 0.55;
+  transition:
+    opacity var(--book-preview-ui-ms) var(--book-preview-ease-out),
+    scale var(--book-preview-ui-ms) var(--book-preview-ease-out);
+}
+
+.book-preview [data-book-preview-chrome-handle]:hover,
+.book-preview [data-book-preview-chrome-handle]:focus-visible {
+  opacity: 1;
+}
+
+.book-preview [data-book-preview-chrome-handle][data-hidden] {
+  opacity: 0;
+  scale: 0.9;
+  pointer-events: none;
+}
+
+/* Touch has no hover to reveal the label, and a tap in the middle already
+   works — keep the handle to its icon there. */
+@media (pointer: coarse) {
+  .book-preview [data-book-preview-chrome-handle] > :not(svg) {
+    display: none;
+  }
+}
+
+/* Reading, not configuring: the engine picker steps aside in fullscreen. */
+.book-preview[data-book-preview-immersive] [data-book-preview-mode-picker] {
   display: none;
 }
 
@@ -289,6 +355,57 @@
   border: none;
   border-radius: 0;
   background: var(--background);
+}
+
+/* Phones: one slim toolbar row that scrolls sideways (with a fade that says
+   there is more) instead of a three-row wall, and no frame-inside-a-frame
+   around the page — every pixel of width goes to reading. */
+@container (max-width: 40rem) {
+  .book-preview [data-book-preview-chrome='top'] {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .book-preview [data-book-preview-chrome='top'] > *,
+  .book-preview [data-book-preview-chrome='top'] > [class~='contents'] > * {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
+  .book-preview [data-book-preview-engine-frame] {
+    padding: 0.5rem;
+    gap: 0;
+  }
+
+  .book-preview [data-book-preview-engine-stage] {
+    border: none;
+    background: transparent;
+  }
+}
+
+/* A sideways-scrolling bar fades at its end, and keeps room after the last
+   control so the fade never sits on it once scrolled all the way. */
+.book-preview[data-book-preview-immersive] [data-book-preview-chrome='top'] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
+  padding-inline-end: 1.75rem;
+}
+
+@container (max-width: 40rem) {
+  .book-preview [data-book-preview-chrome='top'] {
+    mask-image: linear-gradient(
+      to right,
+      #000 calc(100% - 1.5rem),
+      transparent
+    );
+    padding-inline-end: 1.75rem;
+  }
+
+  .book-preview [data-book-preview-chrome='top']::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Engines frame their stage with padding and a card border inline; in

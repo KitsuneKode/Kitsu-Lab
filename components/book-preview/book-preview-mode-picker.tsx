@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { IconChevronDown } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,12 +12,32 @@ import {
 } from '@/components/ui/sheet'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useBookPreview } from './book-preview-provider'
-import type { BookPreviewMode } from './types'
+import { engineSupportNote } from './support'
+import type { BookPreviewEngine, BookPreviewMode } from './types'
+
+const noopSubscribe = () => () => {}
+
+/** Engine ids this device cannot run. Checked on the client only (WebGL
+    needs a canvas); the server assumes everything works, so hydration is
+    clean and the notes appear right after. */
+function useUnsupportedEngines(engines: BookPreviewEngine[]): Set<string> {
+  const key = useSyncExternalStore(
+    noopSubscribe,
+    () =>
+      engines
+        .filter((engine) => engine.isSupported && !engine.isSupported())
+        .map((engine) => engine.id)
+        .join(','),
+    () => '',
+  )
+  return new Set(key ? key.split(',') : [])
+}
 
 export function BookPreviewModePicker() {
   const { enabledEngines, state, setMode, prefetchMode, finePointer } =
     useBookPreview()
   const [sheetOpen, setSheetOpen] = useState(false)
+  const unsupported = useUnsupportedEngines(enabledEngines)
 
   if (enabledEngines.length <= 1) return null
 
@@ -48,26 +68,35 @@ export function BookPreviewModePicker() {
               </SheetDescription>
             </SheetHeader>
             <div className="grid gap-2 pb-4">
-              {enabledEngines.map((engine) => (
-                <Button
-                  key={engine.id}
-                  type="button"
-                  variant={engine.id === state.mode ? 'secondary' : 'outline'}
-                  className="h-11 justify-start"
-                  onClick={() => {
-                    setMode(engine.id)
-                    setSheetOpen(false)
-                  }}
-                  data-book-preview-press
-                >
-                  <span className="flex flex-col items-start">
-                    <span>{engine.label}</span>
-                    <span className="text-muted-foreground text-xs font-normal">
-                      {engine.description}
+              {enabledEngines.map((engine) => {
+                const note = engineSupportNote(
+                  engine.id,
+                  !unsupported.has(engine.id),
+                )
+                return (
+                  <Button
+                    key={engine.id}
+                    type="button"
+                    variant={engine.id === state.mode ? 'secondary' : 'outline'}
+                    className="h-auto min-h-11 justify-start py-2 text-left whitespace-normal"
+                    disabled={Boolean(note)}
+                    onClick={() => {
+                      setMode(engine.id)
+                      setSheetOpen(false)
+                    }}
+                    data-book-preview-press
+                  >
+                    <span className="flex flex-col items-start">
+                      <span>{engine.label}</span>
+                      <span className="text-muted-foreground text-xs font-normal">
+                        {note
+                          ? `${note.reason} ${note.suggestion}`
+                          : engine.description}
+                      </span>
                     </span>
-                  </span>
-                </Button>
-              ))}
+                  </Button>
+                )
+              })}
             </div>
           </SheetContent>
         </Sheet>
@@ -86,19 +115,32 @@ export function BookPreviewModePicker() {
           data-book-preview-modes
           className="flex max-w-full flex-wrap"
         >
-          {enabledEngines.map((engine) => (
-            <ToggleGroupItem
-              key={engine.id}
-              value={engine.id}
-              aria-label={engine.label}
-              onMouseEnter={() => {
-                if (finePointer) prefetchMode(engine.id)
-              }}
-              onFocus={() => prefetchMode(engine.id)}
-            >
-              {engine.label}
-            </ToggleGroupItem>
-          ))}
+          {enabledEngines.map((engine) => {
+            const note = engineSupportNote(
+              engine.id,
+              !unsupported.has(engine.id),
+            )
+            return (
+              <ToggleGroupItem
+                key={engine.id}
+                value={engine.id}
+                aria-label={
+                  note ? `${engine.label} — ${note.reason}` : engine.label
+                }
+                // Still choosable (a disabled item cannot show its reason on
+                // hover); choosing it opens the full explanation.
+                data-unsupported={note ? '' : undefined}
+                className="data-[unsupported]:text-muted-foreground data-[unsupported]:line-through data-[unsupported]:decoration-1"
+                title={note ? `${note.reason} ${note.suggestion}` : undefined}
+                onMouseEnter={() => {
+                  if (finePointer) prefetchMode(engine.id)
+                }}
+                onFocus={() => prefetchMode(engine.id)}
+              >
+                {engine.label}
+              </ToggleGroupItem>
+            )
+          })}
         </ToggleGroup>
       </div>
     </div>

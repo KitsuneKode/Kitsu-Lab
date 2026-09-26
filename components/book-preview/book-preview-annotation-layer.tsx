@@ -1,5 +1,6 @@
 'use client'
 
+import { SUPPORT_NOTES } from './support'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useBookPreview } from './book-preview-provider'
@@ -570,6 +571,12 @@ export function BookPreviewAnnotationLayer() {
             >
               {activeHighlight.note}
             </button>
+          ) : null}
+          {card.mode === 'highlight' && !supportsHighlightPainting() ? (
+            <p className="text-muted-foreground max-w-72 px-2 pb-1 text-[11px] leading-snug">
+              {SUPPORT_NOTES.highlights.reason}{' '}
+              {SUPPORT_NOTES.highlights.suggestion}
+            </p>
           ) : null}
         </>
       )}

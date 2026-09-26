@@ -28,6 +28,10 @@ import { Separator } from '@/components/ui/separator'
 import { BookPreviewIconButton } from './book-preview-icon-button'
 import { BookPreviewModePicker } from './book-preview-mode-picker'
 import { BookPreviewReadingSettings } from './book-preview-reading-settings'
+import {
+  BookPreviewPinChrome,
+  BookPreviewShortcuts,
+} from './book-preview-chrome-controls'
 import { useBookPreview } from './book-preview-provider'
 import { findBookmark, toggleBookmark } from './annotations'
 import { downloadTarget } from './share'
@@ -84,6 +88,8 @@ export function BookPreviewToolbar() {
         {contents.length > 1 ? (
           <ContentsMenu contents={contents} goToPage={goToPage} />
         ) : null}
+        <BookPreviewShortcuts />
+        <BookPreviewPinChrome />
         <ToolbarActions
           fullscreenCapable={state.capabilities.fullscreen}
           fullscreen={fullscreen}

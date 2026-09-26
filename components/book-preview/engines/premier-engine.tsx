@@ -18,6 +18,7 @@ import { PdfThumbRail, PdfThumbSheet } from './pdf-thumb-rail'
 import { useStableHandler } from '../hooks/use-stable-handler'
 import { usePdfSheets } from '../hooks/use-pdf-sheets'
 import { DEFAULT_CAPABILITIES, hasSpeechSupport } from '../capabilities'
+import { SUPPORT_NOTES } from '../support'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from './curl-geometry'
@@ -683,9 +684,11 @@ export default function PremierEngine({
         aria-pressed={speaking}
         disabled={speechDisabled}
         title={
-          speaking
-            ? 'Stop reading aloud'
-            : 'Read aloud — turns the pages itself'
+          !hasSpeechSupport()
+            ? `${SUPPORT_NOTES.speech.reason} ${SUPPORT_NOTES.speech.suggestion}`
+            : speaking
+              ? 'Stop reading aloud'
+              : 'Read aloud — turns the pages itself'
         }
         onClick={toggleSpeech}
         data-book-preview-press

@@ -645,7 +645,9 @@ export function PremierSpreadView({
           ref={faceRef}
           style={{
             zoom,
-            // Two faces side by side: the pair is twice as wide as one page.
+            // Sized as a pair even when a face stands alone (the cover, a
+            // lone last page), so pages keep their size as the reader turns.
+            // A lone face sits centred rather than beside an empty slot.
             height: fitHeight(2 * (leftFace?.aspect ?? FALLBACK_ASPECT)),
           }}
           className="m-auto flex items-stretch gap-0.5"
@@ -685,14 +687,6 @@ export function PremierSpreadView({
                 />
               ) : null}
             </FaceBox>
-          ) : leftFace ? (
-            <div
-              aria-hidden
-              className="bg-muted/30 h-full shrink-0 rounded-md"
-              style={{
-                aspectRatio: `${leftFace.aspect ?? FALLBACK_ASPECT}`,
-              }}
-            />
           ) : null}
         </div>
       </div>

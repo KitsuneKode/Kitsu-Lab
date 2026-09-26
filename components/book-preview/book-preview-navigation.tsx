@@ -101,7 +101,7 @@ export function BookPreviewNavigation() {
             <span className="sr-only">
               Page {shown + 1} of {state.totalPages}
               {minutesLeft !== null && minutesLeft > 0
-                ? `, about ${minutesLeft} minutes left`
+                ? `, about ${minutesLeft === 1 ? 'a minute' : `${minutesLeft} minutes`} left`
                 : ''}
             </span>
           </form>

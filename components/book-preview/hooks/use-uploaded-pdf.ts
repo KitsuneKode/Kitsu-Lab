@@ -2,7 +2,7 @@
 
 import { type BookPreviewAction } from '../reducer'
 import { useCallback, useEffect, useState, type Dispatch } from 'react'
-import { isPdfFile } from '../reader-utils'
+import { isPdfFile, MAX_PDF_UPLOAD_BYTES } from '../reader-utils'
 
 // The shell owns uploaded documents: a picked or dropped File becomes an
 // object URL merged into the normalized source, so every engine reads it
@@ -35,6 +35,16 @@ export function useUploadedPdf({
         dispatch({
           type: 'engine-error',
           error: { kind: 'upload', message: 'Only PDF files can be uploaded.' },
+        })
+        return
+      }
+      if (file.size > MAX_PDF_UPLOAD_BYTES) {
+        dispatch({
+          type: 'engine-error',
+          error: {
+            kind: 'upload',
+            message: 'That PDF is over 100 MB — too large to open here.',
+          },
         })
         return
       }

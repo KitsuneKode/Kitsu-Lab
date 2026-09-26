@@ -128,7 +128,9 @@ export function BookPreview({
   const propSource = useMemo(() => normalizeSource(source), [source])
   const urlKeys = resolveUrlKeys(urlState, pageParamProp)
   const pageParam = urlKeys.page
-  const propSourceKey = sourceIdentity(propSource)
+  // sourceIdentity serializes and hashes the whole source — it must be
+  // memoized, or every render (each page turn included) re-reads the book.
+  const propSourceKey = useMemo(() => sourceIdentity(propSource), [propSource])
   const enabledEngines = useMemo(
     () => resolveEnabledEngines(engines, enabledModes),
     [engines, enabledModes],
@@ -189,14 +191,21 @@ export function BookPreview({
         : propSource,
     [propSource, upload],
   )
-  const sourceKey = sourceIdentity(normalized)
+  const sourceKey = useMemo(() => sourceIdentity(normalized), [normalized])
   // What the reader remembers (position, highlights, ink) is keyed by the
   // document, not the session: an upload's blob: URL is new every time, so
   // uploads are identified by file fingerprint instead. Re-opening the same
   // file brings its notebook back.
-  const storageKey = upload
-    ? sourceIdentity({ ...normalized, pdfUrl: `upload:${upload.fingerprint}` })
-    : sourceKey
+  const storageKey = useMemo(
+    () =>
+      upload
+        ? sourceIdentity({
+            ...normalized,
+            pdfUrl: `upload:${upload.fingerprint}`,
+          })
+        : sourceKey,
+    [upload, normalized, sourceKey],
+  )
 
   const reducedMotion = usePrefersReducedMotion()
   const reducedTransparency = usePrefersReducedTransparency()

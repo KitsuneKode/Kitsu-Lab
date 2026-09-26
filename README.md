@@ -6,7 +6,7 @@ Building this project for fun and learning design and development.
 
 ## Live Demo
 
-[Live Demo](https://lab.kitsunelabs.xyz/)
+[Live Demo](https://kitsulabs.kitsunekode.in/)
 
 ## Features
 

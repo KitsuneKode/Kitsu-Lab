@@ -7,19 +7,19 @@
 This registry targets shadcn's Base UI styles (`base-*`, including `base-nova`). After the registry is deployed:
 
 ```bash
-npx shadcn@latest add https://lab.kitsunelabs.xyz/r/book-preview.json
+npx shadcn@latest add https://kitsulabs.kitsunekode.in/r/book-preview.json
 ```
 
 Add only the engines the product needs:
 
 ```bash
-npx shadcn@latest add https://lab.kitsunelabs.xyz/r/book-preview-curl.json
-npx shadcn@latest add https://lab.kitsunelabs.xyz/r/book-preview-pdf.json
-npx shadcn@latest add https://lab.kitsunelabs.xyz/r/book-preview-scroll.json
-npx shadcn@latest add https://lab.kitsunelabs.xyz/r/book-preview-spread.json
-npx shadcn@latest add https://lab.kitsunelabs.xyz/r/book-preview-archival-curl.json
-npx shadcn@latest add https://lab.kitsunelabs.xyz/r/book-preview-premier.json
-npx shadcn@latest add https://lab.kitsunelabs.xyz/r/book-preview-webgl.json
+npx shadcn@latest add https://kitsulabs.kitsunekode.in/r/book-preview-curl.json
+npx shadcn@latest add https://kitsulabs.kitsunekode.in/r/book-preview-pdf.json
+npx shadcn@latest add https://kitsulabs.kitsunekode.in/r/book-preview-scroll.json
+npx shadcn@latest add https://kitsulabs.kitsunekode.in/r/book-preview-spread.json
+npx shadcn@latest add https://kitsulabs.kitsunekode.in/r/book-preview-archival-curl.json
+npx shadcn@latest add https://kitsulabs.kitsunekode.in/r/book-preview-premier.json
+npx shadcn@latest add https://kitsulabs.kitsunekode.in/r/book-preview-webgl.json
 ```
 
 `book-preview-engines.json` is a convenience bundle for demos that genuinely need every mode. Production apps should prefer individual engine items to avoid installing unused PDF or Three.js packages.

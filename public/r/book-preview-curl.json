@@ -4,7 +4,7 @@
   "title": "Book preview - Curl",
   "description": "Tactile page-curl reader on its own dependency-free fold engine: finger-tracked curls, flick-to-turn, interruptible turns, hover corner peeks. Mounts only the leaves around the reading position, so documents of any length open. Opens page data or a PDF.",
   "registryDependencies": [
-    "https://lab.kitsunelabs.xyz/r/book-preview-pdf.json"
+    "https://kitsulabs.kitsunekode.in/r/book-preview-pdf.json"
   ],
   "files": [
     {

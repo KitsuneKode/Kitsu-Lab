@@ -28,7 +28,7 @@ const DESCRIPTION =
   'A registry of animated, accessible components and a book reader engine for shadcn/ui — by kitsunekode.'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://lab.kitsunelabs.xyz'),
+  metadataBase: new URL('https://kitsulabs.kitsunekode.in'),
   title: 'Kitsu Lab',
   description: DESCRIPTION,
 

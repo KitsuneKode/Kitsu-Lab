@@ -33,7 +33,7 @@ export default function Home() {
         </main>
 
         <footer className="border-border text-muted-foreground flex items-center justify-between border-t py-6 font-mono text-xs">
-          <span>lab.kitsunelabs.xyz</span>
+          <span>kitsulabs.kitsunekode.in</span>
           <span>npx shadcn add …</span>
         </footer>
       </div>

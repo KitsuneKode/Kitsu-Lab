@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
   "name": "kitsu-lab",
-  "homepage": "https://lab.kitsunelabs.xyz",
+  "homepage": "https://kitsulabs.kitsunekode.in",
   "items": [
     {
       "name": "book-preview",
@@ -294,7 +294,7 @@
       ],
       "dependencies": ["pdfjs-dist"],
       "registryDependencies": [
-        "https://lab.kitsunelabs.xyz/r/book-preview.json",
+        "https://kitsulabs.kitsunekode.in/r/book-preview.json",
         "badge",
         "spinner",
         "button",
@@ -338,7 +338,7 @@
         }
       ],
       "registryDependencies": [
-        "https://lab.kitsunelabs.xyz/r/book-preview-pdf.json"
+        "https://kitsulabs.kitsunekode.in/r/book-preview-pdf.json"
       ]
     },
     {
@@ -357,7 +357,7 @@
         }
       ],
       "registryDependencies": [
-        "https://lab.kitsunelabs.xyz/r/book-preview-curl.json",
+        "https://kitsulabs.kitsunekode.in/r/book-preview-curl.json",
         "input"
       ]
     },
@@ -389,7 +389,7 @@
         }
       ],
       "registryDependencies": [
-        "https://lab.kitsunelabs.xyz/r/book-preview-curl.json",
+        "https://kitsulabs.kitsunekode.in/r/book-preview-curl.json",
         "input"
       ]
     },
@@ -409,7 +409,7 @@
         }
       ],
       "registryDependencies": [
-        "https://lab.kitsunelabs.xyz/r/book-preview-pdf.json"
+        "https://kitsulabs.kitsunekode.in/r/book-preview-pdf.json"
       ]
     },
     {
@@ -428,7 +428,7 @@
         }
       ],
       "registryDependencies": [
-        "https://lab.kitsunelabs.xyz/r/book-preview.json",
+        "https://kitsulabs.kitsunekode.in/r/book-preview.json",
         "input",
         "toggle-group"
       ]
@@ -459,7 +459,7 @@
         "maath"
       ],
       "registryDependencies": [
-        "https://lab.kitsunelabs.xyz/r/book-preview.json"
+        "https://kitsulabs.kitsunekode.in/r/book-preview.json"
       ]
     },
     {
@@ -474,13 +474,13 @@
         }
       ],
       "registryDependencies": [
-        "https://lab.kitsunelabs.xyz/r/book-preview-pdf.json",
-        "https://lab.kitsunelabs.xyz/r/book-preview-curl.json",
-        "https://lab.kitsunelabs.xyz/r/book-preview-archival-curl.json",
-        "https://lab.kitsunelabs.xyz/r/book-preview-premier.json",
-        "https://lab.kitsunelabs.xyz/r/book-preview-scroll.json",
-        "https://lab.kitsunelabs.xyz/r/book-preview-spread.json",
-        "https://lab.kitsunelabs.xyz/r/book-preview-webgl.json"
+        "https://kitsulabs.kitsunekode.in/r/book-preview-pdf.json",
+        "https://kitsulabs.kitsunekode.in/r/book-preview-curl.json",
+        "https://kitsulabs.kitsunekode.in/r/book-preview-archival-curl.json",
+        "https://kitsulabs.kitsunekode.in/r/book-preview-premier.json",
+        "https://kitsulabs.kitsunekode.in/r/book-preview-scroll.json",
+        "https://kitsulabs.kitsunekode.in/r/book-preview-spread.json",
+        "https://kitsulabs.kitsunekode.in/r/book-preview-webgl.json"
       ]
     },
     {

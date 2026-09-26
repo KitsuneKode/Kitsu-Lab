@@ -84,22 +84,32 @@ import { PromoSideCard, storeSaleKit } from '@/components/promotions/pro'`,
     code: `import { composeStores } from '@/components/promotions'
 import { accountDismissalStore, fetchAccountTransport } from '@/components/promotions/pro'
 
-const accountStore = accountDismissalStore({
-  transport: fetchAccountTransport('/api/promotions/state'),
-  initial, // read on the server, so the first render already knows
-})
+// one store per signed-in account; close it when the user changes
+const accountStore = useMemo(
+  () => accountDismissalStore({
+    accountId: user.id,
+    transport: fetchAccountTransport('/api/promotions/state'),
+    initial, // read on the server, so the first render already knows
+  }),
+  [user.id],
+)
+useEffect(() => () => accountStore.close(), [accountStore])
 const storage = composeStores({ account: accountStore })
 
 // app/api/promotions/state/route.ts
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getUser()               // your auth
   if (!user) return new Response(null, { status: 401 })
+  if (request.headers.get('x-promo-account') !== user.id)
+    return new Response(null, { status: 409 })  // store is for another account
   return Response.json(await db.promoState(user.id))  // { [key]: epochMs }
 }
 
 export async function POST(request: Request) {
   const user = await getUser()
   if (!user) return new Response(null, { status: 401 })
+  if (request.headers.get('x-promo-account') !== user.id)
+    return new Response(null, { status: 409 })
   const { changes } = await request.json()   // { [key]: epochMs | null }
   await db.mergePromoState(user.id, changes) // null deletes the key
   return new Response(null, { status: 204 })
@@ -108,6 +118,7 @@ export async function POST(request: Request) {
       'Reads are instant from a local copy; writes are batched and sent again when the tab is hidden.',
       'On the server, accept only keys starting with promo: and finite numbers, and cap the count.',
       'Signed-out visitors: route account records to cookie until they sign in.',
+      'The 409 check stops a store made for one user from writing into another user’s session after a switch in another tab.',
     ],
   },
   {

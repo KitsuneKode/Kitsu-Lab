@@ -9,15 +9,18 @@ import {
 /** A transport whose load resolves when the test says so. */
 function fakeTransport(server: Record<string, number> = {}) {
   const saves: Record<string, number | null>[] = []
+  const accounts: string[] = []
   let release: (() => void) | undefined
   const gate = new Promise<void>((resolve) => (release = resolve))
   let failNext = false
   const transport: AccountTransport = {
-    load: async () => {
+    load: async (accountId) => {
+      accounts.push(accountId)
       await gate
       return { ...server }
     },
-    save: async (changes) => {
+    save: async (changes, accountId) => {
+      accounts.push(accountId)
       if (failNext) {
         failNext = false
         throw new Error('offline')
@@ -28,6 +31,7 @@ function fakeTransport(server: Record<string, number> = {}) {
   return {
     transport,
     saves,
+    accounts,
     release: () => release?.(),
     failNextSave: () => (failNext = true),
   }
@@ -37,6 +41,7 @@ describe('accountDismissalStore', () => {
   test('first render reads the server-provided initial values', () => {
     const { transport } = fakeTransport()
     const store = accountDismissalStore({
+      accountId: 'u1',
       transport,
       initial: { 'promo:a': 100 },
     })
@@ -47,6 +52,7 @@ describe('accountDismissalStore', () => {
   test('load replaces the local copy and notifies subscribers', async () => {
     const fake = fakeTransport({ 'promo:a': 200, 'promo:b': 50 })
     const store = accountDismissalStore({
+      accountId: 'u1',
       transport: fake.transport,
       initial: { 'promo:a': 100 },
     })
@@ -61,7 +67,10 @@ describe('accountDismissalStore', () => {
 
   test('writes made before the load lands are not overwritten by it', async () => {
     const fake = fakeTransport({ 'promo:a': 1, 'promo:gone': 5 })
-    const store = accountDismissalStore({ transport: fake.transport })
+    const store = accountDismissalStore({
+      accountId: 'u1',
+      transport: fake.transport,
+    })
     store.subscribe?.(() => {})
     store.set('promo:a', 999, 'account')
     store.set('promo:gone', Number.POSITIVE_INFINITY, 'account')
@@ -76,6 +85,7 @@ describe('accountDismissalStore', () => {
   test('writes are batched into one save, with null for a cleared key', async () => {
     const fake = fakeTransport()
     const store = accountDismissalStore({
+      accountId: 'u1',
       transport: fake.transport,
       debounceMs: 10_000,
     })
@@ -92,6 +102,7 @@ describe('accountDismissalStore', () => {
     const fake = fakeTransport()
     const errors: unknown[] = []
     const store = accountDismissalStore({
+      accountId: 'u1',
       transport: fake.transport,
       debounceMs: 10_000,
       onError: (error) => errors.push(error),
@@ -108,6 +119,7 @@ describe('accountDismissalStore', () => {
 
   test('ignores malformed server payloads', async () => {
     const store = accountDismissalStore({
+      accountId: 'u1',
       transport: {
         load: async () =>
           ({ 'promo:ok': 1, 'promo:bad': 'x', 'promo:inf': Infinity }) as never,
@@ -121,6 +133,77 @@ describe('accountDismissalStore', () => {
   })
 })
 
+describe('account safety', () => {
+  test('every load and save names the store account', async () => {
+    const fake = fakeTransport()
+    const store = accountDismissalStore({
+      accountId: 'u1',
+      transport: fake.transport,
+    })
+    fake.release()
+    await store.ready()
+    store.set('promo:a', 1, 'account')
+    await store.flush()
+    expect(fake.accounts).toEqual(['u1', 'u1'])
+  })
+
+  test('close drops local values and unsent writes, and ignores later ones', async () => {
+    const fake = fakeTransport()
+    const store = accountDismissalStore({
+      accountId: 'u1',
+      transport: fake.transport,
+      initial: { 'promo:a': 5 },
+      debounceMs: 10_000,
+    })
+    store.set('promo:b', 7, 'account')
+    store.close()
+    store.set('promo:c', 9, 'account')
+    await store.flush()
+    expect(store.get('promo:a', 'account')).toBeNull()
+    expect(store.get('promo:c', 'account')).toBeNull()
+    expect(fake.saves).toHaveLength(0)
+  })
+
+  test('a failed save retries on its own with backoff', async () => {
+    const fake = fakeTransport()
+    const store = accountDismissalStore({
+      accountId: 'u1',
+      transport: fake.transport,
+      debounceMs: 10_000,
+      retryMs: 5,
+    })
+    fake.failNextSave()
+    store.set('promo:a', 10, 'account')
+    await store.flush()
+    expect(fake.saves).toHaveLength(0)
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await store.flush()
+    expect(fake.saves).toEqual([{ 'promo:a': 10 }])
+  })
+
+  test('a failed load is retried and keeps writes made before it', async () => {
+    let calls = 0
+    const store = accountDismissalStore({
+      accountId: 'u1',
+      transport: {
+        load: async () => {
+          calls += 1
+          if (calls === 1) throw new Error('offline')
+          return { 'promo:a': 1, 'promo:b': 2 }
+        },
+        save: async () => {},
+      },
+      onError: () => {},
+    })
+    store.set('promo:a', 50, 'account')
+    await store.ready()
+    await store.ready()
+    expect(calls).toBe(2)
+    expect(store.get('promo:a', 'account')).toBe(50)
+    expect(store.get('promo:b', 'account')).toBe(2)
+  })
+})
+
 describe('fetchAccountTransport', () => {
   test('GETs values and POSTs changes as JSON with keepalive', async () => {
     const calls: { url: string; init?: RequestInit }[] = []
@@ -131,8 +214,10 @@ describe('fetchAccountTransport', () => {
       })
     }) as typeof fetch
     const transport = fetchAccountTransport('/api/state', { fetch: request })
-    expect(await transport.load()).toEqual({ 'promo:a': 1 })
-    await transport.save({ 'promo:a': null })
+    expect(await transport.load('u1')).toEqual({ 'promo:a': 1 })
+    await transport.save({ 'promo:a': null }, 'u1')
+    const headers = (calls[1]?.init?.headers ?? {}) as Record<string, string>
+    expect(headers['x-promo-account']).toBe('u1')
     expect(calls[1]?.init?.method).toBe('POST')
     expect(calls[1]?.init?.keepalive).toBe(true)
     expect(calls[1]?.init?.body).toBe('{"changes":{"promo:a":null}}')
@@ -142,6 +227,6 @@ describe('fetchAccountTransport', () => {
     const request = (async () =>
       new Response(null, { status: 401 })) as unknown as typeof fetch
     const transport = fetchAccountTransport('/api/state', { fetch: request })
-    await expect(transport.load()).rejects.toThrow('401')
+    await expect(transport.load('u1')).rejects.toThrow('401')
   })
 })

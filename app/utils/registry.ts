@@ -20,7 +20,7 @@ export const registry = {
       name: 'Promotions',
       path: 'promotions',
       description:
-        'Scheduled announcement bar, inline card and dialog with route targeting, respectful dismissal and an editor with live preview.',
+        'A campaign system for shadcn: bars, toasts, dialogs, spotlights, side cards and stories with frequency rules, audiences, A/B tests, event triggers and one-tap coupon apply.',
       component: PromotionsDemo,
       image: {
         url: '',

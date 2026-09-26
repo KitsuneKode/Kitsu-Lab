@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
-import { isAuthorized, parseItemName, readKeys } from './pro-registry'
+import {
+  bearerToken,
+  isAuthorized,
+  parseItemName,
+  readKeys,
+} from './pro-registry'
 
 const KEY = 'kp_live_0123456789abcdef'
 
@@ -44,5 +49,15 @@ describe('isAuthorized', () => {
 
   test('is closed when no keys are configured', () => {
     expect(isAuthorized(`Bearer ${KEY}`, [])).toBe(false)
+  })
+})
+
+describe('bearerToken', () => {
+  test('reads the token and nothing else', () => {
+    expect(bearerToken(`Bearer ${KEY}`)).toBe(KEY)
+    expect(bearerToken(`bearer   ${KEY}  `)).toBe(KEY)
+    expect(bearerToken(KEY)).toBeNull()
+    expect(bearerToken('Bearer a b')).toBeNull()
+    expect(bearerToken(null)).toBeNull()
   })
 })

@@ -33,7 +33,7 @@ export default function Home() {
         </main>
 
         <footer className="border-border text-muted-foreground flex items-center justify-between border-t py-6 font-mono text-xs">
-          <span>kitsulab.vercel.app</span>
+          <span>kitsulab.kitsunekode.in</span>
           <span>npx shadcn add …</span>
         </footer>
       </div>

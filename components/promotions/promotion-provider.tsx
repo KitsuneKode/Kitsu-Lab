@@ -724,7 +724,13 @@ export function PromotionProvider({
     'sheet',
     (promotion) => !isDismissed(promotion) && allowed(promotion),
   )
-  const spotlightCandidate = available(selection.spotlight)
+  // A spotlight needs its anchor on this page; the best one that has it
+  // shows, so a dismissed or anchorless spotlight never blocks the rest.
+  const spotlightCandidate = pick(
+    'spotlight',
+    (promotion) =>
+      available(promotion) !== null && anchors.has(promotion.slot ?? 'default'),
+  )
   const sides = suppressed
     ? []
     : selection.live.filter(
@@ -801,7 +807,6 @@ export function PromotionProvider({
   const spotlight =
     !dialog &&
     spotlightCandidate &&
-    anchors.has(spotlightCandidate.slot ?? 'default') &&
     (forced === spotlightCandidate.id ||
       stillOpen(spotlightCandidate) ||
       (fresh(spotlightCandidate) &&
@@ -943,8 +948,10 @@ export function PromotionProvider({
     markShown: (promotion) => {
       if (stillOpen(promotion)) return
       const at = write(shownKey(promotion), 'browser')
-      // Only interruptions spend the budget; an offer the visitor opened does not.
-      if (promotion.placement !== 'sheet') write(BUDGET_KEY, 'browser', at)
+      // Only interruptions spend the budget. An offer the visitor opened
+      // (a sheet, a story, one their own action triggered) does not.
+      if (promotion.placement !== 'sheet' && opensOnItsOwn(promotion))
+        write(BUDGET_KEY, 'browser', at)
       setOpenFloating({ id: promotion.id, pathname })
       report('impression', promotion)
     },

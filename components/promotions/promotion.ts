@@ -872,7 +872,8 @@ export function isPromotion(value: unknown): value is Promotion {
     (value.media === undefined ||
       (isRecord(value.media) &&
         typeof value.media.src === 'string' &&
-        typeof value.media.alt === 'string'))
+        typeof value.media.alt === 'string' &&
+        optionalString(value.media.caption)))
   )
 }
 

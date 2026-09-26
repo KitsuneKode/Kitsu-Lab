@@ -113,3 +113,15 @@ describe('event triggers', () => {
     expect(triggeredBy(selection, 'checkout')).toBeNull()
   })
 })
+
+describe('stored media', () => {
+  test('rejects a media caption that is not text, which would crash React', () => {
+    const media = { src: '/a.webp', alt: 'A', width: 16, height: 9 }
+    expect(isPromotion(promo({ media: { ...media, caption: 'Hi' } }))).toBe(
+      true,
+    )
+    expect(
+      isPromotion(promo({ media: { ...media, caption: { x: 1 } as never } })),
+    ).toBe(false)
+  })
+})

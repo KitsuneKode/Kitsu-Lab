@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { usePromotions } from './promotion-provider'
 
 const RING_STYLE_ID = 'promo-spotlight-ring'
+const noopSubscribe = () => () => {}
 
 /** One tiny stylesheet for the halo, so the host element needs no classes. */
 function ensureRingStyle() {
@@ -66,10 +67,18 @@ export function PromoSpotlight({
   const mine =
     spotlight && (spotlight.slot ?? 'default') === name ? spotlight : null
 
+  // The ref object never changes, so read the element as a snapshot: React
+  // re-checks it after each commit, so an anchor that mounts later (after
+  // data loads) still registers.
+  const present = React.useSyncExternalStore(
+    noopSubscribe,
+    () => anchor.current !== null,
+    () => false,
+  )
   React.useEffect(() => {
-    if (!anchor.current) return
+    if (!present) return
     return registerAnchor(name)
-  }, [anchor, name, registerAnchor])
+  }, [present, name, registerAnchor])
 
   React.useEffect(() => {
     const element = anchor.current
@@ -95,8 +104,18 @@ export function PromoSpotlight({
     <Popover.Root
       open
       modal={false}
-      onOpenChange={(open) => {
-        if (!open) dismiss(mine)
+      onOpenChange={(open, details) => {
+        if (open) return
+        // Pressing the anchor itself is using the feature, which the click
+        // handler above records as a conversion, not a dismissal.
+        const target = details.event?.target
+        if (
+          details.reason === 'outside-press' &&
+          target instanceof Node &&
+          anchor.current?.contains(target)
+        )
+          return
+        dismiss(mine)
       }}
     >
       <Popover.Portal container={container}>

@@ -295,6 +295,12 @@ function usePersistedPageIndex({
   // in the tree flushes before any passive effect, and engines report ready
   // from passive effects or later.
   const resetFor = useRef(sourceKey)
+  // Which source the store's status and pages describe. The render that
+  // brings a new sourceKey still carries the old source's ready state, and
+  // its passive effects run before the reset re-renders, so the effects
+  // below skip while the two disagree.
+  const [stateFor, setStateFor] = useState(sourceKey)
+  const stale = stateFor !== sourceKey
   useLayoutEffect(() => {
     if (resetFor.current === sourceKey) return
     resetFor.current = sourceKey
@@ -302,6 +308,7 @@ function usePersistedPageIndex({
       type: 'reset-source',
       pageIndex: pageControlled ? pageIndex : defaultPageIndex,
     })
+    setStateFor(sourceKey)
   }, [sourceKey, pageControlled, pageIndex, defaultPageIndex, dispatch])
 
   const restoredKeyRef = useRef<string | null>(null)
@@ -317,6 +324,7 @@ function usePersistedPageIndex({
     // ready state that must not consume the deep link before the document
     // is actually open.
     if (
+      stale ||
       status !== 'ready' ||
       totalPages === 0 ||
       restoredKeyRef.current === sourceKey
@@ -347,6 +355,7 @@ function usePersistedPageIndex({
     pageControlled,
     sourceKey,
     persistKey,
+    stale,
     status,
     totalPages,
     goToPage,
@@ -354,6 +363,7 @@ function usePersistedPageIndex({
 
   useEffect(() => {
     if (
+      stale ||
       !persistPage ||
       pageControlled ||
       status !== 'ready' ||
@@ -365,12 +375,20 @@ function usePersistedPageIndex({
     } catch {
       // localStorage may be unavailable.
     }
-  }, [persistPage, pageControlled, status, totalPages, persistKey, activePage])
+  }, [
+    stale,
+    persistPage,
+    pageControlled,
+    status,
+    totalPages,
+    persistKey,
+    activePage,
+  ])
 
   // Keep the deep link current as the reader moves. replaceState only —
   // turning pages must never spam the back stack.
   useEffect(() => {
-    if (!pageParam || status !== 'ready' || totalPages === 0) return
+    if (stale || !pageParam || status !== 'ready' || totalPages === 0) return
     try {
       const url = new URL(window.location.href)
       const next = String(activePage + 1)
@@ -380,7 +398,7 @@ function usePersistedPageIndex({
     } catch {
       // history may be unavailable (sandboxed iframe).
     }
-  }, [pageParam, status, totalPages, activePage])
+  }, [stale, pageParam, status, totalPages, activePage])
 }
 
 // Appearance and mode are "how I like my reader" settings — they belong to

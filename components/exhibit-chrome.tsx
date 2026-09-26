@@ -30,7 +30,9 @@ function onScroll() {
 /** One shared scroll listener for every chrome control. */
 function subscribe(onChange: () => void) {
   if (listeners.size === 0) {
+    // State may be left over from a page that unmounted mid-scroll.
     lastY = window.scrollY
+    tucked = lastY > 96
     window.addEventListener('scroll', onScroll, { passive: true })
   }
   listeners.add(onChange)

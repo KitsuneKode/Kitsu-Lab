@@ -50,6 +50,13 @@ export function PromoStory({
       ? [promotion.media]
       : []
   const [index, setIndex] = React.useState(0)
+  // The dialog keeps the story mounted after it closes, and a story is meant
+  // to be watched again: every opening starts from the first slide.
+  const [wasOpen, setWasOpen] = React.useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) setIndex(0)
+  }
   const [held, setHeld] = React.useState(false)
   const [hidden, setHidden] = React.useState(false)
   const last = index >= slides.length - 1

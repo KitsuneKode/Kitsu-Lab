@@ -52,6 +52,7 @@ import {
   PromoStory,
 } from '@/components/promotions/pro'
 import { PromotionEditor } from '@/components/promotions/promotion-editor'
+import { CampaignTimeline } from '@/components/promotions/campaign-timeline'
 import { PromotionsDocs } from './promotions-docs'
 import { SCENARIOS, type Scenario, type ScenarioId } from './scenarios'
 
@@ -1114,31 +1115,45 @@ export function PromotionsDemo() {
       ) : view === 'docs' ? (
         <PromotionsDocs />
       ) : (
-        <PromotionEditor
-          routes={scenario.pages.map(({ value, label }) => ({ value, label }))}
-          targets={scenario.targets}
-          slots={[
-            { value: 'hero', label: 'Hero card' },
-            { value: 'announcement', label: 'Announcement pill' },
-            { value: 'sticky', label: 'Sticky CTA' },
-          ]}
-          others={records}
-          timeZone="Europe/Paris"
-          submitLabel="Publish to the demo"
-          onSubmit={(content) => {
-            setRecords((previous) => [
-              ...previous,
-              {
-                ...content,
-                id: `draft-${previous.length + 1}`,
-                state: 'published',
-                dismissalVersion: 1,
-                revision: 1,
-              },
-            ])
-            setView('site')
-          }}
-        />
+        <div className="grid gap-8">
+          <section className="border-border/60 rounded-xl border p-4">
+            <h2 className="mb-3 text-sm font-medium">Campaigns on this site</h2>
+            <CampaignTimeline
+              promotions={records}
+              now={now()}
+              timeZone="Europe/Paris"
+            />
+          </section>
+          <PromotionEditor
+            routes={scenario.pages.map(({ value, label }) => ({
+              value,
+              label,
+            }))}
+            targets={scenario.targets}
+            slots={[
+              { value: 'hero', label: 'Hero card' },
+              { value: 'announcement', label: 'Announcement pill' },
+              { value: 'sticky', label: 'Sticky CTA' },
+            ]}
+            others={records}
+            segments={MEMBER}
+            timeZone="Europe/Paris"
+            submitLabel="Publish to the demo"
+            onSubmit={(content) => {
+              setRecords((previous) => [
+                ...previous,
+                {
+                  ...content,
+                  id: `draft-${previous.length + 1}`,
+                  state: 'published',
+                  dismissalVersion: 1,
+                  revision: 1,
+                },
+              ])
+              setView('site')
+            }}
+          />
+        </div>
       )}
     </div>
   )

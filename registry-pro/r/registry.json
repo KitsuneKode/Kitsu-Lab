@@ -185,6 +185,23 @@
       "docs": "Requires Base UI primitives (a base-* shadcn project): ToggleGroup and Slider use array values. Pass `timeZone` so dates are entered in the campaign's zone, not the reviewer's."
     },
     {
+      "name": "campaign-timeline",
+      "type": "registry:block",
+      "title": "Campaign timeline",
+      "description": "Every promotion on one time axis: what is live, what is queued, where floating surfaces compete for the same days and routes, and what is still draft. Rows can select a record.",
+      "dependencies": ["@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsulabs.kitsunekode.in/r/promotion.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/campaign-timeline.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Pass `timeZone` so ticks and schedules are labelled in the campaign's zone, not the reviewer's. Records competing for the one floating slot are flagged; a dialog wins over a spotlight, a spotlight over a toast."
+    },
+    {
       "type": "registry:component",
       "dependencies": ["@base-ui/react"],
       "registryDependencies": [

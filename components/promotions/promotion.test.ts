@@ -8,6 +8,7 @@ import {
   fromZonedInput,
   isPromotion,
   nextBoundary,
+  overlaysCollide,
   routesMayOverlap,
   sanitizePromotions,
   toZonedInput,
@@ -395,5 +396,90 @@ describe('review, refined', () => {
       T0,
     ).map((w) => w.code)
     expect(codes).toContain('dialog-without-cta')
+  })
+})
+
+describe('overlaysCollide', () => {
+  const toast = promo({ id: 't', placement: 'toast' })
+  const dialog = promo({ id: 'd', placement: 'dialog' })
+
+  test('published floating records on overlapping windows and routes collide', () => {
+    expect(overlaysCollide(toast, dialog)).toBe(true)
+  })
+
+  test('a non-floating surface never collides', () => {
+    expect(overlaysCollide(toast, promo({ id: 'b', placement: 'bar' }))).toBe(
+      false,
+    )
+    expect(overlaysCollide(toast, promo({ id: 's', placement: 'sheet' }))).toBe(
+      false,
+    )
+    expect(overlaysCollide(toast, promo({ id: 'c', placement: 'side' }))).toBe(
+      false,
+    )
+  })
+
+  test('drafts, disjoint windows and disjoint routes do not collide', () => {
+    expect(overlaysCollide(toast, { ...dialog, state: 'draft' })).toBe(false)
+    expect(
+      overlaysCollide(toast, {
+        ...dialog,
+        startsAt: T0 + 30 * DAY,
+        endsAt: T0 + 37 * DAY,
+      }),
+    ).toBe(false)
+    expect(
+      overlaysCollide(
+        { ...toast, include: ['/books'] },
+        { ...dialog, include: ['/courses'] },
+      ),
+    ).toBe(false)
+  })
+
+  test('a record never collides with itself', () => {
+    expect(overlaysCollide(toast, toast)).toBe(false)
+  })
+})
+
+describe('floating-overlap warning', () => {
+  test('a toast warns when a dialog shares its window and routes', () => {
+    const other = promo({ id: 'd', placement: 'dialog' })
+    const codes = reviewPromotion(
+      promo({ id: 't', placement: 'toast' }),
+      [other],
+      T0,
+    ).map((w) => w.code)
+    expect(codes).toContain('floating-overlap')
+  })
+
+  test('same-placement dialog pairs keep the dedicated warning only', () => {
+    const other = promo({ id: 'd2', placement: 'dialog', cta: undefined })
+    const warnings = reviewPromotion(
+      promo({ id: 'd1', placement: 'dialog', include: ['/x'] }),
+      [{ ...other, include: ['/x'] }],
+      T0,
+    )
+    const codes = warnings.map((w) => w.code)
+    expect(codes).toContain('dialog-overlap')
+    expect(codes).not.toContain('floating-overlap')
+  })
+
+  test('a spotlight warns against a same-placement overlap', () => {
+    const other = promo({ id: 's2', placement: 'spotlight' })
+    const codes = reviewPromotion(
+      promo({ id: 's1', placement: 'spotlight' }),
+      [other],
+      T0,
+    ).map((w) => w.code)
+    expect(codes).toContain('floating-overlap')
+  })
+
+  test('non-floating placements do not warn', () => {
+    const codes = reviewPromotion(
+      promo({ id: 'b', placement: 'bar' }),
+      [promo({ id: 'd', placement: 'dialog' })],
+      T0,
+    ).map((w) => w.code)
+    expect(codes).not.toContain('floating-overlap')
   })
 })

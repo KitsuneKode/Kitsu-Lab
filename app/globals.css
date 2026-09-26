@@ -243,10 +243,36 @@ body {
   border-color: color-mix(in oklab, var(--foreground) 75%, transparent);
 }
 
-/* Native cursor only hides once the custom one is live — never before. */
-body[data-custom-cursor],
-body[data-custom-cursor] * {
+/* Native cursor only hides once the custom one is live — never before —
+   and never where it carries meaning: text fields and surfaces marked
+   [data-native-cursor] (the book reader's I-beam, grab hand, crosshair)
+   keep their own cursor while the custom one steps aside. */
+body[data-custom-cursor]
+  :where(*):not(
+    :is(
+      input,
+      textarea,
+      select,
+      [contenteditable='true'],
+      [data-native-cursor],
+      [data-native-cursor] *
+    )
+  ),
+body[data-custom-cursor] {
   cursor: none !important;
+}
+
+/* cursor inherits, so the opted-out surfaces reset it explicitly — at zero
+   specificity, so their own cursor utilities still win. */
+:where(body[data-custom-cursor])
+  :where(
+    input,
+    textarea,
+    select,
+    [contenteditable='true'],
+    [data-native-cursor]
+  ) {
+  cursor: auto;
 }
 
 @media (pointer: coarse), (prefers-reduced-motion: reduce) {

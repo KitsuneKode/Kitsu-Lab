@@ -254,8 +254,9 @@
   transform: translateY(calc(100% + 0.5rem));
 }
 
-/* The cursor goes with the chrome — nothing on screen but the page. */
-.book-preview[data-chrome-hidden] [data-book-preview-viewport] {
+/* A still cursor leaves the page (set by use-immersive-chrome after an idle
+   spell); any movement brings it straight back. */
+.book-preview[data-cursor-idle] [data-book-preview-viewport] {
   cursor: none;
 }
 

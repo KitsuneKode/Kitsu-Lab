@@ -56,6 +56,7 @@ export function useImmersiveChrome({
 }) {
   const [hidden, setHidden] = useState(false)
   const timerRef = useRef<number | null>(null)
+  const cursorTimerRef = useRef<number | null>(null)
   const overChromeRef = useRef(false)
   // Touch never focuses a tapped button on iOS and never hovers, so a press
   // inside the chrome is remembered directly: a page turn from the pager is
@@ -71,6 +72,28 @@ export function useImmersiveChrome({
       timerRef.current = null
     }
   }, [])
+
+  // The cursor hides on its own clock, imperatively (no re-render per
+  // mouse move) and independently of the chrome: any movement at all brings
+  // it back, even a slow drift that is not enough to summon the menu. Tying
+  // it to the chrome left a reader moving the mouse with no cursor visible.
+  const setCursorIdle = useCallback(
+    (idle: boolean) => {
+      rootRef.current?.toggleAttribute('data-cursor-idle', idle)
+    },
+    [rootRef],
+  )
+
+  const wakeCursor = useCallback(() => {
+    setCursorIdle(false)
+    if (cursorTimerRef.current !== null) {
+      window.clearTimeout(cursorTimerRef.current)
+    }
+    cursorTimerRef.current = window.setTimeout(() => {
+      cursorTimerRef.current = null
+      if (!overChromeRef.current) setCursorIdle(true)
+    }, CHROME_IDLE_MS)
+  }, [setCursorIdle])
 
   const chromeInUse = useCallback(() => {
     const root = rootRef.current
@@ -111,9 +134,14 @@ export function useImmersiveChrome({
     scheduleHide()
     return () => {
       clear()
+      if (cursorTimerRef.current !== null) {
+        window.clearTimeout(cursorTimerRef.current)
+        cursorTimerRef.current = null
+      }
+      setCursorIdle(false)
       setHidden(false)
     }
-  }, [clear, enabled, scheduleHide])
+  }, [clear, enabled, scheduleHide, setCursorIdle])
 
   const onPointerMove = useCallback(
     (event: PointerEvent<HTMLElement>) => {
@@ -126,6 +154,7 @@ export function useImmersiveChrome({
       // A resting cursor in the page never wakes chrome — only real movement,
       // or approaching the edges where the bars live.
       if (event.movementX === 0 && event.movementY === 0) return
+      wakeCursor()
       const root = rootRef.current
       if (hidden && root) {
         const rect = root.getBoundingClientRect()
@@ -137,7 +166,7 @@ export function useImmersiveChrome({
       }
       show()
     },
-    [enabled, hidden, rootRef, show],
+    [enabled, hidden, rootRef, show, wakeCursor],
   )
 
   const onPointerLeave = useCallback(() => {
@@ -230,7 +259,9 @@ export function useImmersiveChrome({
     if (!enabled || chromeInUse()) return
     clear()
     setHidden(true)
-  }, [chromeInUse, clear, enabled])
+    // Turning from the keyboard: the cursor is not in use either.
+    setCursorIdle(true)
+  }, [chromeInUse, clear, enabled, setCursorIdle])
 
   return {
     chromeHidden: enabled && hidden,

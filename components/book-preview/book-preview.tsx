@@ -77,6 +77,7 @@ import type {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -125,7 +126,6 @@ function BookPreviewActiveEngine({
   ...engineProps
 }: BookPreviewActiveEngineProps) {
   if (!loadedEngine || loadedEngine.id !== activeEngineId) return null
-  const EngineComponent = loadedEngine.Component
   return (
     // The key carries the engine epoch: a retry must remount the engine so a
     // dead document load (parse failure, cancelled password prompt) actually
@@ -136,8 +136,60 @@ function BookPreviewActiveEngine({
       resetKey={resetKey}
       onError={onError}
     >
-      <EngineComponent {...engineProps} onError={onError} />
+      <LiveEngine
+        Component={loadedEngine.Component}
+        engineProps={engineProps}
+        onError={onError}
+      />
     </BookPreviewEngineBoundary>
+  )
+}
+
+/** One engine instance per reset key. Reports from an instance that has
+    already been replaced (a slow PDF parse finishing after the reader moved
+    on) are dropped, so a stale "ready" can never mark the new engine done. */
+function LiveEngine({
+  Component,
+  engineProps,
+  onError,
+}: {
+  Component: ComponentType<BookPreviewEngineProps>
+  engineProps: Omit<BookPreviewEngineProps, 'onError'>
+  onError: BookPreviewEngineProps['onError']
+}) {
+  const liveRef = useRef(true)
+  useEffect(() => {
+    liveRef.current = true
+    return () => {
+      liveRef.current = false
+    }
+  }, [])
+  const { onReady, onPageChange } = engineProps
+  const guardedReady = useCallback<BookPreviewEngineProps['onReady']>(
+    (info) => {
+      if (liveRef.current) onReady(info)
+    },
+    [onReady],
+  )
+  const guardedError = useCallback<BookPreviewEngineProps['onError']>(
+    (error) => {
+      if (liveRef.current) onError(error)
+    },
+    [onError],
+  )
+  const guardedPage = useCallback<BookPreviewEngineProps['onPageChange']>(
+    (index, behavior) => {
+      if (liveRef.current) onPageChange(index, behavior)
+    },
+    [onPageChange],
+  )
+  return (
+    <Component
+      {...engineProps}
+      onReady={guardedReady}
+      onError={guardedError}
+      onPageChange={guardedPage}
+    />
   )
 }
 
@@ -249,11 +301,17 @@ function useEngineLoader({
   const [loadedEngine, setLoadedEngine] = useState<LoadedEngine>(null)
   const loadedRef = useRef<BookPreviewMode | null>(null)
   const normalizedRef = useRef(normalized)
-  useEffect(() => {
+  useLayoutEffect(() => {
     normalizedRef.current = normalized
   })
 
-  useEffect(() => {
+  // A layout effect, not a passive one: an already-loaded engine remounts
+  // for a new source in the same commit and reports "ready" from its own
+  // passive effect. Children's passive effects run before the parent's, so
+  // a passive "loading" here would land after that ready and strand the
+  // reader on "Loading reader…" (StrictMode's double-invoke hid it in dev).
+  // Layout effects all run before any passive effect.
+  useLayoutEffect(() => {
     const currentSource = normalizedRef.current
     if (isEmptySource(currentSource)) {
       dispatch({ type: 'empty' })
@@ -345,13 +403,15 @@ function usePersistedPageIndex({
 }) {
   const sourceReady = useRef(false)
   const resetPageRef = useRef({ pageControlled, pageIndex, defaultPageIndex })
-  useEffect(() => {
+  useLayoutEffect(() => {
     resetPageRef.current = { pageControlled, pageIndex, defaultPageIndex }
   })
 
   // Reset only when the source itself changes. Page props live in a ref so a
   // controlled consumer's pageIndex updates do not trigger a source reset.
-  useEffect(() => {
+  // Layout effect for the same reason as the engine loader: it must land
+  // before the remounted engine's passive "ready", never after it.
+  useLayoutEffect(() => {
     if (!sourceReady.current) {
       sourceReady.current = true
       return
@@ -1499,6 +1559,9 @@ export function BookPreview({
           data-more-contrast={moreContrast || undefined}
           data-book-preview-immersive={fullscreen || undefined}
           data-chrome-hidden={chromeHidden || undefined}
+          // The reader's cursors mean something (I-beam, grab, crosshair) —
+          // site-wide custom cursors step aside here.
+          data-native-cursor=""
           data-layout={layout}
           onKeyDown={onKeyDown}
           onPointerDown={onPointerDown}

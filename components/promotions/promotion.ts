@@ -123,6 +123,12 @@ export type PromotionContent = {
   /** Dialogs only. Defaults to `center`. */
   presentation?: DialogPresentation
   /**
+   * Toast, dialog and sheet: opens only when the host fires one of these
+   * events (`trigger('upgrade-intent')`), never by itself. For offers that
+   * belong to a moment, such as clicking Upgrade or reaching a plan limit.
+   */
+  triggers?: string[]
+  /**
    * Toast and dialog: at most once every `hours` per visitor, even across
    * tabs and without a dismissal. Defaults to DEFAULT_FREQUENCY_HOURS.
    */
@@ -310,6 +316,40 @@ export function slotPromotions(
   )
 }
 
+/** Events a record may name in `triggers`: short, lowercase, `:` `_` `-` allowed. */
+export const TRIGGER_PATTERN = /^[a-z0-9][a-z0-9:_-]{0,47}$/
+export const TRIGGERS_MAX = 8
+const TRIGGERABLE: readonly PromotionPlacement[] = ['toast', 'dialog', 'sheet']
+
+/**
+ * Whether a floating record may open without being asked. Stories and
+ * event-triggered records wait for the visitor or the host.
+ */
+export function opensOnItsOwn(
+  promotion: Pick<Promotion, 'presentation' | 'triggers'>,
+): boolean {
+  return promotion.presentation !== 'story' && !promotion.triggers?.length
+}
+
+/**
+ * The best live record on this route that listens for `event`, among those
+ * `eligible` accepts (not dismissed, within frequency, allowed by plugins).
+ */
+export function triggeredBy(
+  selection: Pick<PromotionSelection, 'live'>,
+  event: string,
+  eligible: (promotion: Promotion) => boolean = () => true,
+): Promotion | null {
+  return (
+    selection.live.find(
+      (promotion) =>
+        TRIGGERABLE.includes(promotion.placement) &&
+        promotion.triggers?.includes(event) === true &&
+        eligible(promotion),
+    ) ?? null
+  )
+}
+
 /** Two records belong to one campaign only when both name it. */
 export function sharesCampaign(
   a: Pick<Promotion, 'campaign'> | null | undefined,
@@ -419,6 +459,7 @@ export type PromotionParseResult =
 
 export type PromotionField =
   | 'form'
+  | 'triggers'
   | 'placement'
   | 'slot'
   | 'eyebrow'
@@ -527,6 +568,18 @@ function parseDismiss(value: unknown): PromotionDismiss | null {
 }
 
 const LOCALE_TAG = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/
+
+/** Validates event names; undefined when absent or empty, null when malformed. */
+function parseTriggers(value: unknown): string[] | undefined | null {
+  if (value === undefined || value === null) return undefined
+  if (!Array.isArray(value) || value.length > TRIGGERS_MAX) return null
+  const names = new Set<string>()
+  for (const item of value) {
+    if (typeof item !== 'string' || !TRIGGER_PATTERN.test(item)) return null
+    names.add(item)
+  }
+  return names.size > 0 ? [...names] : undefined
+}
 
 /** Validates per-locale copy; undefined when absent, null when malformed. */
 function parseTranslations(
@@ -685,6 +738,15 @@ export function parsePromotion(
   if (input.frequency !== undefined && !isInt(rawFrequency, 1, 24 * 90))
     errors.frequency = 'Show it at most once every 1 to 2160 hours.'
 
+  const triggers = parseTriggers(input.triggers)
+  if (triggers === null)
+    errors.triggers = `Use up to ${TRIGGERS_MAX} short event names like upgrade-intent.`
+  else if (
+    triggers?.length &&
+    !TRIGGERABLE.includes(placement as PromotionPlacement)
+  )
+    errors.triggers = 'Only toasts, dialogs and sheets can open on an event.'
+
   const translations = parseTranslations(input.translations)
   if (translations === null)
     errors.translations =
@@ -736,6 +798,7 @@ export function parsePromotion(
       ...(isInt(rawFrequency, 1, 24 * 90)
         ? { frequency: { hours: rawFrequency } }
         : {}),
+      ...(triggers?.length ? { triggers } : {}),
       ...(translations ? { translations } : {}),
       ...(typeof input.campaign === 'string' && input.campaign.trim()
         ? { campaign: input.campaign.trim().slice(0, 64) }
@@ -782,6 +845,7 @@ export function isPromotion(value: unknown): value is Promotion {
         isInt(value.frequency.hours, 1, 24 * 90))) &&
     (value.presentation === undefined ||
       DIALOG_PRESENTATIONS.some((p) => p === value.presentation)) &&
+    (value.triggers === undefined || parseTriggers(value.triggers) !== null) &&
     PROMOTION_TONES.some((tone) => tone === value.tone) &&
     isStringArray(value.include) &&
     isStringArray(value.exclude) &&

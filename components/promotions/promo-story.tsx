@@ -13,6 +13,17 @@ import { PromoCode } from './promotion-views'
 
 const SLIDE_MS = 6000
 
+export type PromoStoryProps = {
+  promotion: Promotion
+  open: boolean
+  onClose: () => void
+  onComplete: () => void
+  onCopy: () => void
+  labels: PromotionLabels
+  Link: React.ComponentType<PromotionLinkProps>
+  container?: HTMLElement | null
+}
+
 /**
  * A full-screen "what's new" story: slides with captions, segmented progress
  * at the top, tap the left third to go back and the rest to go on.
@@ -31,16 +42,7 @@ export function PromoStory({
   labels,
   Link,
   container,
-}: {
-  promotion: Promotion
-  open: boolean
-  onClose: () => void
-  onComplete: () => void
-  onCopy: () => void
-  labels: PromotionLabels
-  Link: React.ComponentType<PromotionLinkProps>
-  container?: HTMLElement | null
-}) {
+}: PromoStoryProps) {
   const reduce = useReducedMotion()
   const slides: PromotionMedia[] = promotion.gallery?.length
     ? promotion.gallery

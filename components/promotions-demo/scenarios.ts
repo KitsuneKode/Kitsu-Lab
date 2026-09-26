@@ -1,9 +1,11 @@
+import type { Promotion } from '@/components/promotions'
 import {
   courseEnrolmentKit,
   productLaunchKit,
   storeSaleKit,
-  type Promotion,
-} from '@/components/promotions'
+} from '@/components/promotions/pro'
+
+const HOUR = 3_600_000
 
 /**
  * Three generic storefronts for one fictional brand, each driven by a kit.
@@ -85,7 +87,32 @@ export const SCENARIOS = {
       { value: '/changelog', label: 'Changelog' },
       { value: 'https://example.com/keynote', label: 'Keynote (external)' },
     ],
-    seed: (base) => productLaunchKit({ startsAt: base }).promotions,
+    seed: (base) => [
+      ...productLaunchKit({ startsAt: base }).promotions,
+      // Opens only when the visitor clicks Upgrade: an offer for that moment.
+      {
+        id: 'launch-upgrade',
+        state: 'published',
+        placement: 'dialog',
+        eyebrow: 'Before you upgrade',
+        title: 'Take 20% off your first year of Team',
+        body: 'Launch-week pricing applies to every seat you add this year.',
+        code: 'TEAM20',
+        cta: { label: 'Upgrade with 20% off', href: '/checkout' },
+        tone: 'brand',
+        include: ['/pricing'],
+        exclude: [],
+        startsAt: base - HOUR,
+        endsAt: base + 7 * 24 * HOUR,
+        priority: 70,
+        dismiss: { mode: 'days', days: 3 },
+        frequency: { hours: 24 },
+        triggers: ['upgrade-intent'],
+        campaign: 'launch-week',
+        dismissalVersion: 1,
+        revision: 1,
+      },
+    ],
   },
 
   store: {

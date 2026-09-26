@@ -9,7 +9,9 @@ import {
   frequencyAllows,
   inboxPromotions,
   localizePromotion,
+  opensOnItsOwn,
   sharesCampaign,
+  triggeredBy,
   slotPromotions,
   matchRoute,
   sanitizePromotions,
@@ -144,6 +146,12 @@ type PromotionContextValue = {
    */
   bottomInset: number
   setBottomInset: (px: number) => void
+  /**
+   * Height of the side card in the bottom end corner, so a toast in the
+   * same corner stacks above it instead of covering it.
+   */
+  sideInset: number
+  setSideInset: (px: number) => void
   /** The offer behind the edge tab, and whether its sheet is open. */
   sheet: Promotion | null
   sheetOpen: boolean
@@ -178,6 +186,11 @@ type PromotionContextValue = {
   restore: (promotion: Promotion) => void
   /** Opens a live toast, sheet or dialog now, skipping the engagement wait. */
   openPromotion: (id: string) => void
+  /**
+   * Opens the best live record whose `triggers` include `event`, if it is
+   * not dismissed and its frequency allows. True when something opened.
+   */
+  trigger: (event: string) => boolean
   /** Called by floating surfaces once they are on screen. */
   markShown: (promotion: Promotion) => void
   report: (
@@ -485,10 +498,22 @@ const NO_LABELS: Partial<PromotionLabels> = {}
 const NO_PLUGINS: readonly PromotionPlugin[] = []
 
 /**
- * A full-screen story takes over the screen, so only the visitor starts one
- * (openPromotion from a "See what's new" button); it never auto-opens.
+ * The DOM event `triggerPromotion` sends, so code outside React (analytics,
+ * a payment callback, a web component) can open an event-triggered offer.
  */
-const autoOpens = (promotion: Promotion) => promotion.presentation !== 'story'
+export const PROMOTION_TRIGGER_EVENT = 'promo:trigger'
+
+/**
+ * Fires a promotion event from anywhere: every mounted provider opens the
+ * best record listening for it. Inside React, prefer `usePromotions().trigger`,
+ * which also tells you whether anything opened.
+ */
+export function triggerPromotion(event: string) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(
+    new CustomEvent<string>(PROMOTION_TRIGGER_EVENT, { detail: event }),
+  )
+}
 const BUDGET_KEY = 'promo:budget:floating'
 
 const shownKey = (promotion: Promotion) => `${dismissalKey(promotion)}:shown`
@@ -532,6 +557,7 @@ export function PromotionProvider({
   const [storageVersion, setStorageVersion] = React.useState(0)
   const [forced, setForced] = React.useState<string | null>(null)
   const [bottomInset, setBottomInset] = React.useState(0)
+  const [sideInset, setSideInset] = React.useState(0)
   const [inboxOpen, setInboxOpen] = React.useState(false)
   // Spotlight anchors present on the page right now (registered on mount).
   const [anchors, setAnchors] = React.useState<ReadonlyMap<string, number>>(
@@ -673,13 +699,31 @@ export function PromotionProvider({
       ? promotion
       : null
 
+  // Per floating placement: the record the visitor or host asked for, else
+  // the best one allowed to open by itself. A story or an event-triggered
+  // record on top never blocks the ones below it.
+  const pick = (
+    placement: PromotionPlacement,
+    gate: (promotion: Promotion) => boolean = (promotion) =>
+      available(promotion) !== null,
+  ) => {
+    const pool = selection.live.filter(
+      (promotion) => promotion.placement === placement && gate(promotion),
+    )
+    return (
+      pool.find((promotion) => promotion.id === forced) ??
+      pool.find(opensOnItsOwn) ??
+      null
+    )
+  }
   const barCandidate = available(selection.bar)
-  const toastCandidate = available(selection.toast)
-  const dialogCandidate = available(selection.dialog)
-  const sheetCandidate =
-    selection.sheet && !isDismissed(selection.sheet) && allowed(selection.sheet)
-      ? selection.sheet
-      : null
+  const toastCandidate = pick('toast')
+  const dialogCandidate = pick('dialog')
+  // The edge tab is asked for by nature, so it ignores route suppression.
+  const sheetCandidate = pick(
+    'sheet',
+    (promotion) => !isDismissed(promotion) && allowed(promotion),
+  )
   const spotlightCandidate = available(selection.spotlight)
   const sides = suppressed
     ? []
@@ -747,7 +791,7 @@ export function PromotionProvider({
     (forced === dialogCandidate.id ||
       stillOpen(dialogCandidate) ||
       (fresh(dialogCandidate) &&
-        autoOpens(dialogCandidate) &&
+        opensOnItsOwn(dialogCandidate) &&
         engagedBy('dialog', dialogEngaged) &&
         outranksBar(dialogCandidate)))
       ? dialogCandidate
@@ -795,6 +839,33 @@ export function PromotionProvider({
       : null
   const sheetOpen = Boolean(sheetCandidate && forced === sheetCandidate.id)
 
+  // The visitor just acted, so the engagement wait and the daily budget do
+  // not apply; the record's own frequency and dismissal still do.
+  const trigger = (event: string) => {
+    const match = triggeredBy(
+      selection,
+      event,
+      (promotion) =>
+        Boolean(available(promotion)) &&
+        (promotion.placement === 'sheet' || withinFrequency(promotion)),
+    )
+    if (!match) return false
+    setForced(match.id)
+    return true
+  }
+  const triggerRef = React.useRef(trigger)
+  React.useEffect(() => {
+    triggerRef.current = trigger
+  })
+  React.useEffect(() => {
+    const onTrigger = (event: Event) => {
+      const name = (event as CustomEvent<unknown>).detail
+      if (typeof name === 'string') triggerRef.current(name)
+    }
+    window.addEventListener(PROMOTION_TRIGGER_EVENT, onTrigger)
+    return () => window.removeEventListener(PROMOTION_TRIGGER_EVENT, onTrigger)
+  }, [])
+
   const value: PromotionContextValue = {
     now,
     pathname,
@@ -805,6 +876,8 @@ export function PromotionProvider({
     dialog,
     bottomInset,
     setBottomInset,
+    sideInset,
+    setSideInset,
     sheet: sheetCandidate,
     sheetOpen,
     spotlight,
@@ -866,6 +939,7 @@ export function PromotionProvider({
       setForced(promotion.id)
     },
     openPromotion: setForced,
+    trigger,
     markShown: (promotion) => {
       if (stillOpen(promotion)) return
       const at = write(shownKey(promotion), 'browser')

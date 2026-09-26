@@ -17,6 +17,9 @@ import { PromoCode, countdownLabel } from './promotion-views'
 
 const CARD_WIDTH = 288
 const STRIP = 56
+/** Height of the tab left showing at the screen edge while peeking. */
+const TAB = 64
+const GAP = 12
 
 /** Observes an element's size, or the window when none is given. */
 function subscribeResize(target: HTMLElement | null, onChange: () => void) {
@@ -70,11 +73,14 @@ function useGutter(
  * The "what's on" card that sits beside the page, as on many payment and
  * banking dashboards, without covering it.
  *
+ * It lives in the bottom end corner:
+ *
  * - **Docked** when the margin beside your content column (`contentWidth`)
  *   has room: a full card lives in empty space and covers nothing.
- * - **Peeking** when it does not: only a 56px strip with a thumbnail shows
- *   at the screen edge. Hover, focus or a tap slides the card out (transform
- *   only, on the drawer curve); leaving slides it back.
+ * - **Peeking** when it does not: only a small tab with a thumbnail shows at
+ *   the screen edge. Hover, focus or a tap slides the card out and unclips
+ *   it (transform and clip-path, on the drawer curve); leaving tucks it back.
+ * - A toast in the same corner stacks above it rather than covering it.
  * - Several live side cards become a small pager, one at a time.
  *
  * On phones it stays out of the way by default (`mobile="hide"`); the
@@ -96,8 +102,18 @@ export function PromoSideCard({
   container?: HTMLElement | null
   className?: string
 }) {
-  const { sides, dialog, sheetOpen, now, dismiss, report, labels, Link } =
-    usePromotions()
+  const {
+    sides,
+    dialog,
+    sheetOpen,
+    now,
+    dismiss,
+    report,
+    labels,
+    Link,
+    bottomInset,
+    setSideInset,
+  } = usePromotions()
   // Step aside while a modal surface owns the screen.
   const yielding = Boolean(dialog) || sheetOpen
   const gutter = useGutter(contentWidth, container, content)
@@ -112,6 +128,32 @@ export function PromoSideCard({
     sides[Math.min(index, sides.length - 1)]
   const docked = !collapsed && gutter >= CARD_WIDTH + 24
   const open = docked || hovered || focused || pinned
+  const card = React.useRef<HTMLDivElement>(null)
+
+  // Tell the provider how much of the corner this takes, so a toast there
+  // stacks above it. A peeking card only claims its tab: opening it on
+  // hover is brief and the visitor's own doing.
+  const hasPromotion = sides.length > 0
+  React.useEffect(() => {
+    const element = card.current
+    if (!element || yielding || !hasPromotion) {
+      setSideInset(0)
+      return
+    }
+    const measure = () => {
+      const height = element.getBoundingClientRect().height
+      if (height === 0) setSideInset(0)
+      else setSideInset((docked ? height : TAB) + GAP)
+    }
+    measure()
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    observer?.observe(element)
+    return () => {
+      observer?.disconnect()
+      setSideInset(0)
+    }
+  }, [docked, yielding, hasPromotion, setSideInset])
 
   const reported = React.useRef(new Set<string>())
   React.useEffect(() => {
@@ -162,22 +204,34 @@ export function PromoSideCard({
       style={
         {
           width: CARD_WIDTH,
+          bottom: `calc(${16 + bottomInset}px + env(safe-area-inset-bottom, 0px))`,
           '--promo-peek': `${CARD_WIDTH - STRIP}px`,
         } as React.CSSProperties
       }
       className={cn(
-        // One explicit transform for both states: Tailwind's translate
-        // utilities use the separate `translate` property and would stack.
-        'fixed end-0 top-1/2 z-30 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none print:hidden',
+        // Bottom end corner, where people look for "what's going on".
+        // One explicit transform: Tailwind's translate utilities use the
+        // separate `translate` property and would stack with it.
+        'fixed end-0 z-30 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none print:hidden',
         open
-          ? '[transform:translate(-0.75rem,-50%)] rtl:[transform:translate(0.75rem,-50%)]'
-          : '[transform:translate(var(--promo-peek),-50%)] rtl:[transform:translate(calc(var(--promo-peek)*-1),-50%)]',
+          ? '[transform:translateX(-0.75rem)] rtl:[transform:translateX(0.75rem)]'
+          : '[transform:translateX(var(--promo-peek))] rtl:[transform:translateX(calc(var(--promo-peek)*-1))]',
         mobile === 'hide' && 'max-sm:hidden',
         yielding && 'pointer-events-none opacity-0',
         className,
       )}
     >
-      <div className="bg-popover text-popover-foreground flex overflow-hidden rounded-[calc(var(--promo-radius,0.75rem)+0.25rem)] text-sm shadow-xl ring-1 ring-black/5 dark:ring-white/10">
+      <div
+        ref={card}
+        className={cn(
+          'bg-popover text-popover-foreground flex overflow-hidden rounded-[calc(var(--promo-radius,0.75rem)+0.25rem)] text-sm shadow-xl ring-1 ring-black/5 transition-[clip-path] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none dark:ring-white/10',
+          // Peeking shows only a small tab at the bottom of the strip; the
+          // clip also limits where the pointer can open it.
+          open
+            ? '[clip-path:inset(0_round_calc(var(--promo-radius,0.75rem)+0.25rem))]'
+            : '[clip-path:inset(calc(100%-4rem)_0_0_0_round_calc(var(--promo-radius,0.75rem)+0.25rem))]',
+        )}
+      >
         {/* The strip: all that shows while peeking, and the image column when open. */}
         <button
           type="button"
@@ -187,7 +241,7 @@ export function PromoSideCard({
             if (collapsed) setCollapsed(false)
             setPinned((p) => !p)
           }}
-          className="focus-visible:ring-ring/50 relative flex w-14 shrink-0 flex-col items-center gap-2 py-3 outline-none focus-visible:ring-3 focus-visible:ring-inset"
+          className="focus-visible:ring-ring/50 relative flex w-14 shrink-0 flex-col-reverse items-center justify-start gap-2 py-3 outline-none focus-visible:ring-3 focus-visible:ring-inset"
         >
           {image ? (
             // oxlint-disable-next-line nextjs/no-img-element

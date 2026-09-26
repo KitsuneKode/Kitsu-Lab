@@ -50,7 +50,10 @@ export function PromoToast({
     labels,
     Link,
     bottomInset,
+    sideInset,
   } = usePromotions()
+  // Above a docked sticky CTA, and above a side card in the same corner.
+  const lift = bottomInset + (side === 'end' ? sideInset : 0)
   const reduce = useReducedMotion()
   const [exitX, setExitX] = React.useState(0)
 
@@ -83,10 +86,7 @@ export function PromoToast({
         'transition-transform duration-250 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
         className,
       )}
-      // Sit above a docked sticky CTA instead of on top of it.
-      style={
-        bottomInset ? { transform: `translateY(-${bottomInset}px)` } : undefined
-      }
+      style={lift ? { transform: `translateY(-${lift}px)` } : undefined}
     >
       <AnimatePresence mode="popLayout" custom={exitX}>
         {expanded ? (

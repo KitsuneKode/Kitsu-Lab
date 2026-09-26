@@ -2,31 +2,21 @@
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "promotions",
   "title": "Promotions",
-  "description": "The full promotion system: core, provider, stores, plugins, label packs, kits, and every surface (bar, card, carousel, pill, toast, badge, offer sheet, side card, spotlight, inbox, progress, sticky CTA, dialog with centre, split and story presentations) plus the editor.",
+  "description": "The free promotions core: rules, provider, stores, plugins, label packs, and the bar, card, badge, toast and dialog surfaces.",
   "registryDependencies": [
     "https://kitsu-lab.vercel.app/r/promotion.json",
     "https://kitsu-lab.vercel.app/r/promotion-provider.json",
     "https://kitsu-lab.vercel.app/r/promotion-labels.json",
-    "https://kitsu-lab.vercel.app/r/promotion-kits.json",
     "https://kitsu-lab.vercel.app/r/promo-bar.json",
     "https://kitsu-lab.vercel.app/r/promo-card.json",
-    "https://kitsu-lab.vercel.app/r/promo-carousel.json",
-    "https://kitsu-lab.vercel.app/r/promo-pill.json",
     "https://kitsu-lab.vercel.app/r/promo-toast.json",
     "https://kitsu-lab.vercel.app/r/promo-badge.json",
-    "https://kitsu-lab.vercel.app/r/promo-sheet.json",
-    "https://kitsu-lab.vercel.app/r/promo-inbox.json",
-    "https://kitsu-lab.vercel.app/r/promo-progress.json",
-    "https://kitsu-lab.vercel.app/r/promo-sticky-cta.json",
-    "https://kitsu-lab.vercel.app/r/promo-spotlight.json",
-    "https://kitsu-lab.vercel.app/r/promo-side-card.json",
-    "https://kitsu-lab.vercel.app/r/promo-dialog.json",
-    "https://kitsu-lab.vercel.app/r/promotion-editor.json"
+    "https://kitsu-lab.vercel.app/r/promo-dialog.json"
   ],
   "files": [
     {
       "path": "components/promotions/index.ts",
-      "content": "export * from './promotion'\nexport * from './promotion-stores'\nexport * from './promotion-plugins'\nexport * from './promotion-labels'\nexport {\n  PromotionProvider,\n  defaultPromotionLabels,\n  moveFocusPast,\n  useImpression,\n  usePromotionLabels,\n  usePromotions,\n  visitorIsBusy,\n  type PromotionEngagement,\n  type PromotionEvent,\n  type PromotionLabels,\n  type PromotionLinkProps,\n  type PromotionProviderProps,\n  type PromotionSource,\n} from './promotion-provider'\nexport {\n  PromoBarView,\n  PromoCardView,\n  PromoCode,\n  PromoDialogContentView,\n  PromoToastView,\n  countdownLabel,\n  promotionToneClasses,\n  type PromoBarVariant,\n} from './promotion-views'\nexport { PromoBadge } from './promo-badge'\nexport { PromoBar } from './promo-bar'\nexport { PromoCard } from './promo-card'\nexport { PromoDialog } from './promo-dialog'\nexport { PromoToast } from './promo-toast'\nexport { PromoPill } from './promo-pill'\nexport { PromoProgress } from './promo-progress'\nexport { PromoSheet } from './promo-sheet'\nexport { PromoStickyCta } from './promo-sticky-cta'\nexport { PromoCarousel } from './promo-carousel'\nexport { PromoGallery } from './promo-gallery'\nexport { PromoInbox } from './promo-inbox'\nexport * from './promotion-kit'\nexport { courseEnrolmentKit } from './kit-course-enrolment'\nexport { productLaunchKit } from './kit-product-launch'\nexport { storeSaleKit } from './kit-store-sale'\nexport { PromoSideCard } from './promo-side-card'\nexport { PromoSpotlight } from './promo-spotlight'\nexport { PromoStory } from './promo-story'\n",
+      "content": "/**\n * The free core (`@kitsu/promotions`): rules, provider, stores, plugins,\n * label packs and the bar, card, badge, toast and dialog surfaces.\n * Pro add-ons live in `./pro` and install from `@kitsu-pro`.\n */\nexport * from './promotion'\nexport * from './promotion-stores'\nexport * from './promotion-plugins'\nexport * from './promotion-labels'\nexport {\n  PROMOTION_TRIGGER_EVENT,\n  PromotionProvider,\n  defaultPromotionLabels,\n  moveFocusPast,\n  triggerPromotion,\n  useImpression,\n  usePromotionLabels,\n  usePromotions,\n  visitorIsBusy,\n  type PromotionEngagement,\n  type PromotionEvent,\n  type PromotionLabels,\n  type PromotionLinkProps,\n  type PromotionProviderProps,\n  type PromotionSource,\n} from './promotion-provider'\nexport {\n  PromoBarView,\n  PromoCardView,\n  PromoCode,\n  PromoDialogContentView,\n  PromoToastView,\n  countdownLabel,\n  promotionToneClasses,\n  type PromoBarVariant,\n} from './promotion-views'\nexport { PromoBadge } from './promo-badge'\nexport { PromoBar } from './promo-bar'\nexport { PromoCard } from './promo-card'\nexport { PromoDialog } from './promo-dialog'\nexport { PromoToast } from './promo-toast'\nexport { PromoGallery } from './promo-gallery'\n",
       "type": "registry:component"
     }
   ],

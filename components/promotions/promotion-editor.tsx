@@ -217,6 +217,11 @@ function toInput(
     revealCode: initial.revealCode,
     frequency: initial.frequency,
     campaign: initial.campaign,
+    // Kept only where they can apply, so switching to a bar never trips an
+    // error on a field this form does not show.
+    triggers: ['toast', 'dialog', 'sheet'].includes(draft.placement)
+      ? initial.triggers
+      : undefined,
   }
 }
 

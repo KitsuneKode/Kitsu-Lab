@@ -8,6 +8,8 @@ type Doc = {
   item: string
   name: string
   tier: 'Core' | 'Surface' | 'Add-on' | 'Kit'
+  /** Installs from the authenticated `@kitsu-pro` registry. */
+  pro?: boolean
   summary: string
   code: string
   notes: string[]
@@ -16,10 +18,10 @@ type Doc = {
 const DOCS: Doc[] = [
   {
     item: 'promotions',
-    name: 'Everything',
+    name: 'Free core',
     tier: 'Core',
     summary:
-      'The provider, every surface, the stores, plugins, label packs, kits and the editor.',
+      'Rules, provider, stores, plugins, label packs, and the bar, card, badge, toast and dialog.',
     code: `// app/providers.tsx
 'use client'
 import { usePathname } from 'next/navigation'
@@ -47,6 +49,68 @@ export function Promotions({ records, children }) {
     ],
   },
   {
+    item: 'promotions-pro',
+    pro: true,
+    name: 'Pro registry',
+    tier: 'Core',
+    summary:
+      'Every pro add-on. Pro items install from an authenticated registry with your key.',
+    code: `// components.json
+"registries": {
+  "@kitsu": "https://kitsu-lab.vercel.app/r/{name}.json",
+  "@kitsu-pro": {
+    "url": "https://kitsu-lab.vercel.app/pro/r/{name}.json",
+    "headers": { "Authorization": "Bearer \${KITSU_PRO_KEY}" }
+  }
+}
+
+// .env.local (never commit it)
+KITSU_PRO_KEY=kp_…
+
+// then import pro pieces from one place
+import { PromoSideCard, storeSaleKit } from '@/components/promotions/pro'`,
+    notes: [
+      'The CLI reads KITSU_PRO_KEY from your environment and sends it as a bearer token.',
+      'Pro items depend only on the free core, so each installs on its own.',
+    ],
+  },
+  {
+    item: 'promotion-account-store',
+    pro: true,
+    name: 'Account store',
+    tier: 'Add-on',
+    summary:
+      'Dismissals that follow a signed-in visitor across devices, for dismiss.scope: "account".',
+    code: `import { composeStores } from '@/components/promotions'
+import { accountDismissalStore, fetchAccountTransport } from '@/components/promotions/pro'
+
+const accountStore = accountDismissalStore({
+  transport: fetchAccountTransport('/api/promotions/state'),
+  initial, // read on the server, so the first render already knows
+})
+const storage = composeStores({ account: accountStore })
+
+// app/api/promotions/state/route.ts
+export async function GET() {
+  const user = await getUser()               // your auth
+  if (!user) return new Response(null, { status: 401 })
+  return Response.json(await db.promoState(user.id))  // { [key]: epochMs }
+}
+
+export async function POST(request: Request) {
+  const user = await getUser()
+  if (!user) return new Response(null, { status: 401 })
+  const { changes } = await request.json()   // { [key]: epochMs | null }
+  await db.mergePromoState(user.id, changes) // null deletes the key
+  return new Response(null, { status: 204 })
+}`,
+    notes: [
+      'Reads are instant from a local copy; writes are batched and sent again when the tab is hidden.',
+      'On the server, accept only keys starting with promo: and finite numbers, and cap the count.',
+      'Signed-out visitors: route account records to cookie until they sign in.',
+    ],
+  },
+  {
     item: 'promo-bar',
     name: 'Bar',
     tier: 'Surface',
@@ -60,6 +124,7 @@ export function Promotions({ records, children }) {
   },
   {
     item: 'promo-pill',
+    pro: true,
     name: 'Announcement pill',
     tier: 'Surface',
     summary:
@@ -75,7 +140,7 @@ export function Promotions({ records, children }) {
     summary:
       'An inline card for a named slot. PromoCarousel shows every live card in the slot.',
     code: `<PromoCard slot="hero" dismissible />
-<PromoCarousel slot="hero" label="Offers" />  // several campaigns, one place`,
+<PromoCarousel slot="hero" label="Offers" />  // pro: several campaigns, one place`,
     notes: [
       'Cards lay out from their own width (container queries).',
       'A record with gallery shows a swipeable image carousel. Nothing auto-advances.',
@@ -93,6 +158,7 @@ export function Promotions({ records, children }) {
   },
   {
     item: 'promo-sheet',
+    pro: true,
     name: 'Offer sheet',
     tier: 'Surface',
     summary:
@@ -116,6 +182,7 @@ export function Promotions({ records, children }) {
   },
   {
     item: 'promo-side-card',
+    pro: true,
     name: 'Side card',
     tier: 'Surface',
     summary:
@@ -130,6 +197,7 @@ export function Promotions({ records, children }) {
   },
   {
     item: 'promo-spotlight',
+    pro: true,
     name: 'Spotlight',
     tier: 'Surface',
     summary:
@@ -141,12 +209,17 @@ export function Promotions({ records, children }) {
     notes: ['Never takes focus. Using the feature closes it as a conversion.'],
   },
   {
-    item: 'promo-dialog',
+    item: 'promo-story',
+    pro: true,
     name: 'Split and story dialogs',
     tier: 'Surface',
     summary:
-      'presentation: "split" puts images beside the copy; "story" is full screen with slides.',
-    code: `// record
+      'presentation: "split" (free) puts images beside the copy; "story" (pro) is full screen with slides.',
+    code: `import { PromoStory } from '@/components/promotions/pro'
+
+<PromoDialog story={PromoStory} />
+
+// record
 { placement: 'dialog', presentation: 'story', gallery: [...] }
 
 // a story only opens when asked
@@ -154,10 +227,12 @@ export function Promotions({ records, children }) {
     notes: [
       'Stories pause while pressed, on hidden tabs and under reduced motion.',
       'Closing a story records nothing, so it can be watched again.',
+      'Without the story prop, a story record opens as a centred dialog.',
     ],
   },
   {
     item: 'promo-inbox',
+    pro: true,
     name: 'Offers inbox',
     tier: 'Surface',
     summary:
@@ -182,6 +257,7 @@ export function Promotions({ records, children }) {
   },
   {
     item: 'promo-progress',
+    pro: true,
     name: 'Progress to a reward',
     tier: 'Surface',
     summary:
@@ -196,6 +272,7 @@ export function Promotions({ records, children }) {
   },
   {
     item: 'promo-sticky-cta',
+    pro: true,
     name: 'Sticky CTA',
     tier: 'Surface',
     summary:
@@ -204,6 +281,31 @@ export function Promotions({ records, children }) {
 <section ref={pricing}>…</section>
 <PromoStickyCta slot="sticky" watch={pricing} />`,
     notes: ['Phones only by default. Floating surfaces rise above it.'],
+  },
+  {
+    item: 'promotion-provider',
+    name: 'Event triggers',
+    tier: 'Core',
+    summary:
+      'Offers for a moment: open a toast, dialog or sheet when the visitor does something, like clicking Upgrade.',
+    code: `// record: never opens by itself, only on its event
+{ placement: 'dialog', title: '20% off your first year',
+  include: ['/pricing'], triggers: ['upgrade-intent'], frequency: { hours: 24 } }
+
+// in React: true when an offer opened
+const { trigger } = usePromotions()
+<Button onClick={() => trigger('upgrade-intent') || router.push('/checkout')}>
+  Upgrade
+</Button>
+
+// anywhere else: analytics, a payment callback, a web component
+import { triggerPromotion } from '@/components/promotions'
+triggerPromotion('plan:limit-reached')`,
+    notes: [
+      'The visitor just acted, so the engagement wait and daily budget are skipped.',
+      'Dismissals and frequency still apply: it gets one chance, then the button just works.',
+      'Event names are short and lowercase; : _ and - are allowed.',
+    ],
   },
   {
     item: 'promotion-provider',
@@ -231,7 +333,7 @@ const plugins = [
 
 const storage = composeStores({
   cookie: cookieDismissalStore(),
-  account: myApiStore,          // { get, set, subscribe? }
+  account: accountStore,        // pro: see Account store
 })
 
 // on a record
@@ -258,11 +360,12 @@ const pt = createPromotionLabels('pt', { … })`,
   },
   {
     item: 'promotion-kits',
+    pro: true,
     name: 'Kits',
     tier: 'Kit',
     summary:
       'Ready-made campaigns: records that work together plus the provider settings they need.',
-    code: `import { storeSaleKit } from '@/components/promotions'
+    code: `import { storeSaleKit } from '@/components/promotions/pro'
 
 const sale = storeSaleKit({
   startsAt: Date.parse('2026-10-01T09:00:00+02:00'),
@@ -318,13 +421,14 @@ export function PromotionsDocs() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-muted-foreground max-w-2xl text-sm">
-        Each piece installs on its own with the shadcn CLI. Install{' '}
-        <code className="font-mono text-xs">@kitsu/promotions</code> for all of
-        them.
+        Each piece installs on its own with the shadcn CLI.{' '}
+        <code className="font-mono text-xs">@kitsu/promotions</code> installs
+        the free core; items marked Pro come from{' '}
+        <code className="font-mono text-xs">@kitsu-pro</code> with your key.
       </p>
       <div className="grid gap-4 md:grid-cols-2">
         {DOCS.map((doc) => {
-          const install = `npx shadcn@latest add @kitsu/${doc.item}`
+          const install = `npx shadcn@latest add @${doc.pro ? 'kitsu-pro' : 'kitsu'}/${doc.item}`
           return (
             <article
               key={doc.name}
@@ -332,13 +436,20 @@ export function PromotionsDocs() {
             >
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-medium">{doc.name}</h3>
-                <span
-                  className={cn(
-                    'rounded-full px-2 py-0.5 text-[0.6875rem] font-medium',
-                    TIER_CLASS[doc.tier],
-                  )}
-                >
-                  {doc.tier}
+                <span className="ms-auto flex gap-1.5">
+                  {doc.pro ? (
+                    <span className="rounded-full border border-current/20 px-2 py-0.5 text-[0.6875rem] font-medium">
+                      Pro
+                    </span>
+                  ) : null}
+                  <span
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-[0.6875rem] font-medium',
+                      TIER_CLASS[doc.tier],
+                    )}
+                  >
+                    {doc.tier}
+                  </span>
                 </span>
               </div>
               <p className="text-muted-foreground text-pretty">{doc.summary}</p>

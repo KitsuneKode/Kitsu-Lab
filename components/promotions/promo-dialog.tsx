@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import type { Promotion } from './promotion'
 import { usePromotions } from './promotion-provider'
 import { PromoGallery } from './promo-gallery'
-import { PromoStory } from './promo-story'
+import type { PromoStoryProps } from './promo-story'
 import { PromoDialogContentView } from './promotion-views'
 
 const WIDE = '(min-width: 768px)'
@@ -92,11 +92,18 @@ function DialogDescription(props: {
 export function PromoDialog({
   layout = 'auto',
   container,
+  story: Story,
 }: {
   /** `auto` picks the sheet below 768px. Force one for previews. */
   layout?: 'auto' | 'dialog' | 'sheet'
   /** Portal target, e.g. a device frame in a demo. Defaults to <body>. */
   container?: HTMLElement | null
+  /**
+   * Renders `presentation: 'story'` records full screen. Pass `PromoStory`
+   * from the `promo-story` add-on; without it a story opens as a centred
+   * dialog with its images.
+   */
+  story?: React.ComponentType<PromoStoryProps>
 }) {
   const {
     dialog,
@@ -151,9 +158,9 @@ export function PromoDialog({
     />
   )
 
-  if (shown.presentation === 'story') {
+  if (shown.presentation === 'story' && Story) {
     return (
-      <PromoStory
+      <Story
         promotion={shown}
         open={open}
         onClose={() => release(shown)}

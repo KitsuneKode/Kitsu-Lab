@@ -3,11 +3,13 @@
 import * as React from 'react'
 import {
   IconArrowsMaximize,
+  IconCheck,
   IconDeviceDesktop,
   IconDeviceLaptop,
   IconDeviceMobile,
   IconLayoutNavbarCollapse,
   IconLayoutNavbarExpand,
+  IconLink,
   IconMaximize,
   IconMenu2,
   IconMinimize,
@@ -22,15 +24,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   PromoBadge,
   PromoBar,
-  PromoCarousel,
-  PromoInbox,
   PromoDialog,
-  PromoPill,
-  PromoProgress,
-  PromoSheet,
-  PromoSideCard,
-  PromoSpotlight,
-  PromoStickyCta,
   PromoToast,
   PromotionProvider,
   deliveryState,
@@ -45,6 +39,17 @@ import {
   type PromotionLinkProps,
   type PromotionPlugin,
 } from '@/components/promotions'
+import {
+  PromoCarousel,
+  PromoInbox,
+  PromoPill,
+  PromoProgress,
+  PromoSheet,
+  PromoSideCard,
+  PromoSpotlight,
+  PromoStickyCta,
+  PromoStory,
+} from '@/components/promotions/pro'
 import { PromotionEditor } from '@/components/promotions/promotion-editor'
 import { PromotionsDocs } from './promotions-docs'
 import { SCENARIOS, type Scenario, type ScenarioId } from './scenarios'
@@ -88,6 +93,23 @@ const subscribeFullscreen = (onChange: () => void) => {
   return () => document.removeEventListener('fullscreenchange', onChange)
 }
 const noopSubscribe = () => () => {}
+
+/**
+ * The full-window preview lives in the URL (`#preview`): the link can be
+ * sent to a phone, and the back gesture closes it like any other screen.
+ */
+const PREVIEW_HASH = '#preview'
+const PREVIEW_EVENT = 'promo-preview-change'
+const subscribePreview = (onChange: () => void) => {
+  window.addEventListener('popstate', onChange)
+  window.addEventListener('hashchange', onChange)
+  window.addEventListener(PREVIEW_EVENT, onChange)
+  return () => {
+    window.removeEventListener('popstate', onChange)
+    window.removeEventListener('hashchange', onChange)
+    window.removeEventListener(PREVIEW_EVENT, onChange)
+  }
+}
 
 /** Narrow real screens always get the phone layout, whatever the toggle says. */
 function useNarrowViewport() {
@@ -133,6 +155,9 @@ const LANGUAGES: {
   { value: 'hi', label: 'हि', name: 'हिन्दी' },
   { value: 'ar', label: 'ع', name: 'العربية' },
 ]
+
+const DOCK_SELECT =
+  'border-input bg-background focus-visible:ring-ring/50 h-8 shrink-0 rounded-lg border px-2 text-sm outline-none focus-visible:ring-3'
 
 const EXIT_INTENT: readonly PromotionPlugin[] = [
   exitIntent({ placement: 'dialog', minDwellMs: 1500 }),
@@ -234,8 +259,11 @@ function MockSite({
   const pricing = React.useRef<HTMLDivElement>(null)
   const content = React.useRef<HTMLElement>(null)
   const share = React.useRef<HTMLButtonElement>(null)
-  const { selection, openPromotion } = usePromotions()
+  const { selection, openPromotion, trigger } = usePromotions()
   const story = selection.live.find((p) => p.presentation === 'story')
+  const upgradeOffer = selection.live.some((p) =>
+    p.triggers?.includes('upgrade-intent'),
+  )
   const hasSpotlight = selection.live.some((p) => p.placement === 'spotlight')
   const [cart, setCart] = React.useState(scenario.cartStart ?? 0)
   const money = new Intl.NumberFormat(undefined, {
@@ -307,8 +335,20 @@ function MockSite({
             {page.heading}
           </h2>
           <p className="text-muted-foreground max-w-lg text-sm">{page.lede}</p>
-          {story || hasSpotlight ? (
+          {story || hasSpotlight || upgradeOffer ? (
             <div className="flex flex-wrap gap-2">
+              {upgradeOffer ? (
+                <Button
+                  size="sm"
+                  // The offer gets one chance at the moment of intent; after
+                  // that, Upgrade simply goes to checkout.
+                  onClick={() => {
+                    if (!trigger('upgrade-intent')) navigate('/checkout')
+                  }}
+                >
+                  Upgrade to Team
+                </Button>
+              ) : null}
               {hasSpotlight ? (
                 <Button ref={share} size="sm" variant="outline">
                   Share workspace
@@ -422,7 +462,15 @@ export function PromotionsDemo() {
   const [resetKey, setResetKey] = React.useState(0)
   const [frame, setFrame] = React.useState<HTMLDivElement | null>(null)
   const [scroller, setScroller] = React.useState<HTMLDivElement | null>(null)
-  const [theatre, setTheatre] = React.useState(false)
+  const previewInUrl = React.useSyncExternalStore(
+    subscribePreview,
+    () => window.location.hash === PREVIEW_HASH,
+    () => false,
+  )
+  // Only the live site has a full-window form.
+  const theatre = previewInUrl && view === 'site'
+  const pushedPreview = React.useRef(false)
+  const [linkCopied, setLinkCopied] = React.useState(false)
   const [bare, setBare] = React.useState(false)
   const [peekDock, setPeekDock] = React.useState(false)
   const stageRef = React.useRef<HTMLDivElement>(null)
@@ -556,16 +604,33 @@ export function PromotionsDemo() {
 
   const openTheatre = () => {
     opener.current = document.activeElement as HTMLElement | null
-    setTheatre(true)
+    // Next patches pushState to keep its router state, so Back stays in-app.
+    window.history.pushState(null, '', PREVIEW_HASH)
+    pushedPreview.current = true
+    window.dispatchEvent(new Event(PREVIEW_EVENT))
   }
   const closeTheatre = React.useCallback(() => {
-    if (document.fullscreenElement)
-      void document.exitFullscreen().catch(() => {})
-    setTheatre(false)
-    setBare(false)
-    setPeekDock(false)
-    opener.current?.focus()
+    if (pushedPreview.current) {
+      window.history.back()
+      return
+    }
+    // Opened from a shared link: drop the hash without leaving the page.
+    window.history.replaceState(
+      null,
+      '',
+      window.location.pathname + window.location.search,
+    )
+    window.dispatchEvent(new Event(PREVIEW_EVENT))
   }, [])
+  const copyPreviewLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setLinkCopied(true)
+      window.setTimeout(() => setLinkCopied(false), 1600)
+    } catch {
+      // Clipboard refused; the address bar has the same link.
+    }
+  }
   const toggleBrowserFull = () => {
     if (document.fullscreenElement)
       void document.exitFullscreen().catch(() => {})
@@ -589,9 +654,17 @@ export function PromotionsDemo() {
       closeTheatre()
     }
     window.addEventListener('keydown', onKey)
+    const returnTo = opener.current
     return () => {
+      // However it closed (button, Escape, Back), leave nothing behind.
       root.removeAttribute('data-exhibit-immersive')
       window.removeEventListener('keydown', onKey)
+      if (document.fullscreenElement)
+        void document.exitFullscreen().catch(() => {})
+      pushedPreview.current = false
+      setBare(false)
+      setPeekDock(false)
+      returnTo?.focus({ preventScroll: true })
     }
   }, [theatre, frame, closeTheatre])
 
@@ -723,7 +796,8 @@ export function PromotionsDemo() {
             }
             className={cn(
               'flex justify-center outline-none',
-              theatre && 'bg-muted fixed inset-0 z-[90] flex-col items-stretch',
+              theatre &&
+                'bg-muted animate-in fade-in-0 fixed inset-0 z-[90] flex-col items-stretch duration-200 ease-out motion-reduce:animate-none',
             )}
           >
             {theatre ? (
@@ -748,13 +822,33 @@ export function PromotionsDemo() {
                   className="bg-border mx-1 h-5 w-px shrink-0"
                   aria-hidden
                 />
-                {pageToggle(false)}
-                <span
-                  className="bg-border mx-1 h-5 w-px shrink-0"
-                  aria-hidden
-                />
+                <select
+                  aria-label="Page"
+                  value={pathname}
+                  onChange={(event) => navigate(event.target.value)}
+                  className={DOCK_SELECT}
+                >
+                  {scenario.pages.map((page) => (
+                    <option key={page.value} value={page.value}>
+                      {page.label}
+                    </option>
+                  ))}
+                </select>
                 <div className="shrink-0">{deviceToggle}</div>
-                <div className="shrink-0">{languageToggle}</div>
+                <select
+                  aria-label="Language"
+                  value={lang}
+                  onChange={(event) =>
+                    setLang(event.target.value as PromotionLabelLocale)
+                  }
+                  className={DOCK_SELECT}
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l.value} value={l.value} lang={l.value}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
                 <span
                   className="bg-border mx-1 h-5 w-px shrink-0"
                   aria-hidden
@@ -762,6 +856,21 @@ export function PromotionsDemo() {
                 <Triggers compact />
                 {/* Pinned to the end, so Close never scrolls out of reach. */}
                 <div className="bg-background sticky end-0 ms-auto flex shrink-0 items-center gap-1 ps-2">
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={
+                      linkCopied ? 'Link copied' : 'Copy link to this preview'
+                    }
+                    title="Copy link to this preview, e.g. to open it on your phone"
+                    onClick={copyPreviewLink}
+                  >
+                    {linkCopied ? (
+                      <IconCheck aria-hidden />
+                    ) : (
+                      <IconLink aria-hidden />
+                    )}
+                  </Button>
                   <Button
                     size="icon-sm"
                     variant="ghost"
@@ -882,6 +991,7 @@ export function PromotionsDemo() {
                 <PromoDialog
                   layout={phone ? 'sheet' : 'dialog'}
                   container={frame}
+                  story={PromoStory}
                 />
               </div>
             </div>
@@ -943,7 +1053,7 @@ export function PromotionsDemo() {
   {children}
   <PromoToast />
   <PromoSheet />
-  <PromoDialog />
+  <PromoDialog story={PromoStory} />
 </PromotionProvider>`}
             </pre>
           </section>

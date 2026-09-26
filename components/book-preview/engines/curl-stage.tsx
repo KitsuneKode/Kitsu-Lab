@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  Children,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -9,96 +9,74 @@ import {
   type ReactNode,
 } from 'react'
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
-import { PageFlip } from 'page-flip/dist/js/page-flip.module.js'
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
 import { playPageTurnSound } from '../audio'
 import { useStableHandler } from '../hooks/use-stable-handler'
 import { tapConsumedByChrome } from '../hooks/use-immersive-chrome'
 import {
   CURL_CLICK_SLOP_PX,
-  CURL_FLIP_MS,
-  CURL_MAX_PAGE_WIDTH,
-  CURL_MIN_PAGE_WIDTH,
   CURL_PAGE_RATIO,
   CURL_TOUCH_SLOP_PX,
   curlClickIntent,
-  curlDragOrigin,
-  curlPageLabel,
   curlPageSizeForStage,
   curlReleaseVelocity,
-  curlSameSpread,
   curlShouldCommit,
-  curlSpreadFitsStage,
   quantizeCurlPageSize,
   type CurlPageSize,
-  type CurlPoint,
 } from './curl-geometry'
+import {
+  CURL_PEEK_PROGRESS,
+  constrainCurlDrag,
+  curlBackwardProgress,
+  curlDragPoint,
+  curlFold,
+  curlForwardProgress,
+  curlPolygonCss,
+  curlSettleMs,
+  curlWindow,
+  easeInOutCubic,
+  easeOutCubic,
+} from './curl-math'
 
 type CurlStageProps = {
   pageIndex: number
+  pageCount: number
+  /** Renders one leaf. Only the few leaves around the reading position are
+      mounted, so a 700-page document costs the same as a 7-page one. */
+  renderPage: (index: number) => ReactNode
   /** height / width of a sheet. Defaults to the paper-book ratio; PDF sources
       pass their own so the book matches the document instead of letterboxing. */
   pageRatio?: number
-  canGoPrev: boolean
-  canGoNext: boolean
+  /** Colour of the paper on the back of a turning leaf. Rasterized PDF
+      pages are white whatever the theme; typeset pages use the reader's. */
+  leafBack?: string
   reducedMotion: boolean
   soundEnabled: boolean
-  contentKey?: string
   onPageChange: (pageIndex: number) => void
-  onEngineError: (message: string) => void
-  children: ReactNode
 }
 
-type CurlFlipSettings = {
-  width: number
-  height: number
-  minWidth: number
-  maxWidth: number
-  minHeight: number
-  maxHeight: number
+type Direction = 'next' | 'prev'
+
+/** A leaf in the air. `p` is 0 flat on the page, 1 turned over the spine. */
+type Turn = {
+  direction: Direction
+  leaf: number
+  under: number
+  top: boolean
+  p: number
+  dy: number
+  /** Where the page lands once this turn completes; null while undecided. */
+  landing: number | null
+  peek: boolean
 }
 
-type CurlFlipBook = {
-  loadFromHTML: (items: HTMLElement[]) => void
-  updateFromHtml: (items: HTMLElement[]) => void
-  destroy: () => void
-  update: () => void
-  flip: (page: number) => void
-  flipNext: (corner?: string) => void
-  flipPrev: (corner?: string) => void
-  turnToPage: (page: number) => void
-  startUserTouch: (pos: CurlPoint) => void
-  userMove: (pos: CurlPoint, isTouch: boolean) => void
-  userStop: (pos: CurlPoint, isSwipe?: boolean) => void
-  getCurrentPageIndex: () => number
-  getPageCount: () => number
-  getState: () => string
-  getSettings: () => CurlFlipSettings
-  getUI: () => { getDistElement: () => HTMLElement }
-  on: (event: string, callback: (event: { data: unknown }) => void) => void
-  off: (event: string) => void
-}
-
-function asCurlBook(book: PageFlip): CurlFlipBook {
-  return book as unknown as CurlFlipBook
-}
-
-function htmlPagesFrom(source: HTMLElement) {
-  return Array.from(source.children).filter(
-    (node): node is HTMLElement => node instanceof HTMLElement,
-  )
-}
-
-function pointIn(el: HTMLElement, clientX: number, clientY: number) {
-  const rect = el.getBoundingClientRect()
-  return {
-    x: clientX - rect.left,
-    y: clientY - rect.top,
-    width: rect.width,
-    height: rect.height,
-  }
-}
+/** A turn from a tap, the arrows, or the keyboard. Longer than UI motion
+    (this is the hero of the component), still short enough that a fast
+    reader tapping through never waits: a new turn lands the old one. */
+const CURL_TURN_MS = 540
+const CURL_PEEK_MS = 220
+/** Mouse this close to a corner lifts it. */
+const CURL_CORNER_PX = 64
 
 function isInteractiveTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false
@@ -116,593 +94,75 @@ function curlEdgeWidth(pageCountOnSide: number): number {
   return Math.min(6, 2 + Math.floor(pageCountOnSide / 8))
 }
 
-function applyCurlSize(
-  book: CurlFlipBook,
-  host: HTMLElement,
-  size: CurlPageSize,
-  spread: boolean,
-) {
-  const settings = book.getSettings()
-  settings.width = size.width
-  settings.height = size.height
-  settings.minWidth = size.width
-  settings.maxWidth = size.width
-  settings.minHeight = size.height
-  settings.maxHeight = size.height
-  // page-flip reads the host box to pick its orientation: two leaves wide
-  // means a spread, one means a single portrait page.
-  const hostWidth = spread ? size.width * 2 : size.width
-  host.style.width = `${hostWidth}px`
-  host.style.height = `${size.height}px`
-  host.style.minWidth = `${hostWidth}px`
-  host.style.minHeight = `${size.height}px`
-  book.update()
+function show(el: HTMLElement | undefined, z: number, clip: string) {
+  if (!el) return
+  el.style.visibility = 'visible'
+  el.style.zIndex = String(z)
+  el.style.clipPath = clip
 }
 
-/** The slice of page-flip's internals the release path needs. page-flip
-    (2.0.7, unmaintained) has no public "finish this fold from where it is"
-    call: userStop() only turns past the spine and swipes restart the turn
-    from the page edge — the snap-back-then-flip jolt. These members are
-    stable in the published build; if they ever vanish, the fallback is
-    page-flip's own stopMove. */
-type CurlFlipController = {
-  getCalculation: () => {
-    getPosition: () => CurlPoint
-    getFlippingProgress: () => number
-    getDirection: () => number
-    getCorner: () => string
-  } | null
-  getBoundsRect?: () => { pageWidth: number; height: number }
-  animateFlippingTo?: (
-    start: CurlPoint,
-    dest: CurlPoint,
-    isTurned: boolean,
-    needReset?: boolean,
-  ) => void
+function hide(el: HTMLElement | undefined) {
+  if (!el) return
+  el.style.visibility = 'hidden'
+  el.style.clipPath = ''
 }
-
-/** page-flip's FlipDirection.BACK */
-const CURL_DIRECTION_BACK = 1
 
 /**
- * Ends a user fold: completes or cancels the turn from the fold's current
- * position, so the page keeps moving the way the finger left it.
- * `velocityX` is the release velocity in px/ms (negative = leftward).
+ * Page-curl book. The turning leaf is folded, not faked: its flat part is
+ * clipped at the fold, its lifted part is mirrored across the fold onto its
+ * own paper back, and the page underneath is already there. The drag follows
+ * the finger, a release finishes from wherever the page is, in the direction
+ * it was moving, and any new input lands a turn still in the air — nothing
+ * ever waits on an animation.
  */
-function releaseCurlFold(
-  book: CurlFlipBook,
-  pos: CurlPoint,
-  velocityX: number,
-  onCommit: () => void,
-) {
-  const controller = (
-    book as unknown as { getFlipController?: () => CurlFlipController }
-  ).getFlipController?.()
-  const calc = controller?.getCalculation()
-  if (!controller || !calc) {
-    // No turn was ever computed (a drag past the first or last page):
-    // page-flip entered 'user_fold' but has nothing to finish, and its own
-    // stopMove bails on a null calc — leaving the book "busy" forever.
-    book.userStop(pos, true)
-    const internals = controller as unknown as {
-      setState?: (state: string) => void
-      reset?: () => void
-    } | null
-    internals?.reset?.()
-    internals?.setState?.('read')
-    return
-  }
-  if (
-    typeof controller.animateFlippingTo !== 'function' ||
-    typeof controller.getBoundsRect !== 'function'
-  ) {
-    book.userStop(pos)
-    return
-  }
-  // Forward turns finish leftward, back turns rightward.
-  const toward =
-    calc.getDirection() === CURL_DIRECTION_BACK ? velocityX : -velocityX
-  const commit = curlShouldCommit(calc.getFlippingProgress(), toward)
-  // Clears page-flip's touch flag without letting it pick the outcome.
-  book.userStop(pos, true)
-  if (commit) onCommit()
-  const rect = controller.getBoundsRect()
-  const y = calc.getCorner() === 'bottom' ? rect.height : 0
-  controller.animateFlippingTo(
-    calc.getPosition(),
-    { x: commit ? -rect.pageWidth : rect.pageWidth, y },
-    commit,
-  )
-}
-
-function attachCurlPointers(
-  book: CurlFlipBook,
-  interacting: { current: boolean },
-  /** A drag that lets go past the threshold — the moment a real page lands. */
-  onDragCommit: () => void,
-) {
-  const dist = book.getUI().getDistElement()
-  const press = {
-    pointerId: -1,
-    startX: 0,
-    startY: 0,
-    slop: CURL_CLICK_SLOP_PX,
-    isTouch: false,
-    dragging: false,
-    /** Pressed while a turn was animating — a tap still counts (it queues
-        the next turn), but it may not grab the moving page. */
-    duringFlip: false,
-    last: { x: 0, y: 0 },
-    samples: [] as { x: number; t: number }[],
-  }
-
-  const onPointerDown = (event: PointerEvent) => {
-    if (event.button !== 0 || press.pointerId !== -1) return
-    if (isInteractiveTarget(event.target)) return
-    const pos = pointIn(dist, event.clientX, event.clientY)
-    press.pointerId = event.pointerId
-    press.startX = pos.x
-    press.startY = pos.y
-    press.last = { x: pos.x, y: pos.y }
-    press.samples = [{ x: pos.x, t: event.timeStamp }]
-    press.isTouch = event.pointerType === 'touch'
-    press.slop = press.isTouch ? CURL_TOUCH_SLOP_PX : CURL_CLICK_SLOP_PX
-    press.dragging = false
-    // 'user_fold' with no finger down is a released fold still animating
-    // home — grabbing it would fight the animation for the same page.
-    const state = book.getState()
-    press.duringFlip = state === 'flipping' || state === 'user_fold'
-    interacting.current = true
-    try {
-      dist.setPointerCapture(event.pointerId)
-    } catch {
-      // Capture is best-effort; window listeners still finish the gesture.
-    }
-    event.preventDefault()
-  }
-
-  const onPointerMove = (event: PointerEvent) => {
-    if (press.pointerId !== event.pointerId) return
-    event.preventDefault()
-    const pos = pointIn(dist, event.clientX, event.clientY)
-    press.last = { x: pos.x, y: pos.y }
-    press.samples.push({ x: pos.x, t: event.timeStamp })
-    if (press.samples.length > 12) press.samples.shift()
-    if (!press.dragging) {
-      if (press.duringFlip) return
-      // Touch folds need horizontal intent: with pan-y touch-action a
-      // mostly-vertical gesture belongs to the page scroller, not the fold —
-      // starting one here would snap back on the inevitable pointercancel.
-      // Mouse has no competing gesture, so any direction can peel a corner.
-      const distance = press.isTouch
-        ? Math.abs(pos.x - press.startX)
-        : Math.hypot(pos.x - press.startX, pos.y - press.startY)
-      if (distance < press.slop) return
-      // Nothing to peel past the covers: a drag that would turn beyond the
-      // first or last page is ignored rather than started and stranded.
-      const goingPrev = pos.x - press.startX > 0
-      const index = book.getCurrentPageIndex()
-      if (
-        (goingPrev && index <= 0) ||
-        (!goingPrev && index >= book.getPageCount() - 1)
-      ) {
-        return
-      }
-      press.dragging = true
-      book.startUserTouch(
-        curlDragOrigin(
-          { x: press.startX, y: press.startY },
-          { x: pos.x, y: pos.y },
-          pos.width,
-        ),
-      )
-    }
-    book.userMove({ x: pos.x, y: pos.y }, true)
-  }
-
-  const finish = (event: PointerEvent) => {
-    if (press.pointerId !== event.pointerId) return
-    // pointercancel often reports 0,0 — the last real position is the truth.
-    const pos =
-      event.type === 'pointercancel'
-        ? { ...pointIn(dist, 0, 0), ...press.last }
-        : pointIn(dist, event.clientX, event.clientY)
-    if (event.type !== 'pointercancel') {
-      press.samples.push({ x: pos.x, t: event.timeStamp })
-    }
-    const dragging = press.dragging
-    const velocity = curlReleaseVelocity(press.samples)
-    press.pointerId = -1
-    press.dragging = false
-    if (dist.hasPointerCapture(event.pointerId)) {
-      dist.releasePointerCapture(event.pointerId)
-    }
-    if (dragging) {
-      // Every release — slow drag, flick, or a browser-interrupted gesture —
-      // finishes from where the page is, in the direction it was going.
-      releaseCurlFold(
-        book,
-        { x: pos.x, y: pos.y },
-        event.type === 'pointercancel' ? 0 : velocity,
-        onDragCommit,
-      )
-      return
-    }
-    interacting.current = false
-    if (event.type === 'pointercancel') return
-    // A tap only counts if the pointer barely moved at all — a mostly
-    // vertical release is a scroll gesture, not a turn request — and the
-    // reader chrome did not already spend it on showing or hiding itself.
-    if (Math.hypot(pos.x - press.startX, pos.y - press.startY) >= press.slop) {
-      return
-    }
-    if (tapConsumedByChrome()) return
-    const intent = curlClickIntent(
-      pos.x,
-      pos.width,
-      book.getCurrentPageIndex() > 0,
-      book.getCurrentPageIndex() < book.getPageCount() - 1,
-    )
-    if (!intent) return
-    const corner = pos.y < pos.height / 2 ? 'top' : 'bottom'
-    // A tap during a turn finishes that turn instantly and starts the next —
-    // a fast reader is never made to wait for the animation.
-    if (intent === 'prev') book.flipPrev(corner)
-    else book.flipNext(corner)
-  }
-
-  // Hovering a corner lifts it slightly -- the affordance that teaches the
-  // drag. page-flip only runs this path when told the move is not a touch,
-  // and it resets itself the moment the pointer is off the corner.
-  const onHoverCorner = (event: PointerEvent) => {
-    if (press.pointerId !== -1 || event.pointerType !== 'mouse') return
-    if (book.getState() === 'flipping') return
-    const pos = pointIn(dist, event.clientX, event.clientY)
-    book.userMove({ x: pos.x, y: pos.y }, false)
-  }
-
-  const onLeaveCorner = (event: PointerEvent) => {
-    if (press.pointerId !== -1 || event.pointerType !== 'mouse') return
-    if (book.getState() === 'flipping') return
-    const rect = dist.getBoundingClientRect()
-    // Centre of the sheet is off every corner, which drops the peek.
-    book.userMove({ x: rect.width / 2, y: rect.height / 2 }, false)
-  }
-
-  dist.addEventListener('pointerdown', onPointerDown, { passive: false })
-  dist.addEventListener('pointermove', onHoverCorner)
-  dist.addEventListener('pointerleave', onLeaveCorner)
-  window.addEventListener('pointermove', onPointerMove, { passive: false })
-  window.addEventListener('pointerup', finish)
-  window.addEventListener('pointercancel', finish)
-
-  return () => {
-    dist.removeEventListener('pointerdown', onPointerDown)
-    dist.removeEventListener('pointermove', onHoverCorner)
-    dist.removeEventListener('pointerleave', onLeaveCorner)
-    window.removeEventListener('pointermove', onPointerMove)
-    window.removeEventListener('pointerup', finish)
-    window.removeEventListener('pointercancel', finish)
-  }
-}
-
-function useCurlBook({
-  pageIndex,
-  pageRatio,
-  pageSize,
-  spread,
-  pageCount,
-  reducedMotion,
-  soundEnabled,
-  contentKey,
-  onPageChange,
-  onEngineError,
-}: {
-  pageIndex: number
-  pageRatio: number
-  pageSize: CurlPageSize | null
-  spread: boolean
-  pageCount: number
-  reducedMotion: boolean
-  soundEnabled: boolean
-  contentKey?: string
-  onPageChange: (page: number) => void
-  onEngineError: (message: string) => void
-}) {
-  const sourceRef = useRef<HTMLDivElement | null>(null)
-  const hostWrapRef = useRef<HTMLDivElement | null>(null)
-  const bookRef = useRef<CurlFlipBook | null>(null)
-  const flippingRef = useRef(false)
-  const fromBookRef = useRef(false)
-  const interactingRef = useRef(false)
-  const pageIndexRef = useRef(pageIndex)
-  const soundRef = useRef(soundEnabled)
-  const contentKeyRef = useRef(contentKey)
-  const pageRatioRef = useRef(pageRatio)
-  // A turn the reader did not physically perform (arrow keys, slider scrub,
-  // contents jump) should stay silent; only gestures and stage buttons sound.
-  const programmaticRef = useRef(false)
-  const reportPageChange = useStableHandler(onPageChange)
-  const reportEngineError = useStableHandler(onEngineError)
-  const [ready, setReady] = useState(false)
-  const [busy, setBusy] = useState(false)
-  /** Orientation the live book was actually built with. */
-  const [builtSpread, setBuiltSpread] = useState(false)
-  const hasStage = pageSize !== null
-
-  useEffect(() => {
-    pageIndexRef.current = pageIndex
-    soundRef.current = soundEnabled
-    pageRatioRef.current = pageRatio
-  })
-
-  useLayoutEffect(() => {
-    const wrap = hostWrapRef.current
-    const source = sourceRef.current
-    const size = pageSize
-    if (!wrap || !source || !size || pageCount === 0) return
-
-    const pages = htmlPagesFrom(source)
-    if (pages.length === 0) {
-      reportEngineError('The page-curl engine needs at least one page.')
-      return
-    }
-
-    const host = document.createElement('div')
-    // Sized before PageFlip reads the box, so it picks the right orientation
-    // on the very first layout instead of flashing a single page.
-    host.style.width = `${spread ? size.width * 2 : size.width}px`
-    host.style.height = `${size.height}px`
-    wrap.replaceChildren(host)
-
-    let book: CurlFlipBook
-    let detachPointers = () => {}
-    try {
-      book = asCurlBook(
-        new PageFlip(host, {
-          width: size.width,
-          height: size.height,
-          size: 'fixed',
-          minWidth: CURL_MIN_PAGE_WIDTH,
-          maxWidth: CURL_MAX_PAGE_WIDTH,
-          minHeight: Math.round(CURL_MIN_PAGE_WIDTH * pageRatioRef.current),
-          maxHeight: Math.round(CURL_MAX_PAGE_WIDTH * pageRatioRef.current),
-          showCover: false,
-          drawShadow: !reducedMotion,
-          flippingTime: reducedMotion ? 1 : CURL_FLIP_MS,
-          usePortrait: true,
-          // The lifted corner is the affordance that teaches the drag; without it
-          // a curl book reads as a static image until someone guesses.
-          showPageCorners: !reducedMotion,
-          maxShadowOpacity: reducedMotion ? 0 : 0.55,
-          startZIndex: 1,
-          startPage: pageIndexRef.current,
-          autoSize: false,
-          mobileScrollSupport: false,
-          clickEventForward: true,
-          useMouseEvents: false,
-          disableFlipByClick: false,
-          swipeDistance: 30,
-        }),
-      )
-      const clones = pages.map((page) => page.cloneNode(true) as HTMLElement)
-      book.loadFromHTML(clones)
-      detachPointers = attachCurlPointers(book, interactingRef, () => {
-        // Drag turns finish through page-flip's fold state, never its
-        // "flipping" one, so they sound here rather than in changeState.
-        if (soundRef.current) playPageTurnSound()
-      })
-    } catch (error) {
-      wrap.replaceChildren()
-      reportEngineError(
-        error instanceof Error
-          ? error.message
-          : 'The page-curl engine could not start.',
-      )
-      return
-    }
-
-    contentKeyRef.current = contentKey
-    book.on('flip', (event) => {
-      fromBookRef.current = true
-      reportPageChange(
-        typeof event.data === 'number' ? event.data : pageIndexRef.current,
-      )
-    })
-    book.on('changeState', (event) => {
-      const state = String(event.data)
-      const turning = state === 'flipping' || state === 'user_fold'
-      flippingRef.current = turning
-      interactingRef.current = turning
-      setBusy(turning)
-      if (
-        soundRef.current &&
-        state === 'flipping' &&
-        !programmaticRef.current
-      ) {
-        playPageTurnSound()
-      }
-      if (!turning) programmaticRef.current = false
-    })
-
-    bookRef.current = book
-    // The book was just constructed with this orientation -- readiness is
-    // external state, so the UI has to be told what was actually built.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBuiltSpread(spread)
-    // The flip book initialized in this effect — readiness is external state.
-    setReady(true)
-
-    return () => {
-      setReady(false)
-      setBusy(false)
-      bookRef.current = null
-      flippingRef.current = false
-      interactingRef.current = false
-      detachPointers()
-      try {
-        book.off('flip')
-        book.off('changeState')
-        book.destroy()
-      } catch {
-        // PageFlip.remove() can run after the wrapper is already gone.
-      }
-      wrap.replaceChildren()
-    }
-    // contentKey/pageSize changes are handled incrementally by the layout
-    // effects below — rebuilding the book for them would lose flip state.
-    // `spread` is a dependency on purpose. page-flip derives its orientation by
-    // measuring the host, so changing that box under a live instance makes it
-    // re-measure and flip back -- an infinite portrait/landscape oscillation
-    // that locks the main thread. Building a fresh book settles it once.
-    // Orientation is intentionally not a dependency; see CURL_SPREAD_ENABLED.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasStage, pageCount, reducedMotion, reportEngineError, reportPageChange])
-
-  useLayoutEffect(() => {
-    const book = bookRef.current
-    const wrap = hostWrapRef.current
-    if (!book || !wrap || !pageSize || !ready) return
-    // Re-measuring under a live fold freezes it mid-turn — and on phones the
-    // browser toolbar collapsing during a swipe resizes the stage constantly.
-    // `busy` is a dependency, so the resize lands the moment the turn ends.
-    if (busy || flippingRef.current) return
-    const host = wrap.firstElementChild
-    if (!(host instanceof HTMLElement)) return
-    const settings = book.getSettings()
-    // Orientation changes rebuild the book above; this only rescales within
-    // the current orientation.
-    if (
-      settings.width === pageSize.width &&
-      settings.height === pageSize.height
-    )
-      return
-    applyCurlSize(book, host, pageSize, builtSpread)
-  }, [pageSize, ready, builtSpread, busy])
-
-  useLayoutEffect(() => {
-    const book = bookRef.current
-    const source = sourceRef.current
-    if (!book || !source || !ready) return
-    // Swapping sheets under a turn strands the fold; wait for it to land.
-    if (busy || flippingRef.current) return
-    if (contentKeyRef.current === contentKey) return
-    const pages = htmlPagesFrom(source)
-    if (pages.length === 0) return
-    contentKeyRef.current = contentKey
-    try {
-      book.updateFromHtml(
-        pages.map((page) => page.cloneNode(true) as HTMLElement),
-      )
-    } catch {
-      // Keep the current sheets rather than tearing the book down.
-    }
-  }, [contentKey, ready, busy])
-
-  useLayoutEffect(() => {
-    if (!ready) return
-    const source = sourceRef.current
-    const wrap = hostWrapRef.current
-    const book = bookRef.current
-    if (!source || !wrap) return
-    const liveImgs = source.querySelectorAll('img')
-    const cloneImgs = wrap.querySelectorAll('img')
-    const cloneMissingPaintedPage = Array.from(liveImgs).some((img, index) => {
-      const clone = cloneImgs[index]
-      return Boolean(img.src) && !(clone instanceof HTMLImageElement)
-    })
-    if (cloneMissingPaintedPage && book) {
-      // Bitmaps keep arriving while a PDF rasterizes; rebuilding the sheets
-      // mid-turn is exactly the frozen half-fold. This effect runs on every
-      // render, and the turn ending re-renders, so it catches up then.
-      if (flippingRef.current || interactingRef.current) return
-      const pages = htmlPagesFrom(source)
-      if (pages.length === 0) return
-      try {
-        book.updateFromHtml(
-          pages.map((page) => page.cloneNode(true) as HTMLElement),
-        )
-      } catch {
-        // Keep the current sheets rather than tearing the book down.
-      }
-      return
-    }
-    liveImgs.forEach((img, index) => {
-      const clone = cloneImgs[index]
-      if (
-        clone instanceof HTMLImageElement &&
-        img.src &&
-        clone.src !== img.src
-      ) {
-        clone.src = img.src
-      }
-    })
-  })
-
-  useEffect(() => {
-    if (fromBookRef.current) {
-      fromBookRef.current = false
-      return
-    }
-    if (flippingRef.current || interactingRef.current) return
-    const book = bookRef.current
-    if (!book) return
-    const current = book.getCurrentPageIndex()
-    // Both leaves of a spread are already visible, so selecting the facing
-    // page must not animate a turn to the sheet you are looking at.
-    if (curlSameSpread(current, pageIndex, builtSpread)) return
-    programmaticRef.current = true
-    const step = builtSpread ? 2 : 1
-    if (Math.abs(current - pageIndex) <= step && !reducedMotion) {
-      book.flip(pageIndex)
-      return
-    }
-    book.turnToPage(pageIndex)
-  }, [pageIndex, reducedMotion, builtSpread])
-
-  return { sourceRef, hostWrapRef, bookRef, ready, busy, builtSpread }
-}
-
 export function CurlStage({
   pageIndex,
+  pageCount,
+  renderPage,
   pageRatio = CURL_PAGE_RATIO,
-  canGoPrev,
-  canGoNext,
+  leafBack = 'var(--background)',
   reducedMotion,
   soundEnabled,
-  contentKey,
   onPageChange,
-  onEngineError,
-  children,
 }: CurlStageProps) {
   const [pageSize, setPageSize] = useState<CurlPageSize | null>(null)
-  const [spread, setSpread] = useState(false)
+  const [shown, setShown] = useState(() =>
+    Math.min(Math.max(pageIndex, 0), Math.max(pageCount - 1, 0)),
+  )
   const stageRef = useRef<HTMLDivElement | null>(null)
-  const pageCount = Children.count(children)
+  const bookRef = useRef<HTMLDivElement | null>(null)
+  const shadowRef = useRef<HTMLDivElement | null>(null)
+  const frontsRef = useRef(new Map<number, HTMLElement>())
+  const backsRef = useRef(new Map<number, HTMLElement>())
+  const shownRef = useRef(shown)
+  const turnRef = useRef<Turn | null>(null)
+  const rafRef = useRef(0)
+  const animDoneRef = useRef<(() => void) | null>(null)
+  const sizeRef = useRef<CurlPageSize | null>(null)
+  const settingsRef = useRef({ pageCount, reducedMotion, soundEnabled })
+  const report = useStableHandler(onPageChange)
+
+  useLayoutEffect(() => {
+    sizeRef.current = pageSize
+    settingsRef.current = { pageCount, reducedMotion, soundEnabled }
+  })
+
+  // ---- measuring -------------------------------------------------------
 
   useEffect(() => {
     const node = stageRef.current
     if (!node || typeof ResizeObserver === 'undefined') return
     let frame = 0
-    const update = () => {
-      if (frame) return
-      frame = requestAnimationFrame(() => {
-        frame = 0
-        measure()
-      })
-    }
     const measure = () => {
-      const wantsSpread = curlSpreadFitsStage(node.clientWidth)
       const next = quantizeCurlPageSize(
         curlPageSizeForStage(
           node.clientWidth,
           node.clientHeight,
           pageRatio,
-          wantsSpread,
+          false,
         ),
         pageRatio,
       )
-      setSpread(wantsSpread)
       setPageSize((current) =>
         current &&
         current.width === next.width &&
@@ -710,6 +170,13 @@ export function CurlStage({
           ? current
           : next,
       )
+    }
+    const update = () => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        measure()
+      })
     }
     measure()
     const observer = new ResizeObserver(update)
@@ -720,19 +187,501 @@ export function CurlStage({
     }
   }, [pageRatio])
 
-  const { sourceRef, hostWrapRef, bookRef, ready, busy, builtSpread } =
-    useCurlBook({
-      pageIndex,
-      pageRatio,
-      pageSize,
-      spread,
-      pageCount,
-      reducedMotion,
-      soundEnabled,
-      contentKey,
-      onPageChange,
-      onEngineError,
-    })
+  // ---- painting ----------------------------------------------------------
+
+  /** Writes the current state straight to the DOM — once per frame while a
+      leaf moves, and after every render so newly mounted leaves are placed. */
+  const paint = useCallback(() => {
+    const fronts = frontsRef.current
+    const backs = backsRef.current
+    const shadow = shadowRef.current
+    const size = sizeRef.current
+    const turn = turnRef.current
+    const fold =
+      turn && size
+        ? curlFold(
+            { x: size.width, y: turn.top ? 0 : size.height },
+            constrainCurlDrag(
+              { x: size.width, y: turn.top ? 0 : size.height },
+              curlDragPoint(
+                { x: size.width, y: turn.top ? 0 : size.height },
+                turn.p,
+                turn.dy,
+                size.height,
+              ),
+              size.height,
+            ),
+            size.width,
+            size.height,
+          )
+        : null
+
+    if (!turn || !size || !fold) {
+      // At rest. A turn with no fold is a leaf lying flat: the leaf itself
+      // (forward, not yet lifted) or the page it uncovers (back, all the way).
+      const visible = turn
+        ? turn.p >= 1
+          ? turn.under
+          : turn.leaf
+        : shownRef.current
+      for (const [index, el] of fronts) {
+        if (index === visible) show(el, 2, '')
+        else hide(el)
+      }
+      for (const el of backs.values()) hide(el)
+      if (shadow) shadow.style.opacity = '0'
+      return
+    }
+
+    for (const [index, el] of fronts) {
+      if (index === turn.under) show(el, 1, '')
+      else if (index === turn.leaf) show(el, 2, curlPolygonCss(fold.front))
+      else hide(el)
+    }
+    const [a, b, c, d, e, f] = fold.matrix
+    for (const [index, el] of backs) {
+      if (index !== turn.leaf) {
+        hide(el)
+        continue
+      }
+      show(el, 4, curlPolygonCss(fold.flap))
+      el.style.transform = `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`
+      const gloss = el.lastElementChild
+      if (gloss instanceof HTMLElement) {
+        placeAlongFold(gloss, fold.origin, fold.angle, fold.depth, size)
+      }
+    }
+    if (shadow) {
+      // Shadow on the page underneath, strongest mid-turn, cast from the
+      // fold across the uncovered paper.
+      const lift = Math.sin(Math.PI * Math.min(Math.max(turn.p, 0), 1))
+      const reach = Math.max(24, Math.min(fold.depth * 0.5, size.width * 0.35))
+      placeAlongFold(shadow, fold.origin, fold.angle, reach, size)
+      shadow.style.opacity = String(Math.min(1, 0.25 + lift))
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    paint()
+  })
+
+  // ---- motion ------------------------------------------------------------
+
+  const stopAnimation = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = 0
+    animDoneRef.current = null
+  }, [])
+
+  const animate = useCallback(
+    (
+      to: { p: number; dy: number },
+      ms: number,
+      ease: (t: number) => number,
+      done: () => void,
+    ) => {
+      stopAnimation()
+      const turn = turnRef.current
+      if (!turn) return
+      const from = { p: turn.p, dy: turn.dy }
+      const start = performance.now()
+      animDoneRef.current = done
+      const frame = (now: number) => {
+        const current = turnRef.current
+        if (!current) return
+        const t = ms <= 0 ? 1 : Math.min(1, (now - start) / ms)
+        const k = ease(t)
+        current.p = from.p + (to.p - from.p) * k
+        current.dy = from.dy + (to.dy - from.dy) * k
+        paint()
+        if (t < 1) {
+          rafRef.current = requestAnimationFrame(frame)
+          return
+        }
+        rafRef.current = 0
+        const finish = animDoneRef.current
+        animDoneRef.current = null
+        finish?.()
+      }
+      rafRef.current = requestAnimationFrame(frame)
+    },
+    [paint, stopAnimation],
+  )
+
+  /** Settles the turn in the air: lands it where it was going, or lays the
+      leaf back down. */
+  const endTurn = useCallback(() => {
+    stopAnimation()
+    const turn = turnRef.current
+    turnRef.current = null
+    if (turn?.landing != null && turn.landing !== shownRef.current) {
+      shownRef.current = turn.landing
+      setShown(turn.landing)
+    }
+    paint()
+  }, [paint, stopAnimation])
+
+  /** Anything new — a press, a tap, a key — lands a committed turn first,
+      so a quick reader turns as fast as they like. */
+  const landInFlight = useCallback(() => {
+    const turn = turnRef.current
+    if (turn && turn.landing != null) endTurn()
+  }, [endTurn])
+
+  const beginTurn = useCallback(
+    (direction: Direction, top: boolean, peek = false): Turn | null => {
+      const current = shownRef.current
+      const { pageCount: count } = settingsRef.current
+      if (direction === 'next' && current >= count - 1) return null
+      if (direction === 'prev' && current <= 0) return null
+      const existing = turnRef.current
+      if (
+        existing &&
+        existing.direction === direction &&
+        existing.landing == null
+      ) {
+        existing.top = top
+        existing.peek = peek
+        return existing
+      }
+      if (existing) endTurn()
+      const turn: Turn = {
+        direction,
+        leaf: direction === 'next' ? current : current - 1,
+        under: direction === 'next' ? current + 1 : current,
+        top,
+        p: direction === 'next' ? 0 : 1,
+        dy: 0,
+        landing: null,
+        peek,
+      }
+      turnRef.current = turn
+      return turn
+    },
+    [endTurn],
+  )
+
+  const commit = useCallback(
+    (turn: Turn, sound: boolean, announce: boolean) => {
+      turn.landing =
+        turn.direction === 'next' ? shownRef.current + 1 : shownRef.current - 1
+      if (sound && settingsRef.current.soundEnabled) playPageTurnSound()
+      if (announce) report(turn.landing)
+    },
+    [report],
+  )
+
+  /** A whole turn from rest (or from a peek): tap, arrow button, keyboard. */
+  const turnPage = useCallback(
+    (
+      direction: Direction,
+      options: { top?: boolean; sound: boolean; announce: boolean },
+    ) => {
+      landInFlight()
+      const current = shownRef.current
+      const target = direction === 'next' ? current + 1 : current - 1
+      if (target < 0 || target >= settingsRef.current.pageCount) return
+      if (settingsRef.current.reducedMotion || !sizeRef.current) {
+        endTurn()
+        if (options.sound && settingsRef.current.soundEnabled) {
+          playPageTurnSound()
+        }
+        shownRef.current = target
+        setShown(target)
+        if (options.announce) report(target)
+        paint()
+        return
+      }
+      const turn = beginTurn(direction, options.top ?? false)
+      if (!turn) return
+      commit(turn, options.sound, options.announce)
+      const remaining = direction === 'next' ? 1 - turn.p : turn.p
+      animate(
+        { p: direction === 'next' ? 1 : 0, dy: 0 },
+        Math.max(160, CURL_TURN_MS * remaining),
+        remaining > 0.9 ? easeInOutCubic : easeOutCubic,
+        endTurn,
+      )
+    },
+    [animate, beginTurn, commit, endTurn, landInFlight, paint, report],
+  )
+
+  // ---- the reader's page index -----------------------------------------
+
+  useEffect(() => {
+    const turn = turnRef.current
+    if (turn?.landing === pageIndex) return
+    if (!turn && pageIndex === shownRef.current) return
+    landInFlight()
+    if (turnRef.current) endTurn()
+    const current = shownRef.current
+    if (pageIndex === current) return
+    // A step from the keyboard or the pager turns the leaf, silently — only
+    // the reader's own hand makes the paper sound. Jumps just open there.
+    if (Math.abs(pageIndex - current) === 1) {
+      turnPage(pageIndex > current ? 'next' : 'prev', {
+        sound: false,
+        announce: false,
+      })
+      return
+    }
+    shownRef.current = pageIndex
+    setShown(pageIndex)
+  }, [endTurn, landInFlight, pageIndex, turnPage])
+
+  // A source swap (a new document, fewer pages) can strand the index.
+  useEffect(() => {
+    if (pageCount > 0 && shownRef.current > pageCount - 1) {
+      endTurn()
+      shownRef.current = pageCount - 1
+      setShown(pageCount - 1)
+    }
+  }, [endTurn, pageCount])
+
+  // ---- pointers ----------------------------------------------------------
+
+  useEffect(() => {
+    const book = bookRef.current
+    if (!book) return
+    const press = {
+      id: -1,
+      startX: 0,
+      startY: 0,
+      slop: CURL_CLICK_SLOP_PX,
+      touch: false,
+      dragging: false,
+      direction: null as Direction | null,
+      last: { x: 0, y: 0 },
+      samples: [] as { x: number; t: number }[],
+    }
+
+    /** Page coordinates — robust to CSS zoom and transforms on ancestors. */
+    const local = (clientX: number, clientY: number) => {
+      const rect = book.getBoundingClientRect()
+      const size = sizeRef.current
+      const sx = size && rect.width ? size.width / rect.width : 1
+      const sy = size && rect.height ? size.height / rect.height : 1
+      return { x: (clientX - rect.left) * sx, y: (clientY - rect.top) * sy }
+    }
+
+    const setCursor = (value: '' | 'grab' | 'grabbing') => {
+      if (value) book.dataset.curlCursor = value
+      else delete book.dataset.curlCursor
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0 || press.id !== -1) return
+      if (isInteractiveTarget(event.target)) return
+      landInFlight()
+      const pos = local(event.clientX, event.clientY)
+      press.id = event.pointerId
+      press.startX = pos.x
+      press.startY = pos.y
+      press.last = pos
+      press.samples = [{ x: pos.x, t: event.timeStamp }]
+      press.touch = event.pointerType !== 'mouse'
+      press.slop = press.touch ? CURL_TOUCH_SLOP_PX : CURL_CLICK_SLOP_PX
+      press.dragging = false
+      press.direction = null
+      try {
+        book.setPointerCapture(event.pointerId)
+      } catch {
+        // Capture is best-effort; the window listeners finish the gesture.
+      }
+    }
+
+    const peekAt = (pos: { x: number; y: number }) => {
+      const size = sizeRef.current
+      if (!size || settingsRef.current.reducedMotion) return
+      const nearTop = pos.y < CURL_CORNER_PX
+      const nearBottom = pos.y > size.height - CURL_CORNER_PX
+      const nearRight = pos.x > size.width - CURL_CORNER_PX
+      const nearLeft = pos.x < CURL_CORNER_PX
+      const current = shownRef.current
+      const direction: Direction | null =
+        (nearTop || nearBottom) &&
+        nearRight &&
+        current < settingsRef.current.pageCount - 1
+          ? 'next'
+          : (nearTop || nearBottom) && nearLeft && current > 0
+            ? 'prev'
+            : null
+      const turn = turnRef.current
+      if (turn && (turn.landing != null || !turn.peek)) return
+      setCursor(direction ? 'grab' : '')
+      if (!direction) {
+        if (turn?.peek) {
+          animate(
+            { p: turn.direction === 'next' ? 0 : 1, dy: 0 },
+            CURL_PEEK_MS,
+            easeOutCubic,
+            endTurn,
+          )
+          turn.peek = false
+        }
+        return
+      }
+      if (turn?.peek && turn.direction === direction) return
+      const peek = beginTurn(direction, nearTop, true)
+      if (!peek) return
+      animate(
+        {
+          p: direction === 'next' ? CURL_PEEK_PROGRESS : 1 - CURL_PEEK_PROGRESS,
+          dy: 0,
+        },
+        CURL_PEEK_MS,
+        easeOutCubic,
+        () => {},
+      )
+    }
+
+    const onHover = (event: PointerEvent) => {
+      if (press.id !== -1 || event.pointerType !== 'mouse') return
+      peekAt(local(event.clientX, event.clientY))
+    }
+
+    const onLeave = (event: PointerEvent) => {
+      if (press.id !== -1 || event.pointerType !== 'mouse') return
+      peekAt({ x: -1e4, y: -1e4 })
+    }
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (press.id !== event.pointerId) return
+      const size = sizeRef.current
+      if (!size) return
+      const pos = local(event.clientX, event.clientY)
+      press.last = pos
+      press.samples.push({ x: pos.x, t: event.timeStamp })
+      if (press.samples.length > 12) press.samples.shift()
+      const dx = pos.x - press.startX
+      if (!press.dragging) {
+        // Touch turns need horizontal intent — a mostly vertical gesture is
+        // the page scrolling. A mouse has no competing gesture.
+        const distance = press.touch
+          ? Math.abs(dx)
+          : Math.hypot(dx, pos.y - press.startY)
+        if (distance < press.slop) return
+        const direction: Direction = dx < 0 ? 'next' : 'prev'
+        press.dragging = true
+        press.direction = direction
+        setCursor('grabbing')
+        if (settingsRef.current.reducedMotion) return
+        if (!beginTurn(direction, press.startY < size.height / 2)) {
+          press.direction = null
+          return
+        }
+        stopAnimation()
+      }
+      event.preventDefault()
+      const turn = turnRef.current
+      if (!turn || !press.direction || settingsRef.current.reducedMotion) return
+      turn.p =
+        press.direction === 'next'
+          ? curlForwardProgress(press.startX, pos.x, size.width)
+          : curlBackwardProgress(press.startX, pos.x, size.width)
+      turn.dy = pos.y - press.startY
+      paint()
+    }
+
+    const finish = (event: PointerEvent) => {
+      if (press.id !== event.pointerId) return
+      const cancelled = event.type === 'pointercancel'
+      const pos = cancelled ? press.last : local(event.clientX, event.clientY)
+      if (!cancelled) press.samples.push({ x: pos.x, t: event.timeStamp })
+      const velocity = cancelled ? 0 : curlReleaseVelocity(press.samples)
+      const { dragging, direction } = press
+      press.id = -1
+      press.dragging = false
+      press.direction = null
+      if (book.hasPointerCapture(event.pointerId)) {
+        book.releasePointerCapture(event.pointerId)
+      }
+      setCursor('')
+      const size = sizeRef.current
+      if (!size) return
+
+      if (dragging) {
+        if (!direction) return
+        if (settingsRef.current.reducedMotion) {
+          if (!cancelled) turnPage(direction, { sound: true, announce: true })
+          return
+        }
+        const turn = turnRef.current
+        if (!turn) return
+        // The page keeps going the way the hand left it: a flick turns it
+        // from anywhere, a slow release reads by how far it got.
+        const toward = direction === 'next' ? -velocity : velocity
+        const travelled = direction === 'next' ? turn.p : 1 - turn.p
+        const done = curlShouldCommit(travelled * 100, toward)
+        if (done) commit(turn, true, true)
+        const finished = direction === 'next' ? done : !done
+        const remaining = done ? 1 - travelled : travelled
+        animate(
+          { p: finished ? 1 : 0, dy: 0 },
+          curlSettleMs(remaining, velocity),
+          easeOutCubic,
+          endTurn,
+        )
+        return
+      }
+
+      if (cancelled) return
+      // A tap: barely moved, and not already spent by the reader chrome.
+      if (
+        Math.hypot(pos.x - press.startX, pos.y - press.startY) >= press.slop
+      ) {
+        return
+      }
+      if (tapConsumedByChrome()) return
+      const current = shownRef.current
+      const intent = curlClickIntent(
+        pos.x,
+        size.width,
+        current > 0,
+        current < settingsRef.current.pageCount - 1,
+      )
+      if (!intent) return
+      turnPage(intent, {
+        top: pos.y < size.height / 2,
+        sound: true,
+        announce: true,
+      })
+    }
+
+    book.addEventListener('pointerdown', onPointerDown)
+    book.addEventListener('pointermove', onHover)
+    book.addEventListener('pointerleave', onLeave)
+    window.addEventListener('pointermove', onPointerMove, { passive: false })
+    window.addEventListener('pointerup', finish)
+    window.addEventListener('pointercancel', finish)
+    return () => {
+      book.removeEventListener('pointerdown', onPointerDown)
+      book.removeEventListener('pointermove', onHover)
+      book.removeEventListener('pointerleave', onLeave)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', finish)
+      window.removeEventListener('pointercancel', finish)
+    }
+  }, [
+    animate,
+    beginTurn,
+    commit,
+    endTurn,
+    landInFlight,
+    paint,
+    stopAnimation,
+    turnPage,
+  ])
+
+  useEffect(() => () => stopAnimation(), [stopAnimation])
+
+  // ---- render ------------------------------------------------------------
+
+  const window_ = curlWindow(shown, pageCount, [pageIndex])
+  const width = pageSize?.width ?? 280
+  const height = pageSize?.height ?? Math.round(280 * pageRatio)
+  const canGoPrev = pageIndex > 0
+  const canGoNext = pageIndex < pageCount - 1
 
   return (
     <div
@@ -744,86 +693,123 @@ export function CurlStage({
         variant="ghost"
         size="icon"
         aria-label="Previous page"
-        disabled={!canGoPrev || !ready || busy}
+        disabled={!canGoPrev}
         className="absolute top-1/2 left-1 z-10 hidden min-h-11 min-w-11 -translate-y-1/2 [@media(hover:hover)_and_(pointer:fine)]:inline-flex"
         data-book-preview-press
-        onClick={() => bookRef.current?.flipPrev()}
+        onClick={() => turnPage('prev', { sound: true, announce: true })}
       >
         <IconChevronLeft />
       </Button>
       <div
         data-book-preview-curl
         className="relative max-h-full max-w-full min-w-0"
+        style={{ opacity: pageSize ? 1 : 0 }}
       >
-        <div
-          ref={sourceRef}
-          hidden
-          inert
-          aria-hidden
-          className="pointer-events-none absolute size-0 overflow-hidden"
-        >
-          {children}
-        </div>
-        {ready && pageCount > 1 ? (
+        {pageCount > 1 ? (
           <>
-            {/* The book block: thin stacked page edges flanking the live
-                page, thickest where the most leaves sit. Purely decorative —
-                the corner drag, tap zones, and arrows do the turning. */}
+            {/* The book block: thin stacked page edges flanking the page,
+                thickest where the most leaves sit. Purely decorative. */}
             <div
               aria-hidden
               data-book-preview-curl-edge="prev"
-              style={{ width: curlEdgeWidth(pageIndex) }}
+              style={{ width: curlEdgeWidth(shown) }}
             />
             <div
               aria-hidden
               data-book-preview-curl-edge="next"
-              style={{ width: curlEdgeWidth(pageCount - 1 - pageIndex) }}
+              style={{ width: curlEdgeWidth(pageCount - 1 - shown) }}
             />
           </>
         ) : null}
         <div
-          ref={hostWrapRef}
+          ref={bookRef}
           data-book-preview-curl-book
           data-bp-tap-surface
-          className="relative cursor-grab touch-pan-y active:cursor-grabbing"
-          // A spread is two leaves wide. Sizing this box for one leaf leaves the
-          // book overflowing its own container instead of sitting centred.
-          style={
-            pageSize
-              ? {
-                  width: pageSize.width * (builtSpread ? 2 : 1),
-                  height: pageSize.height,
-                }
-              : { width: 280, height: Math.round(280 * pageRatio) }
-          }
-        />
-        {!ready ? (
-          <div className="text-muted-foreground absolute inset-0 flex items-center justify-center gap-2 text-sm">
-            <Spinner />
-            Loading curl engine…
-          </div>
-        ) : null}
-        {ready ? (
-          <p
-            data-book-preview-curl-label
-            className="text-muted-foreground pointer-events-none absolute inset-x-0 bottom-1 text-center font-mono text-xs"
-          >
-            {curlPageLabel(pageIndex, pageCount, builtSpread)}
-          </p>
-        ) : null}
+          className="relative touch-pan-y overflow-hidden"
+          style={{ width, height }}
+        >
+          {window_.map((index) => (
+            <div
+              key={`front-${index}`}
+              ref={(node) => {
+                if (node) frontsRef.current.set(index, node)
+                else frontsRef.current.delete(index)
+              }}
+              data-book-preview-curl-leaf={index}
+              inert={index !== shown}
+              aria-hidden={index !== shown || undefined}
+              className="absolute inset-0 overflow-hidden"
+              style={{ visibility: 'hidden' }}
+            >
+              {renderPage(index)}
+            </div>
+          ))}
+          <div
+            ref={shadowRef}
+            aria-hidden
+            data-book-preview-curl-shadow
+            className="pointer-events-none absolute top-0 left-0 z-[3] origin-top-left"
+            style={{ opacity: 0 }}
+          />
+          {window_.map((index) => (
+            <div
+              key={`back-${index}`}
+              ref={(node) => {
+                if (node) backsRef.current.set(index, node)
+                else backsRef.current.delete(index)
+              }}
+              aria-hidden
+              inert
+              data-book-preview-curl-back
+              className="pointer-events-none absolute inset-0 origin-top-left overflow-hidden"
+              style={{ visibility: 'hidden', backgroundColor: leafBack }}
+            >
+              {/* The page shows faintly through its own paper, mirrored —
+                  the fold mirrors it for free. */}
+              <div className="absolute inset-0 opacity-[0.07]">
+                {renderPage(index)}
+              </div>
+              <div
+                data-book-preview-curl-gloss
+                className="absolute top-0 left-0 origin-top-left"
+              />
+            </div>
+          ))}
+        </div>
+        <p
+          data-book-preview-curl-label
+          className="text-muted-foreground pointer-events-none absolute inset-x-0 -bottom-5 text-center font-mono text-xs"
+        >
+          {shown + 1}
+        </p>
       </div>
       <Button
         type="button"
         variant="ghost"
         size="icon"
         aria-label="Next page"
-        disabled={!canGoNext || !ready || busy}
+        disabled={!canGoNext}
         className="absolute top-1/2 right-1 z-10 hidden min-h-11 min-w-11 -translate-y-1/2 [@media(hover:hover)_and_(pointer:fine)]:inline-flex"
         data-book-preview-press
-        onClick={() => bookRef.current?.flipNext()}
+        onClick={() => turnPage('next', { sound: true, announce: true })}
       >
         <IconChevronRight />
       </Button>
     </div>
   )
+}
+
+/** Lays a band along the fold: it starts on the fold line and reaches
+    `reach` px toward the flap, long enough to span the page either way. */
+function placeAlongFold(
+  el: HTMLElement,
+  origin: { x: number; y: number },
+  angle: number,
+  reach: number,
+  size: CurlPageSize,
+) {
+  const span = Math.hypot(size.width, size.height) * 2
+  el.style.width = `${Math.max(reach, 1)}px`
+  el.style.height = `${span}px`
+  el.style.transform = `translate(${origin.x}px, ${origin.y}px) rotate(${angle}deg) translateY(${-span / 2}px)`
 }

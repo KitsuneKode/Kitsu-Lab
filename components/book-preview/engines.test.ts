@@ -13,18 +13,12 @@ import {
   CURL_PAGE_RATIO,
   CURL_SIZE_QUANTUM,
   curlClickIntent,
-  curlDragOrigin,
   curlReleaseVelocity,
   curlShouldCommit,
   CURL_COMMIT_PROGRESS,
   CURL_COMMIT_VELOCITY,
   curlPageSizeForStage,
   quantizeCurlPageSize,
-  curlPageLabel,
-  curlSameSpread,
-  curlSpreadFitsStage,
-  CURL_SPREAD_MIN_PAGE_WIDTH,
-  CURL_SPREAD_ENABLED,
 } from './engines/curl-geometry'
 import { normalizeSource } from './normalize'
 import type { BookPreviewEngine } from './types'
@@ -351,8 +345,8 @@ describe('curl click intent', () => {
     expect(curlClickIntent(20, 200, false, true)).toBe('next')
   })
 
-  test('still turns back when forward is impossible', () => {
-    expect(curlClickIntent(180, 200, true, false)).toBe('prev')
+  test('the last page never turns backward from a "next" tap', () => {
+    expect(curlClickIntent(180, 200, true, false)).toBeNull()
   })
 
   test('does nothing when the book cannot move', () => {
@@ -396,20 +390,6 @@ describe('curl release', () => {
   })
 })
 
-describe('curl drag origin', () => {
-  test('starts a forward peel on the right edge', () => {
-    const origin = curlDragOrigin({ x: 100, y: 80 }, { x: 40, y: 90 }, 200)
-    expect(origin.x).toBeGreaterThanOrEqual(176)
-    expect(origin.y).toBe(80)
-  })
-
-  test('starts a backward peel on the left edge', () => {
-    const origin = curlDragOrigin({ x: 100, y: 80 }, { x: 140, y: 90 }, 200)
-    expect(origin.x).toBeLessThanOrEqual(24)
-    expect(origin.y).toBe(80)
-  })
-})
-
 describe('curl sheet ratio', () => {
   test('defaults to the bound-book ratio', () => {
     const size = quantizeCurlPageSize({ width: 400, height: 0 })
@@ -436,51 +416,5 @@ describe('curl sheet ratio', () => {
     const size = curlPageSizeForStage(900, 700, landscape)
     expect(size.height / size.width).toBeCloseTo(landscape, 2)
     expect(size.height).toBeLessThanOrEqual(700)
-  })
-})
-
-describe('curl two-page spread', () => {
-  test('a phone-width stage stays on a single page', () => {
-    expect(curlSpreadFitsStage(390)).toBe(false)
-  })
-
-  test('keeps the known-unsafe desktop spread behind its safety gate', () => {
-    // Gated off while the page-flip landscape freeze is unresolved.
-    expect(curlSpreadFitsStage(1200)).toBe(CURL_SPREAD_ENABLED)
-  })
-
-  test('the threshold is exactly two readable leaves', () => {
-    const exact = CURL_SPREAD_MIN_PAGE_WIDTH * 2 + 24
-    expect(curlSpreadFitsStage(exact)).toBe(CURL_SPREAD_ENABLED)
-    expect(curlSpreadFitsStage(exact - 1)).toBe(false)
-  })
-
-  test('each leaf takes half the stage in a spread', () => {
-    const single = curlPageSizeForStage(1200, 900, CURL_PAGE_RATIO, false)
-    const paired = curlPageSizeForStage(1200, 900, CURL_PAGE_RATIO, true)
-    expect(paired.width).toBeLessThan(single.width)
-    // Two leaves plus padding must still fit the stage.
-    expect(paired.width * 2).toBeLessThanOrEqual(1200)
-  })
-
-  test('facing pages are the same spread', () => {
-    expect(curlSameSpread(14, 15, true)).toBe(true)
-    expect(curlSameSpread(15, 16, true)).toBe(false)
-  })
-
-  test('without a spread only the identical page counts', () => {
-    expect(curlSameSpread(14, 15, false)).toBe(false)
-    expect(curlSameSpread(14, 14, false)).toBe(true)
-  })
-
-  test('the counter names both open leaves', () => {
-    expect(curlPageLabel(14, 40, true)).toBe('15\u201316')
-    expect(curlPageLabel(15, 40, true)).toBe('15\u201316')
-    expect(curlPageLabel(14, 40, false)).toBe('15')
-  })
-
-  test('a lone final leaf is not labelled as a pair', () => {
-    expect(curlPageLabel(5, 6, true)).toBe('5\u20136')
-    expect(curlPageLabel(6, 7, true)).toBe('7')
   })
 })

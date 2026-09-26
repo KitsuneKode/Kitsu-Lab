@@ -25,7 +25,7 @@
         "tabs"
       ],
       "dependencies": ["@tabler/icons-react"],
-      "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require page-flip, pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, scalar Slider values, and array-valued ToggleGroup state. Do not treat qualitative capability labels as measured performance guarantees. The core also ships highlights, notes, bookmarks and freehand ink (pen, marker, eraser; page-relative strokes) (CSS Custom Highlight API; controlled via annotations/onAnnotationsChange or persisted with persistAnnotations), the Aa reading settings, shareable URL state (urlState), auto-hiding fullscreen chrome, and a provider-agnostic Ask panel (pass an `ai` adapter from ai.ts: on-device, OpenAI-compatible/Ollama, or your own route). Tabs and Popover rely on Base UI.",
+      "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, scalar Slider values, and array-valued ToggleGroup state. Do not treat qualitative capability labels as measured performance guarantees. The core also ships highlights, notes, bookmarks and freehand ink (pen, marker, eraser; page-relative strokes) (CSS Custom Highlight API; controlled via annotations/onAnnotationsChange or persisted with persistAnnotations), the Aa reading settings, shareable URL state (urlState), auto-hiding fullscreen chrome, and a provider-agnostic Ask panel (pass an `ai` adapter from ai.ts: on-device, OpenAI-compatible/Ollama, or your own route). Tabs and Popover rely on Base UI.",
       "files": [
         {
           "path": "components/book-preview/index.ts",
@@ -254,7 +254,7 @@
       "name": "book-preview-curl",
       "type": "registry:component",
       "title": "Book preview - Curl",
-      "description": "Tactile page-curl reader built on page-flip. Opens page data or a PDF.",
+      "description": "Tactile page-curl reader on its own dependency-free fold engine: finger-tracked curls, flick-to-turn, interruptible turns, hover corner peeks. Mounts only the leaves around the reading position, so documents of any length open. Opens page data or a PDF.",
       "files": [
         {
           "path": "components/book-preview/engines/curl-geometry.ts",
@@ -281,11 +281,10 @@
           "type": "registry:component"
         },
         {
-          "path": "components/book-preview/page-flip.d.ts",
+          "path": "components/book-preview/engines/curl-math.ts",
           "type": "registry:component"
         }
       ],
-      "dependencies": ["page-flip"],
       "registryDependencies": [
         "https://kitsulab.vercel.app/r/book-preview-pdf.json"
       ]

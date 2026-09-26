@@ -1,22 +1,16 @@
 'use client'
 
 import { useEffect } from 'react'
-import { BookPreviewPageView } from '../book-preview-page'
 import { DEFAULT_CAPABILITIES } from '../capabilities'
 import { usePdfSheets } from '../hooks/use-pdf-sheets'
 import { useStableHandler } from '../hooks/use-stable-handler'
 import type { BookPreviewEngineProps } from '../types'
-import {
-  CURL_MAX_PAGES,
-  CURL_PAGE_RATIO,
-  CURL_RASTER_WIDTH,
-} from './curl-geometry'
+import { CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from './curl-geometry'
 import { CurlStage } from './curl-stage'
-import { CurlPdfSheet } from './curl-pdf-sheet'
 import { PdfPasswordGate } from './pdf-password-gate'
 import { PdfPreparingBadge } from './pdf-preparing-badge'
 import { resolvePdfOutline } from '../pdf-runtime'
-import { FlipSheet } from './flip-sheet'
+import { curlLeaves } from './flip-sheet'
 
 export default function CurlEngine({
   source,
@@ -49,13 +43,12 @@ export default function CurlEngine({
     pageIndex,
     rasterWidth: CURL_RASTER_WIDTH,
     sizing: 'uniform',
-    maxPages: CURL_MAX_PAGES,
-    maxPagesMessage: `This document is longer than ${CURL_MAX_PAGES} pages — too heavy for the page-flip reader, which paints every page up front. Scroll or PDF mode handles it instead.`,
+    // The book mounts only the leaves around the reading position, so
+    // rasters stay bounded however long the document is.
+    windowRadius: 3,
     onError: reportError,
     errorMessage: 'This PDF could not be opened for curl.',
   })
-
-  const totalPages = usePdf ? (sheets?.length ?? 0) : pages.length
 
   useEffect(() => {
     if (usePdf) {
@@ -65,7 +58,7 @@ export default function CurlEngine({
         capabilities: {
           ...DEFAULT_CAPABILITIES,
           curl: true,
-          spreads: true,
+          spreads: false,
           appearance: false,
           download: Boolean(source.downloadUrl || source.pdfUrl),
         },
@@ -84,7 +77,7 @@ export default function CurlEngine({
       capabilities: {
         ...DEFAULT_CAPABILITIES,
         curl: true,
-        spreads: true,
+        spreads: false,
         download: Boolean(source.downloadUrl),
       },
     })
@@ -127,7 +120,7 @@ export default function CurlEngine({
         capabilities: {
           ...DEFAULT_CAPABILITIES,
           curl: true,
-          spreads: true,
+          spreads: false,
           appearance: false,
           download: Boolean(source.downloadUrl || source.pdfUrl),
         },
@@ -163,40 +156,12 @@ export default function CurlEngine({
     <div className="relative h-full w-full">
       <CurlStage
         pageIndex={pageIndex}
+        {...curlLeaves({ usePdf, sheets, pages, appearance })}
         pageRatio={usePdf ? (ratio ?? CURL_PAGE_RATIO) : CURL_PAGE_RATIO}
-        canGoPrev={pageIndex > 0}
-        canGoNext={pageIndex < Math.max(totalPages, 1) - 1}
         reducedMotion={reducedMotion}
         soundEnabled={soundEnabled}
-        // Deliberately structural: the key must not change as pages paint, or
-        // every finished raster would re-clone the whole book. Painted images
-        // reach the flip book through CurlStage's own <img> sync instead.
-        contentKey={
-          usePdf
-            ? `pdf:${sheets?.length ?? 0}`
-            : `${appearance}:${pages.map((page) => page.id).join(',')}`
-        }
         onPageChange={onPageChange}
-        onEngineError={(message) =>
-          reportError({ kind: 'engine-load', message })
-        }
-      >
-        {usePdf && sheets
-          ? sheets.map((sheet) => (
-              <FlipSheet key={sheet.id}>
-                <CurlPdfSheet src={sheet.src} />
-              </FlipSheet>
-            ))
-          : pages.map((page, index) => (
-              <FlipSheet key={page.id}>
-                <BookPreviewPageView
-                  page={page}
-                  appearance={appearance}
-                  isLeftPage={index % 2 === 1}
-                />
-              </FlipSheet>
-            ))}
-      </CurlStage>
+      />
       {preparing && sheets ? (
         <PdfPreparingBadge prepared={prepared} total={sheets.length} />
       ) : null}

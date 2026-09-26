@@ -2,10 +2,9 @@
 
 import { createPortal } from 'react-dom'
 import { CurlStage } from './curl-stage'
-import { FlipSheet } from './flip-sheet'
+import { curlLeaves } from './flip-sheet'
 import { pageSearchText } from '../normalize'
 import { Input } from '@/components/ui/input'
-import { CurlPdfSheet } from './curl-pdf-sheet'
 import { Button } from '@/components/ui/button'
 import { resolvePdfOutline } from '../pdf-runtime'
 import { useEffect, useMemo, useState } from 'react'
@@ -13,17 +12,12 @@ import { PdfPasswordGate } from './pdf-password-gate'
 import { PdfPreparingBadge } from './pdf-preparing-badge'
 import { useBookPreview } from '../book-preview-provider'
 import { SpeakingBars } from '../speaking-bars'
-import { BookPreviewPageView } from '../book-preview-page'
 import { IconPlayerPlay, IconSearch } from '@tabler/icons-react'
 import { useStableHandler } from '../hooks/use-stable-handler'
 import { usePdfSheets, type PdfSheet } from '../hooks/use-pdf-sheets'
 import type { BookPreviewEngineProps, BookPreviewPage } from '../types'
 import { DEFAULT_CAPABILITIES, hasSpeechSupport } from '../capabilities'
-import {
-  CURL_MAX_PAGES,
-  CURL_PAGE_RATIO,
-  CURL_RASTER_WIDTH,
-} from './curl-geometry'
+import { CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from './curl-geometry'
 
 type SearchMatch = { key: string; label: string; index: number }
 
@@ -164,35 +158,6 @@ function ArchivalMatchList({
   )
 }
 
-function ArchivalSheets({
-  usePdf,
-  sheets,
-  pages,
-  appearance,
-}: {
-  usePdf: boolean
-  sheets: PdfSheet[] | null
-  pages: BookPreviewPage[]
-  appearance: BookPreviewEngineProps['appearance']
-}) {
-  if (usePdf && sheets) {
-    return sheets.map((sheet) => (
-      <FlipSheet key={sheet.id}>
-        <CurlPdfSheet src={sheet.src} />
-      </FlipSheet>
-    ))
-  }
-  return pages.map((page, index) => (
-    <FlipSheet key={page.id}>
-      <BookPreviewPageView
-        page={page}
-        appearance={appearance}
-        isLeftPage={index % 2 === 1}
-      />
-    </FlipSheet>
-  ))
-}
-
 export default function ArchivalCurlEngine({
   source,
   pageIndex,
@@ -229,13 +194,10 @@ export default function ArchivalCurlEngine({
     sizing: 'uniform',
     // An archival reader that cannot find a word in the document is a viewer.
     extractText: true,
-    maxPages: CURL_MAX_PAGES,
-    maxPagesMessage: `This document is longer than ${CURL_MAX_PAGES} pages — too heavy for the archival reader, which paints every page up front. Scroll or PDF mode handles it instead.`,
+    windowRadius: 3,
     onError: reportError,
     errorMessage: 'This PDF could not be opened for the archival reader.',
   })
-
-  const totalPages = usePdf ? (sheets?.length ?? 0) : pages.length
 
   const matches = useMemo<
     { key: string; label: string; index: number }[]
@@ -405,28 +367,12 @@ export default function ArchivalCurlEngine({
       <div className="relative min-h-0 flex-1">
         <CurlStage
           pageIndex={pageIndex}
+          {...curlLeaves({ usePdf, sheets, pages, appearance })}
           pageRatio={usePdf ? (ratio ?? CURL_PAGE_RATIO) : CURL_PAGE_RATIO}
-          canGoPrev={pageIndex > 0}
-          canGoNext={pageIndex < Math.max(totalPages, 1) - 1}
           reducedMotion={reducedMotion}
           soundEnabled={soundEnabled}
-          contentKey={
-            usePdf
-              ? `pdf:${sheets?.length ?? 0}`
-              : `${appearance}:${pages.map((page) => page.id).join(',')}`
-          }
           onPageChange={onPageChange}
-          onEngineError={(message) =>
-            reportError({ kind: 'engine-load', message })
-          }
-        >
-          <ArchivalSheets
-            usePdf={usePdf}
-            sheets={sheets}
-            pages={pages}
-            appearance={appearance}
-          />
-        </CurlStage>
+        />
         {preparing && sheets ? (
           <PdfPreparingBadge prepared={prepared} total={sheets.length} />
         ) : null}

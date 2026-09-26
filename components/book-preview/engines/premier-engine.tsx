@@ -2,11 +2,10 @@
 
 import { createPortal } from 'react-dom'
 import { CurlStage } from './curl-stage'
-import { FlipSheet } from './flip-sheet'
+import { curlLeaves } from './flip-sheet'
 import { useNarrowLayout } from '../media'
 import { pageSearchText } from '../normalize'
 import { Input } from '@/components/ui/input'
-import { CurlPdfSheet } from './curl-pdf-sheet'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { resolvePdfOutline } from '../pdf-runtime'
@@ -15,18 +14,13 @@ import { SpeakingBars } from '../speaking-bars'
 import { PdfPasswordGate } from './pdf-password-gate'
 import { PdfPreparingBadge } from './pdf-preparing-badge'
 import { useBookPreview } from '../book-preview-provider'
-import { BookPreviewPageView } from '../book-preview-page'
 import { PdfThumbRail, PdfThumbSheet } from './pdf-thumb-rail'
 import { useStableHandler } from '../hooks/use-stable-handler'
-import { usePdfSheets, type PdfSheet } from '../hooks/use-pdf-sheets'
+import { usePdfSheets } from '../hooks/use-pdf-sheets'
 import { DEFAULT_CAPABILITIES, hasSpeechSupport } from '../capabilities'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import {
-  CURL_MAX_PAGES,
-  CURL_PAGE_RATIO,
-  CURL_RASTER_WIDTH,
-} from './curl-geometry'
+import { CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from './curl-geometry'
 import {
   PREMIER_VIEWS,
   readBookPreviewPrefs,
@@ -45,7 +39,6 @@ import type {
   BookPreviewContentsEntry,
   BookPreviewEngineProps,
   BookPreviewError,
-  BookPreviewPage,
   NormalizedBookSource,
 } from '../types'
 import {
@@ -219,35 +212,6 @@ function useReadAloud({
 
 type PageMatch = { index: number; label: string }
 
-function PremierSheets({
-  usePdf,
-  sheets,
-  pages,
-  appearance,
-}: {
-  usePdf: boolean
-  sheets: PdfSheet[] | null
-  pages: BookPreviewPage[]
-  appearance: BookPreviewEngineProps['appearance']
-}) {
-  if (usePdf && sheets) {
-    return sheets.map((sheet) => (
-      <FlipSheet key={sheet.id}>
-        <CurlPdfSheet src={sheet.src} />
-      </FlipSheet>
-    ))
-  }
-  return pages.map((page, index) => (
-    <FlipSheet key={page.id}>
-      <BookPreviewPageView
-        page={page}
-        appearance={appearance}
-        isLeftPage={index % 2 === 1}
-      />
-    </FlipSheet>
-  ))
-}
-
 export default function PremierEngine({
   source,
   pageIndex,
@@ -333,17 +297,12 @@ export default function PremierEngine({
     sizing: bookView ? 'uniform' : 'per-page',
     // Search and read-aloud both need page text; extraction rides the raster.
     extractText: true,
-    // The flip book owns every leaf at once, so it keeps the page cap. The
-    // flat views only hold pages near the reading position — a 700-page
-    // document stays cheap there.
-    windowRadius: bookView ? undefined : 5,
-    maxPages: bookView ? CURL_MAX_PAGES : undefined,
-    maxPagesMessage: `This document is longer than ${CURL_MAX_PAGES} pages — the flip book can't hold it, but the other premier views can.`,
+    // Every view, the flip book included, holds only the pages near the
+    // reading position — a 700-page document stays cheap.
+    windowRadius: 5,
     onError: reportSheetsError,
     errorMessage: 'This PDF could not be opened for the premier reader.',
   })
-
-  const bookDisabled = usePdf && doc !== null && doc.numPages > CURL_MAX_PAGES
 
   const faces = useMemo(
     () => buildPremierFaces({ usePdf, sheets, pages, appearance }),
@@ -562,12 +521,7 @@ export default function PremierEngine({
         <ToggleGroupItem
           value="book"
           aria-label="Flip book view"
-          disabled={bookDisabled}
-          title={
-            bookDisabled
-              ? `The flip book holds up to ${CURL_MAX_PAGES} pages — this document is longer`
-              : 'Flip book'
-          }
+          title="Flip book"
         >
           <IconBook2 />
         </ToggleGroupItem>
@@ -848,30 +802,14 @@ export default function PremierEngine({
             <div className="h-full w-full" style={{ zoom }}>
               <CurlStage
                 pageIndex={pageIndex}
+                {...curlLeaves({ usePdf, sheets, pages, appearance })}
                 pageRatio={
                   usePdf ? (ratio ?? CURL_PAGE_RATIO) : CURL_PAGE_RATIO
                 }
-                canGoPrev={pageIndex > 0}
-                canGoNext={pageIndex < Math.max(totalPages, 1) - 1}
                 reducedMotion={reducedMotion}
                 soundEnabled={soundEnabled}
-                contentKey={
-                  usePdf
-                    ? `pdf:${sheets?.length ?? 0}`
-                    : `${appearance}:${pages.map((page) => page.id).join(',')}`
-                }
                 onPageChange={reportPageChange}
-                onEngineError={(message) =>
-                  reportError({ kind: 'engine-load', message })
-                }
-              >
-                <PremierSheets
-                  usePdf={usePdf}
-                  sheets={sheets}
-                  pages={pages}
-                  appearance={appearance}
-                />
-              </CurlStage>
+              />
             </div>
           ) : view === 'spread' ? (
             <PremierSpreadView

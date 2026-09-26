@@ -118,15 +118,7 @@
   }
 }
 
-.book-preview [data-book-preview-curl],
-.book-preview [data-book-preview-curl] .stf__parent,
-.book-preview [data-book-preview-curl] .stf__item {
-  overflow: visible;
-}
-
-.book-preview [data-book-preview-curl] .stf__parent,
-.book-preview [data-book-preview-curl] .stf__block,
-.book-preview [data-book-preview-curl] .stf__item {
+.book-preview [data-book-preview-curl-book] {
   /* pan-y, not none: vertical gestures scroll the page past the reader,
      horizontal ones stay ours for the fold. With none, a phone-sized stage
      traps the scroll entirely. */
@@ -135,21 +127,52 @@
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+  background-color: var(--background);
+  contain: layout paint;
 }
 
-.book-preview [data-book-preview-curl] .stf__block {
+/* A plain arrow for reading; the hand only where the paper can be taken —
+   a corner under the mouse — and while it is held. */
+.book-preview [data-book-preview-curl-book][data-curl-cursor='grab'] {
   cursor: grab;
 }
 
-.book-preview [data-book-preview-curl] .stf__block:active {
+.book-preview [data-book-preview-curl-book][data-curl-cursor='grabbing'] {
   cursor: grabbing;
 }
 
-.book-preview [data-book-preview-curl] .stf__item {
-  background-color: var(--background);
-  box-shadow:
-    0 8px 24px hsl(0 0% 0% / 0.12),
-    0 1px 0 hsl(0 0% 0% / 0.06);
+.book-preview [data-book-preview-curl-leaf],
+.book-preview [data-book-preview-curl-back] {
+  will-change: clip-path;
+  backface-visibility: hidden;
+}
+
+.book-preview [data-book-preview-curl-back] {
+  will-change: transform, clip-path;
+  /* The lifted paper throws a soft shadow on whatever it lies over. */
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.04);
+}
+
+/* Paper bending away from the fold: a highlight on the crease, easing into
+   shade toward the lifted corner. */
+.book-preview [data-book-preview-curl-gloss] {
+  background: linear-gradient(
+    to right,
+    rgb(255 255 255 / 0.4) 0%,
+    rgb(255 255 255 / 0) 22%,
+    rgb(0 0 0 / 0.04) 60%,
+    rgb(0 0 0 / 0.14) 100%
+  );
+}
+
+/* The shadow the leaf casts on the page it uncovers. */
+.book-preview [data-book-preview-curl-shadow] {
+  background: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0.32) 0%,
+    rgb(0 0 0 / 0.12) 30%,
+    rgb(0 0 0 / 0) 100%
+  );
 }
 
 /* Fill layout: the reader takes its parent's height instead of the inline
@@ -395,8 +418,8 @@ html[data-book-preview-immersive] body > [data-base-ui-portal] {
   }
 }
 
-/* The resting curl book casts a soft shadow — page-flip draws shadows only
-   while a leaf is in the air, so without this the book floats flat. */
+/* The resting curl book casts a soft shadow; the fold draws its own only
+   while a leaf is in the air. */
 .book-preview [data-book-preview-curl-book] {
   box-shadow:
     0 22px 44px -18px rgb(0 0 0 / 0.3),
@@ -426,8 +449,7 @@ html[data-book-preview-immersive] body > [data-base-ui-portal] {
 }
 
 /* A rasterized PDF leaf fades up as its bitmap lands, instead of snapping
-   from skeleton to page. Driven by the src attribute so it works on the
-   clones the flip book makes, which React never re-renders. */
+   from skeleton to page. */
 .book-preview [data-book-preview-sheet-img] {
   opacity: 0;
   transition: opacity var(--book-preview-crossfade-ms)

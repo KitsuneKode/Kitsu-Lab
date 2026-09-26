@@ -589,11 +589,27 @@ function AskPanel({ ai }: { ai: BookPreviewAiAdapter }) {
     inputRef.current?.focus()
   }, [seed?.nonce])
 
+  // Stop means stopped, now — an adapter that ignores the abort signal (a
+  // plain Promise<string>) must not leave a spinner that never ends.
+  const settleStreaming = useCallback(
+    () =>
+      setTurns((list) =>
+        list.map((turn) =>
+          turn.status === 'streaming' ? { ...turn, status: 'stopped' } : turn,
+        ),
+      ),
+    [],
+  )
+  const stop = useCallback(() => {
+    abortRef.current?.abort()
+    settleStreaming()
+  }, [settleStreaming])
+
   const ask = useCallback(
     async (text: string) => {
       const trimmed = text.trim()
       if (!trimmed) return
-      abortRef.current?.abort()
+      stop()
       const controller = new AbortController()
       abortRef.current = controller
       const id = Date.now()
@@ -636,7 +652,7 @@ function AskPanel({ ai }: { ai: BookPreviewAiAdapter }) {
         })
       }
     },
-    [ai, getPageText, pageIndex, selection, source],
+    [ai, getPageText, pageIndex, selection, source, stop],
   )
 
   // Keep the newest answer in view while it streams.
@@ -761,7 +777,7 @@ function AskPanel({ ai }: { ai: BookPreviewAiAdapter }) {
             size="icon-sm"
             variant="secondary"
             aria-label="Stop"
-            onClick={() => abortRef.current?.abort()}
+            onClick={stop}
             data-book-preview-press
           >
             <IconPlayerStopFilled />

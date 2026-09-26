@@ -1,7 +1,11 @@
 'use client'
 
-import { useRef } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+
+const noopSubscribe = () => () => {}
 import {
+  IconCheck,
+  IconShare,
   IconBookmark,
   IconBookmarkFilled,
   IconDownload,
@@ -26,6 +30,12 @@ import { BookPreviewModePicker } from './book-preview-mode-picker'
 import { BookPreviewReadingSettings } from './book-preview-reading-settings'
 import { useBookPreview } from './book-preview-provider'
 import { findBookmark, toggleBookmark } from './annotations'
+import { downloadTarget } from './share'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export function BookPreviewToolbar() {
   const {
@@ -201,25 +211,96 @@ function ToolbarActions({
           {fullscreen ? <IconMinimize /> : <IconMaximize />}
         </BookPreviewIconButton>
       ) : null}
+      <ShareButton />
       {downloadCapable && downloadUrl ? (
-        <Button
-          render={
-            <a
-              href={downloadUrl}
-              download={downloadFileName}
-              aria-label="Download document"
-            />
-          }
-          nativeButton={false}
-          variant="ghost"
-          size="icon-sm"
-          data-book-preview-press
-        >
-          <IconDownload />
-          <span className="sr-only">Download document</span>
-        </Button>
+        <DownloadButton url={downloadUrl} fileName={downloadFileName} />
       ) : null}
     </>
+  )
+}
+
+/** Share the current view: the system sheet on phones and tablets, a copied
+    link elsewhere — with a quiet confirmation, since copying is invisible. */
+function ShareButton() {
+  const { share, sharePage, uploaded, state } = useBookPreview()
+  const [status, setStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const timerRef = useRef<number | null>(null)
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    },
+    [],
+  )
+  if (!share || state.status !== 'ready') return null
+  const label =
+    status === 'copied'
+      ? 'Link copied'
+      : status === 'failed'
+        ? 'Could not share'
+        : uploaded
+          ? 'Share this PDF'
+          : 'Share this page'
+  return (
+    <>
+      <BookPreviewIconButton
+        label={label}
+        onClick={() => {
+          void sharePage().then((outcome) => {
+            if (outcome !== 'copied' && outcome !== 'failed') return
+            setStatus(outcome)
+            if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+            timerRef.current = window.setTimeout(() => setStatus('idle'), 1800)
+          })
+        }}
+      >
+        {status === 'copied' ? <IconCheck /> : <IconShare />}
+      </BookPreviewIconButton>
+      <span className="sr-only" role="status" aria-live="polite">
+        {status === 'copied' ? 'Link copied to clipboard' : ''}
+      </span>
+    </>
+  )
+}
+
+/** A real download where the browser allows one; a new tab for files on
+    another origin, which would otherwise replace the reader with the PDF. */
+function DownloadButton({ url, fileName }: { url: string; fileName?: string }) {
+  // Read after hydration: the server has no origin to compare against.
+  const origin = useSyncExternalStore(
+    noopSubscribe,
+    () => window.location.origin,
+    () => null,
+  )
+  const target = origin
+    ? downloadTarget(url, origin)
+    : { download: true, newTab: false }
+  const label = target.download ? 'Download PDF' : 'Open PDF in a new tab'
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            render={
+              <a
+                href={url}
+                download={target.download ? (fileName ?? '') : undefined}
+                target={target.newTab ? '_blank' : undefined}
+                rel={target.newTab ? 'noopener noreferrer' : undefined}
+                aria-label={label}
+              />
+            }
+            nativeButton={false}
+            variant="ghost"
+            size="icon-sm"
+            data-book-preview-press
+            className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+          />
+        }
+      >
+        <IconDownload />
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   )
 }
 

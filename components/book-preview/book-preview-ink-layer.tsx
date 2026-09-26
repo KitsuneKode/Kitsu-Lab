@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { useBookPreview } from './book-preview-provider'
+import { useStableHandler } from './hooks/use-stable-handler'
 import {
   IconArrowBackUp,
   IconEraser,
@@ -236,6 +237,10 @@ function InkSurface({
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null)
   const liveRef = useRef<SVGPathElement | null>(null)
+  // Stable identities: the listener effect must not tear down (and drop the
+  // in-progress stroke) just because the notebook changed mid-gesture.
+  const commitStroke = useStableHandler(onStroke)
+  const eraseStrokes = useStableHandler(onErase)
   const [size, setSize] = useState({ width: 0, height: 0 })
   const stateRef = useRef({ tool, color, strokes, pageIndex })
   useEffect(() => {
@@ -277,7 +282,7 @@ function InkSurface({
         .map((stroke) => stroke.id)
       if (hits.length === 0) return
       for (const id of hits) erased.add(id)
-      onErase(hits)
+      eraseStrokes(hits)
     }
 
     const paintLive = () => {
@@ -334,7 +339,7 @@ function InkSurface({
       const { tool: current, color: ink, pageIndex: page } = stateRef.current
       if (!commit || current === 'eraser') return
       const now = Date.now()
-      onStroke({
+      commitStroke({
         id: createAnnotationId(),
         kind: 'ink',
         pageIndex: page,
@@ -362,7 +367,7 @@ function InkSurface({
       svg.removeEventListener('pointercancel', onCancel)
       svg.removeEventListener('click', swallow)
     }
-  }, [active, onErase, onStroke, sawPenRef])
+  }, [active, commitStroke, eraseStrokes, sawPenRef])
 
   const { width, height } = size
   const lightPaper = host.dataset.bpInkPaper === 'light'

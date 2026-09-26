@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from 'react'
@@ -95,23 +96,26 @@ export function useAnnotations({
       ? local.list
       : (stored ?? defaultAnnotations ?? EMPTY)
 
+  // The newest list, including edits made earlier in this same tick. Updates
+  // chain on it rather than on the render-time value: two edits in one
+  // event (an eraser pass hitting two strokes) must both land, not have the
+  // second rebuild from a list that still holds what the first removed.
+  const latestRef = useRef(value)
+  useEffect(() => {
+    latestRef.current = value
+  })
+
   const update = useCallback(
     (fn: (list: BookPreviewAnnotation[]) => BookPreviewAnnotation[]) => {
-      const next = fn(value)
+      const next = fn(latestRef.current)
+      latestRef.current = next
       if (!controlled) {
         setLocal({ key: sourceKey, version: storageVersion, list: next })
       }
       if (persist && !controlled) writeStored(sourceKey, next)
       onAnnotationsChange?.(next)
     },
-    [
-      controlled,
-      onAnnotationsChange,
-      persist,
-      sourceKey,
-      storageVersion,
-      value,
-    ],
+    [controlled, onAnnotationsChange, persist, sourceKey, storageVersion],
   )
 
   return { annotations: value, updateAnnotations: update }

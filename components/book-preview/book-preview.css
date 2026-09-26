@@ -203,6 +203,36 @@
 
 .book-preview[data-book-preview-immersive] [data-book-preview-chrome='top'] {
   top: max(0.5rem, env(safe-area-inset-top));
+  /* One slim row that scrolls sideways, never a three-row wall over the
+     page. Controls keep their tap size; the row simply scrolls. */
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.book-preview[data-book-preview-immersive]
+  [data-book-preview-chrome='top']::-webkit-scrollbar {
+  display: none;
+}
+
+/* Engines portal their controls through a display:contents slot, so their
+   row is a grandchild of the bar. */
+.book-preview[data-book-preview-immersive] [data-book-preview-chrome='top'] > *,
+.book-preview[data-book-preview-immersive]
+  [data-book-preview-chrome='top']
+  > [class~='contents']
+  > * {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+/* Reading, not configuring: the engine picker and the flip book's own page
+   label (the pager already shows the page) step aside in fullscreen. */
+.book-preview[data-book-preview-immersive] [data-book-preview-mode-picker],
+.book-preview[data-book-preview-immersive] [data-book-preview-curl-label] {
+  display: none;
 }
 
 .book-preview[data-book-preview-immersive] [data-book-preview-chrome='bottom'] {

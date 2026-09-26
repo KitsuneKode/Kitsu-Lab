@@ -14,6 +14,10 @@ import {
   CURL_SIZE_QUANTUM,
   curlClickIntent,
   curlDragOrigin,
+  curlReleaseVelocity,
+  curlShouldCommit,
+  CURL_COMMIT_PROGRESS,
+  CURL_COMMIT_VELOCITY,
   curlPageSizeForStage,
   quantizeCurlPageSize,
   curlPageLabel,
@@ -353,6 +357,42 @@ describe('curl click intent', () => {
 
   test('does nothing when the book cannot move', () => {
     expect(curlClickIntent(180, 200, false, false)).toBeNull()
+  })
+
+  test('the whole page is a turn target — the chrome claims the middle itself', () => {
+    expect(curlClickIntent(99, 200, true, true)).toBe('prev')
+    expect(curlClickIntent(101, 200, true, true)).toBe('next')
+  })
+})
+
+describe('curl release', () => {
+  test('commits past the threshold, cancels short of it', () => {
+    expect(curlShouldCommit(CURL_COMMIT_PROGRESS, 0)).toBe(true)
+    expect(curlShouldCommit(CURL_COMMIT_PROGRESS - 1, 0)).toBe(false)
+  })
+
+  test('a flick decides regardless of distance', () => {
+    expect(curlShouldCommit(5, CURL_COMMIT_VELOCITY)).toBe(true)
+    expect(curlShouldCommit(90, -CURL_COMMIT_VELOCITY)).toBe(false)
+  })
+
+  test('release velocity reads only the last moments', () => {
+    expect(curlReleaseVelocity([])).toBe(0)
+    expect(
+      curlReleaseVelocity([
+        { x: 0, t: 0 },
+        { x: 50, t: 100 },
+        { x: 50, t: 400 },
+        { x: 50, t: 420 },
+      ]),
+    ).toBe(0)
+    expect(
+      curlReleaseVelocity([
+        { x: 200, t: 0 },
+        { x: 160, t: 40 },
+        { x: 120, t: 80 },
+      ]),
+    ).toBe(-1)
   })
 })
 

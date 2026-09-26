@@ -14,21 +14,21 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { playPageTurnSound } from '../audio'
 import { useStableHandler } from '../hooks/use-stable-handler'
+import { tapConsumedByChrome } from '../hooks/use-immersive-chrome'
 import {
   CURL_CLICK_SLOP_PX,
   CURL_FLIP_MS,
   CURL_MAX_PAGE_WIDTH,
   CURL_MIN_PAGE_WIDTH,
   CURL_PAGE_RATIO,
-  CURL_SWIPE_MAX_MS,
-  CURL_SWIPE_MAX_OFF_AXIS_PX,
-  CURL_SWIPE_MIN_PX,
   CURL_TOUCH_SLOP_PX,
   curlClickIntent,
   curlDragOrigin,
   curlPageLabel,
   curlPageSizeForStage,
+  curlReleaseVelocity,
   curlSameSpread,
+  curlShouldCommit,
   curlSpreadFitsStage,
   quantizeCurlPageSize,
   type CurlPageSize,
@@ -139,33 +139,119 @@ function applyCurlSize(
   book.update()
 }
 
+/** The slice of page-flip's internals the release path needs. page-flip
+    (2.0.7, unmaintained) has no public "finish this fold from where it is"
+    call: userStop() only turns past the spine and swipes restart the turn
+    from the page edge — the snap-back-then-flip jolt. These members are
+    stable in the published build; if they ever vanish, the fallback is
+    page-flip's own stopMove. */
+type CurlFlipController = {
+  getCalculation: () => {
+    getPosition: () => CurlPoint
+    getFlippingProgress: () => number
+    getDirection: () => number
+    getCorner: () => string
+  } | null
+  getBoundsRect?: () => { pageWidth: number; height: number }
+  animateFlippingTo?: (
+    start: CurlPoint,
+    dest: CurlPoint,
+    isTurned: boolean,
+    needReset?: boolean,
+  ) => void
+}
+
+/** page-flip's FlipDirection.BACK */
+const CURL_DIRECTION_BACK = 1
+
+/**
+ * Ends a user fold: completes or cancels the turn from the fold's current
+ * position, so the page keeps moving the way the finger left it.
+ * `velocityX` is the release velocity in px/ms (negative = leftward).
+ */
+function releaseCurlFold(
+  book: CurlFlipBook,
+  pos: CurlPoint,
+  velocityX: number,
+  onCommit: () => void,
+) {
+  const controller = (
+    book as unknown as { getFlipController?: () => CurlFlipController }
+  ).getFlipController?.()
+  const calc = controller?.getCalculation()
+  if (!controller || !calc) {
+    // No turn was ever computed (a drag past the first or last page):
+    // page-flip entered 'user_fold' but has nothing to finish, and its own
+    // stopMove bails on a null calc — leaving the book "busy" forever.
+    book.userStop(pos, true)
+    const internals = controller as unknown as {
+      setState?: (state: string) => void
+      reset?: () => void
+    } | null
+    internals?.reset?.()
+    internals?.setState?.('read')
+    return
+  }
+  if (
+    typeof controller.animateFlippingTo !== 'function' ||
+    typeof controller.getBoundsRect !== 'function'
+  ) {
+    book.userStop(pos)
+    return
+  }
+  // Forward turns finish leftward, back turns rightward.
+  const toward =
+    calc.getDirection() === CURL_DIRECTION_BACK ? velocityX : -velocityX
+  const commit = curlShouldCommit(calc.getFlippingProgress(), toward)
+  // Clears page-flip's touch flag without letting it pick the outcome.
+  book.userStop(pos, true)
+  if (commit) onCommit()
+  const rect = controller.getBoundsRect()
+  const y = calc.getCorner() === 'bottom' ? rect.height : 0
+  controller.animateFlippingTo(
+    calc.getPosition(),
+    { x: commit ? -rect.pageWidth : rect.pageWidth, y },
+    commit,
+  )
+}
+
 function attachCurlPointers(
   book: CurlFlipBook,
   interacting: { current: boolean },
+  /** A drag that lets go past the threshold — the moment a real page lands. */
+  onDragCommit: () => void,
 ) {
   const dist = book.getUI().getDistElement()
   const press = {
     pointerId: -1,
     startX: 0,
     startY: 0,
-    startTime: 0,
     slop: CURL_CLICK_SLOP_PX,
     isTouch: false,
     dragging: false,
+    /** Pressed while a turn was animating — a tap still counts (it queues
+        the next turn), but it may not grab the moving page. */
+    duringFlip: false,
+    last: { x: 0, y: 0 },
+    samples: [] as { x: number; t: number }[],
   }
 
   const onPointerDown = (event: PointerEvent) => {
     if (event.button !== 0 || press.pointerId !== -1) return
     if (isInteractiveTarget(event.target)) return
-    if (book.getState() === 'flipping') return
     const pos = pointIn(dist, event.clientX, event.clientY)
     press.pointerId = event.pointerId
     press.startX = pos.x
     press.startY = pos.y
-    press.startTime = Date.now()
+    press.last = { x: pos.x, y: pos.y }
+    press.samples = [{ x: pos.x, t: event.timeStamp }]
     press.isTouch = event.pointerType === 'touch'
     press.slop = press.isTouch ? CURL_TOUCH_SLOP_PX : CURL_CLICK_SLOP_PX
     press.dragging = false
+    // 'user_fold' with no finger down is a released fold still animating
+    // home — grabbing it would fight the animation for the same page.
+    const state = book.getState()
+    press.duringFlip = state === 'flipping' || state === 'user_fold'
     interacting.current = true
     try {
       dist.setPointerCapture(event.pointerId)
@@ -179,7 +265,11 @@ function attachCurlPointers(
     if (press.pointerId !== event.pointerId) return
     event.preventDefault()
     const pos = pointIn(dist, event.clientX, event.clientY)
+    press.last = { x: pos.x, y: pos.y }
+    press.samples.push({ x: pos.x, t: event.timeStamp })
+    if (press.samples.length > 12) press.samples.shift()
     if (!press.dragging) {
+      if (press.duringFlip) return
       // Touch folds need horizontal intent: with pan-y touch-action a
       // mostly-vertical gesture belongs to the page scroller, not the fold —
       // starting one here would snap back on the inevitable pointercancel.
@@ -188,6 +278,16 @@ function attachCurlPointers(
         ? Math.abs(pos.x - press.startX)
         : Math.hypot(pos.x - press.startX, pos.y - press.startY)
       if (distance < press.slop) return
+      // Nothing to peel past the covers: a drag that would turn beyond the
+      // first or last page is ignored rather than started and stranded.
+      const goingPrev = pos.x - press.startX > 0
+      const index = book.getCurrentPageIndex()
+      if (
+        (goingPrev && index <= 0) ||
+        (!goingPrev && index >= book.getPageCount() - 1)
+      ) {
+        return
+      }
       press.dragging = true
       book.startUserTouch(
         curlDragOrigin(
@@ -202,54 +302,51 @@ function attachCurlPointers(
 
   const finish = (event: PointerEvent) => {
     if (press.pointerId !== event.pointerId) return
-    const pos = pointIn(dist, event.clientX, event.clientY)
+    // pointercancel often reports 0,0 — the last real position is the truth.
+    const pos =
+      event.type === 'pointercancel'
+        ? { ...pointIn(dist, 0, 0), ...press.last }
+        : pointIn(dist, event.clientX, event.clientY)
+    if (event.type !== 'pointercancel') {
+      press.samples.push({ x: pos.x, t: event.timeStamp })
+    }
     const dragging = press.dragging
+    const velocity = curlReleaseVelocity(press.samples)
     press.pointerId = -1
     press.dragging = false
     if (dist.hasPointerCapture(event.pointerId)) {
       dist.releasePointerCapture(event.pointerId)
     }
-    if (event.type === 'pointercancel') {
-      if (dragging) book.userStop({ x: pos.x, y: pos.y })
-      else interacting.current = false
-      return
-    }
     if (dragging) {
-      // Flick: a fast mostly-horizontal release turns the page even though
-      // the fold never crossed the midpoint. Same heuristic page-flip's own
-      // touch UI uses — without it every quick swipe snaps back.
-      const dx = pos.x - press.startX
-      const swiped =
-        Math.abs(dx) > CURL_SWIPE_MIN_PX &&
-        Math.abs(pos.y - press.startY) < CURL_SWIPE_MAX_OFF_AXIS_PX &&
-        Date.now() - press.startTime < CURL_SWIPE_MAX_MS
-      book.userStop({ x: pos.x, y: pos.y }, swiped)
-      if (swiped) {
-        const corner = press.startY < pos.height / 2 ? 'top' : 'bottom'
-        interacting.current = false
-        if (dx > 0) book.flipPrev(corner)
-        else book.flipNext(corner)
-      }
+      // Every release — slow drag, flick, or a browser-interrupted gesture —
+      // finishes from where the page is, in the direction it was going.
+      releaseCurlFold(
+        book,
+        { x: pos.x, y: pos.y },
+        event.type === 'pointercancel' ? 0 : velocity,
+        onDragCommit,
+      )
       return
     }
+    interacting.current = false
+    if (event.type === 'pointercancel') return
     // A tap only counts if the pointer barely moved at all — a mostly
-    // vertical release is a scroll gesture, not a turn request.
+    // vertical release is a scroll gesture, not a turn request — and the
+    // reader chrome did not already spend it on showing or hiding itself.
     if (Math.hypot(pos.x - press.startX, pos.y - press.startY) >= press.slop) {
-      interacting.current = false
       return
     }
+    if (tapConsumedByChrome()) return
     const intent = curlClickIntent(
       pos.x,
       pos.width,
       book.getCurrentPageIndex() > 0,
       book.getCurrentPageIndex() < book.getPageCount() - 1,
     )
-    if (!intent) {
-      interacting.current = false
-      return
-    }
+    if (!intent) return
     const corner = pos.y < pos.height / 2 ? 'top' : 'bottom'
-    interacting.current = false
+    // A tap during a turn finishes that turn instantly and starts the next —
+    // a fast reader is never made to wait for the animation.
     if (intent === 'prev') book.flipPrev(corner)
     else book.flipNext(corner)
   }
@@ -266,6 +363,7 @@ function attachCurlPointers(
 
   const onLeaveCorner = (event: PointerEvent) => {
     if (press.pointerId !== -1 || event.pointerType !== 'mouse') return
+    if (book.getState() === 'flipping') return
     const rect = dist.getBoundingClientRect()
     // Centre of the sheet is off every corner, which drops the peek.
     book.userMove({ x: rect.width / 2, y: rect.height / 2 }, false)
@@ -389,7 +487,11 @@ function useCurlBook({
       )
       const clones = pages.map((page) => page.cloneNode(true) as HTMLElement)
       book.loadFromHTML(clones)
-      detachPointers = attachCurlPointers(book, interactingRef)
+      detachPointers = attachCurlPointers(book, interactingRef, () => {
+        // Drag turns finish through page-flip's fold state, never its
+        // "flipping" one, so they sound here rather than in changeState.
+        if (soundRef.current) playPageTurnSound()
+      })
     } catch (error) {
       wrap.replaceChildren()
       reportEngineError(
@@ -461,6 +563,10 @@ function useCurlBook({
     const book = bookRef.current
     const wrap = hostWrapRef.current
     if (!book || !wrap || !pageSize || !ready) return
+    // Re-measuring under a live fold freezes it mid-turn — and on phones the
+    // browser toolbar collapsing during a swipe resizes the stage constantly.
+    // `busy` is a dependency, so the resize lands the moment the turn ends.
+    if (busy || flippingRef.current) return
     const host = wrap.firstElementChild
     if (!(host instanceof HTMLElement)) return
     const settings = book.getSettings()
@@ -472,12 +578,14 @@ function useCurlBook({
     )
       return
     applyCurlSize(book, host, pageSize, builtSpread)
-  }, [pageSize, ready, builtSpread])
+  }, [pageSize, ready, builtSpread, busy])
 
   useLayoutEffect(() => {
     const book = bookRef.current
     const source = sourceRef.current
     if (!book || !source || !ready) return
+    // Swapping sheets under a turn strands the fold; wait for it to land.
+    if (busy || flippingRef.current) return
     if (contentKeyRef.current === contentKey) return
     const pages = htmlPagesFrom(source)
     if (pages.length === 0) return
@@ -489,7 +597,7 @@ function useCurlBook({
     } catch {
       // Keep the current sheets rather than tearing the book down.
     }
-  }, [contentKey, ready])
+  }, [contentKey, ready, busy])
 
   useLayoutEffect(() => {
     if (!ready) return
@@ -504,6 +612,10 @@ function useCurlBook({
       return Boolean(img.src) && !(clone instanceof HTMLImageElement)
     })
     if (cloneMissingPaintedPage && book) {
+      // Bitmaps keep arriving while a PDF rasterizes; rebuilding the sheets
+      // mid-turn is exactly the frozen half-fold. This effect runs on every
+      // render, and the turn ending re-renders, so it catches up then.
+      if (flippingRef.current || interactingRef.current) return
       const pages = htmlPagesFrom(source)
       if (pages.length === 0) return
       try {
@@ -672,6 +784,7 @@ export function CurlStage({
         <div
           ref={hostWrapRef}
           data-book-preview-curl-book
+          data-bp-tap-surface
           className="relative cursor-grab touch-pan-y active:cursor-grabbing"
           // A spread is two leaves wide. Sizing this box for one leaf leaves the
           // book overflowing its own container instead of sitting centred.
@@ -691,7 +804,10 @@ export function CurlStage({
           </div>
         ) : null}
         {ready ? (
-          <p className="text-muted-foreground pointer-events-none absolute inset-x-0 bottom-1 text-center font-mono text-xs">
+          <p
+            data-book-preview-curl-label
+            className="text-muted-foreground pointer-events-none absolute inset-x-0 bottom-1 text-center font-mono text-xs"
+          >
             {curlPageLabel(pageIndex, pageCount, builtSpread)}
           </p>
         ) : null}

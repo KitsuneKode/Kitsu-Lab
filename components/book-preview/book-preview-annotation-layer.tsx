@@ -6,6 +6,7 @@ import { useBookPreview } from './book-preview-provider'
 import {
   IconCopy,
   IconNote,
+  IconShare,
   IconSparkles,
   IconTrash,
 } from '@tabler/icons-react'
@@ -45,6 +46,7 @@ import {
   rangeFromOffsets,
   supportsHighlightPainting,
 } from './annotation-dom'
+import { formatQuoteForShare } from './share'
 
 export const HIGHLIGHT_SWATCHES: Record<
   BookPreviewHighlightColor,
@@ -111,6 +113,10 @@ export function BookPreviewAnnotationLayer() {
     ai,
     openCompanion,
     finePointer,
+    share,
+    sharePage,
+    source,
+    uploaded,
   } = useBookPreview()
   const instanceId = useId()
   const [card, setCard] = useState<Card | null>(null)
@@ -417,6 +423,18 @@ export function BookPreviewAnnotationLayer() {
     close()
   }
 
+  const shareQuote = () => {
+    void sharePage({
+      text: formatQuoteForShare({
+        quote: quoteText,
+        title: source.title ?? source.pdfFileName,
+        pageIndex,
+      }),
+    }).then((outcome) => {
+      if (outcome === 'copied') setCopied(true)
+    })
+  }
+
   const ask = () => {
     openCompanion('ask', { selection: quoteText, pageIndex })
     window.getSelection()?.removeAllRanges()
@@ -525,6 +543,14 @@ export function BookPreviewAnnotationLayer() {
             <CardAction label={copied ? 'Copied' : 'Copy'} onClick={copy}>
               <IconCopy />
             </CardAction>
+            {share ? (
+              <CardAction
+                label={uploaded ? 'Share quote' : 'Share quote and link'}
+                onClick={shareQuote}
+              >
+                <IconShare />
+              </CardAction>
+            ) : null}
             {ai ? (
               <CardAction label="Ask" onClick={ask}>
                 <IconSparkles />

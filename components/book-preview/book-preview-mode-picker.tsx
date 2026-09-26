@@ -25,7 +25,8 @@ export function BookPreviewModePicker() {
     enabledEngines.find((engine) => engine.id === state.mode)?.label ?? 'Mode'
 
   return (
-    <>
+    // Engine choice is setup, not reading — fullscreen hides it (CSS).
+    <div data-book-preview-mode-picker className="contents">
       <div className="hidden [@media(pointer:coarse)]:contents">
         <Button
           type="button"
@@ -100,6 +101,6 @@ export function BookPreviewModePicker() {
           ))}
         </ToggleGroup>
       </div>
-    </>
+    </div>
   )
 }

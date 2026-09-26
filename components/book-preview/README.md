@@ -56,6 +56,18 @@ export function Reader() {
 
 `urlState` mirrors the reader into the query string — `?page=12&mode=premier&view=spread&theme=sepia` — so a copied link or a refresh reopens exactly the same view. Writes use `history.replaceState` (no back-stack spam). Pass an object to rename or pick keys: `urlState={{ page: 'p', mode: 'reader' }}`. The older `pageParam` prop still works.
 
+## Share and download
+
+A Share button hands the current view to the system share sheet on phones and tablets, or copies the link elsewhere (with a "Link copied" confirmation). With `urlState` on, the link reopens the same page, mode, view and paper. An uploaded PDF has no link, so the file itself goes to the share sheet where the device supports it. Highlights have "Share" too, which sends the quote as a citation ("“…” — Title, p. 12") plus the link. `share={false}` turns both off.
+
+Download returns the document being read — including a PDF the reader uploaded, never the host's original. Same-origin and `blob:` files download; files on another origin open in a new tab, because browsers ignore `download` cross-origin and would otherwise navigate the reader away.
+
+## Gestures
+
+The flip book finishes a released page from exactly where the finger left it: past about half a page, or with a flick (at least 0.2 px/ms toward the turn), it completes; otherwise it settles back. A flick back always cancels. Taps during a turn finish it and start the next, so fast readers never wait. Drags past the first or last page are ignored rather than stranded. Resizes (a phone's collapsing toolbar) and progressive PDF bitmaps wait until a turn lands instead of freezing it mid-fold.
+
+In fullscreen, the left and right thirds of the page turn it; the middle band and a thin top strip show or hide the menu and never turn the page; turning a page puts the menu away. Zones are measured on the page itself, not the screen. The top bar stays one scrollable row, and the engine picker steps aside while reading.
+
 ## Fullscreen and layout
 
 Fullscreen floats the toolbar and pager over the page and fades them out after a short idle. Moving the mouse, nearing an edge, tabbing, or tapping the middle of the page brings them back; page turns never do. Native fullscreen targets the document, so menus, sheets and tooltips keep working inside it. `layout="fill"` stretches the reader to its parent's height for app shells and dedicated reader routes.

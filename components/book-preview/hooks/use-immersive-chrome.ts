@@ -10,11 +10,29 @@ import {
   type RefObject,
 } from 'react'
 
+// The shell and the engines both listen to taps on the page. When the shell
+// spends a tap on the chrome (show/hide), engines must not also turn the page
+// with it — they check this before acting on a tap.
+let chromeTapAt = -Infinity
+const CHROME_TAP_WINDOW_MS = 400
+
+/** True when the tap that just ended was consumed by the reader chrome. */
+export function tapConsumedByChrome(): boolean {
+  return performance.now() - chromeTapAt < CHROME_TAP_WINDOW_MS
+}
+
 /** How long the reader sits still before fullscreen chrome slips away. */
 export const CHROME_IDLE_MS = 2600
 /** A tap is short and nearly still — anything more is a swipe or a scroll. */
 const TAP_MAX_MS = 320
 const TAP_MAX_TRAVEL_PX = 10
+/** Share of the width, per side, that belongs to page turns. The band
+    between is the chrome's: a tap there shows or hides the menu and never
+    turns the page (engines agree via tapConsumedByChrome). */
+export const TAP_TURN_EDGE_FRACTION = 0.3
+/** A thin strip along the top also summons the menu, where the eye (and the
+    thumb, on a phone held one-handed) looks for it. */
+const TAP_TOP_BAND_FRACTION = 0.12
 /** Mouse within this distance of the top or bottom edge wakes the chrome. */
 const EDGE_WAKE_PX = 72
 
@@ -39,6 +57,10 @@ export function useImmersiveChrome({
   const [hidden, setHidden] = useState(false)
   const timerRef = useRef<number | null>(null)
   const overChromeRef = useRef(false)
+  // Touch never focuses a tapped button on iOS and never hovers, so a press
+  // inside the chrome is remembered directly: a page turn from the pager is
+  // the reader using the chrome, not leaving it.
+  const chromePressAtRef = useRef(-Infinity)
   const tapRef = useRef<{ id: number; x: number; y: number; t: number } | null>(
     null,
   )
@@ -54,6 +76,7 @@ export function useImmersiveChrome({
     const root = rootRef.current
     if (!root) return false
     if (overChromeRef.current) return true
+    if (performance.now() - chromePressAtRef.current < 1500) return true
     const active = document.activeElement
     if (!(active instanceof HTMLElement) || active === document.body) {
       return false
@@ -123,7 +146,15 @@ export function useImmersiveChrome({
 
   const onPointerDownCapture = useCallback(
     (event: PointerEvent<HTMLElement>) => {
-      if (!enabled || event.pointerType === 'mouse') return
+      if (!enabled) return
+      if (
+        (event.target as HTMLElement | null)?.closest?.(
+          '[data-book-preview-chrome]',
+        )
+      ) {
+        chromePressAtRef.current = performance.now()
+      }
+      if (event.pointerType === 'mouse') return
       tapRef.current = {
         id: event.pointerId,
         x: event.clientX,
@@ -134,8 +165,10 @@ export function useImmersiveChrome({
     [enabled],
   )
 
-  // Touch and pen: a quick tap in the middle band of the page toggles chrome.
-  // The outer bands belong to page turns, so they never toggle it.
+  // Touch and pen: a quick tap in the middle band (or the top strip) toggles
+  // the chrome and is consumed — the page does not also turn. A tap in a
+  // turn zone turns the page and, if the chrome was up, puts it away:
+  // reading has resumed.
   const onPointerUpCapture = useCallback(
     (event: PointerEvent<HTMLElement>) => {
       const tap = tapRef.current
@@ -158,9 +191,29 @@ export function useImmersiveChrome({
       if (selection && !selection.isCollapsed) return
       const root = rootRef.current
       if (!root) return
-      const rect = root.getBoundingClientRect()
-      const ratio = (event.clientX - rect.left) / Math.max(rect.width, 1)
-      if (ratio < 0.28 || ratio > 0.72) return
+      // Zones are measured on the page that was tapped (the engine marks it
+      // data-bp-tap-surface), not the whole screen — a portrait page centred
+      // on a wide display would otherwise sit almost entirely in the middle
+      // band and stop turning. The top strip is always the screen's.
+      const rootRect = root.getBoundingClientRect()
+      const surface = target?.closest?.('[data-bp-tap-surface]')
+      const rect =
+        surface instanceof HTMLElement && root.contains(surface)
+          ? surface.getBoundingClientRect()
+          : rootRect
+      const ratioX = (event.clientX - rect.left) / Math.max(rect.width, 1)
+      const ratioY =
+        (event.clientY - rootRect.top) / Math.max(rootRect.height, 1)
+      const inTurnZone =
+        ratioX <= TAP_TURN_EDGE_FRACTION || ratioX >= 1 - TAP_TURN_EDGE_FRACTION
+      if (inTurnZone && ratioY >= TAP_TOP_BAND_FRACTION) {
+        if (!hidden) {
+          clear()
+          setHidden(true)
+        }
+        return
+      }
+      chromeTapAt = performance.now()
       if (hidden) {
         show()
       } else {
@@ -171,9 +224,18 @@ export function useImmersiveChrome({
     [clear, enabled, hidden, rootRef, show],
   )
 
+  // A page turn means reading has resumed — put the chrome away, unless the
+  // reader is using it (the turn came from the pager they are touching).
+  const hideForReading = useCallback(() => {
+    if (!enabled || chromeInUse()) return
+    clear()
+    setHidden(true)
+  }, [chromeInUse, clear, enabled])
+
   return {
     chromeHidden: enabled && hidden,
     showChrome: show,
+    hideForReading,
     chromeHandlers: {
       onPointerMove,
       onPointerLeave,

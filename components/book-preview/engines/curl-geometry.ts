@@ -131,9 +131,56 @@ export function curlClickIntent(
   canGoNext: boolean,
 ): CurlClickIntent | null {
   if (!canGoPrev && !canGoNext) return null
+  // Halves, not thirds: in fullscreen the reader chrome claims the middle
+  // band first (tapConsumedByChrome), and outside it there is no chrome to
+  // give the middle to, so the whole page stays a turn target.
   const preferPrev = width > 0 && x < width / 2
   if (preferPrev) return canGoPrev ? 'prev' : 'next'
   return canGoNext ? 'next' : 'prev'
+}
+
+/** A released fold turns the page once it has travelled this far (0–100,
+    page-flip's own progress scale, where 50 is the spine). page-flip itself
+    only turns past the spine — on a phone that is the far left edge of the
+    screen, so most honest drags snapped back. */
+export const CURL_COMMIT_PROGRESS = 25
+
+/** px/ms toward the turn that counts as a flick regardless of distance.
+    Between Sonner's 0.11 swipe-dismiss and a deliberate slow drag (~0.1),
+    so a quick thumb flick always turns and an unhurried release reads by
+    distance. */
+export const CURL_COMMIT_VELOCITY = 0.2
+
+/**
+ * Whether a released fold completes the turn. `towardVelocity` is the
+ * release velocity in the direction that finishes the turn (px/ms, negative
+ * when the finger was pulling back). A clear flick back always cancels, a
+ * flick forward always commits, otherwise distance decides.
+ */
+export function curlShouldCommit(
+  progress: number,
+  towardVelocity: number,
+): boolean {
+  if (towardVelocity <= -CURL_COMMIT_VELOCITY) return false
+  if (towardVelocity >= CURL_COMMIT_VELOCITY) return true
+  return progress >= CURL_COMMIT_PROGRESS
+}
+
+/** Release velocity (px/ms) from recent samples — the last ~80ms only, so a
+    drag that paused before lifting reads as still, not as a flick. */
+export function curlReleaseVelocity(
+  samples: readonly { x: number; t: number }[],
+  windowMs = 80,
+): number {
+  if (samples.length < 2) return 0
+  const last = samples[samples.length - 1]
+  let first = last
+  for (let index = samples.length - 2; index >= 0; index -= 1) {
+    if (last.t - samples[index].t > windowMs) break
+    first = samples[index]
+  }
+  const dt = last.t - first.t
+  return dt > 0 ? (last.x - first.x) / dt : 0
 }
 
 export function curlDragOrigin(

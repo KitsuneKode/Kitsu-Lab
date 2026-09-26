@@ -27,6 +27,7 @@ import { BookPreviewCompanion } from './book-preview-companion'
 import { BookPreviewBookmarkRibbon } from './book-preview-bookmark-ribbon'
 import { BookPreviewAnnotationLayer } from './book-preview-annotation-layer'
 import { BookPreviewInkLayer } from './book-preview-ink-layer'
+import { shareOrCopy } from './share'
 import {
   DEFAULT_TYPOGRAPHY,
   typographyVariables,
@@ -316,6 +317,7 @@ function useEngineLoader({
 
 function usePersistedPageIndex({
   sourceKey,
+  storageKey,
   persistPage,
   pageParam,
   pageControlled,
@@ -328,6 +330,8 @@ function usePersistedPageIndex({
   dispatch,
 }: {
   sourceKey: string
+  /** Stable identity for localStorage (differs from sourceKey for uploads). */
+  storageKey: string
   persistPage: boolean
   pageParam: string | undefined
   pageControlled: boolean
@@ -362,7 +366,7 @@ function usePersistedPageIndex({
   }, [sourceKey, dispatch])
 
   const restoredKeyRef = useRef<string | null>(null)
-  const persistKey = `book-preview:page:${sourceKey}`
+  const persistKey = `book-preview:page:${storageKey}`
 
   // Restore the position once the source reports ready. A deep-linked
   // ?page=N wins over the remembered position — a shared link should land on
@@ -503,11 +507,14 @@ function useUrlReaderState({
       readUrlParam(appearanceKey),
       BOOK_PREVIEW_APPEARANCES,
     )
-    if (mode && mode !== activeMode) {
+    // Applied even when it matches the current value: the remembered
+    // preference was dispatched by an earlier effect this same commit, so the
+    // value seen here is stale — and the link must win over the preference.
+    if (mode) {
       pendingRef.current.mode = mode
       setMode(mode)
     }
-    if (appearance && appearance !== activeAppearance) {
+    if (appearance) {
       pendingRef.current.appearance = appearance
       setAppearance(appearance)
     }
@@ -588,9 +595,15 @@ function useUploadedPdf({
   allowUpload: boolean
   dispatch: Dispatch<BookPreviewAction>
 }) {
-  const [upload, setUpload] = useState<{ url: string; name: string } | null>(
-    null,
-  )
+  const [upload, setUpload] = useState<{
+    url: string
+    name: string
+    /** Stable across uploads of the same file — the object URL is not. */
+    fingerprint: string
+    /** Kept so Share can hand the file itself to the share sheet — a link
+        cannot carry a document that only exists on this device. */
+    file: File
+  } | null>(null)
 
   const uploadPdf = useCallback(
     (file: File) => {
@@ -602,7 +615,12 @@ function useUploadedPdf({
         })
         return
       }
-      setUpload({ url: URL.createObjectURL(file), name: file.name })
+      setUpload({
+        url: URL.createObjectURL(file),
+        name: file.name,
+        fingerprint: `${file.name}|${file.size}|${file.lastModified}`,
+        file,
+      })
     },
     [allowUpload, dispatch],
   )
@@ -803,6 +821,7 @@ export function BookPreview({
   defaultTypography,
   onTypographyChange,
   annotate = true,
+  share = true,
   annotations: annotationsProp,
   defaultAnnotations,
   onAnnotationsChange,
@@ -865,11 +884,26 @@ export function BookPreview({
   const normalized = useMemo<NormalizedBookSource>(
     () =>
       upload
-        ? { ...propSource, pdfUrl: upload.url, pdfFileName: upload.name }
+        ? {
+            ...propSource,
+            pdfUrl: upload.url,
+            pdfFileName: upload.name,
+            // Download must hand back the reader's own file, not whatever
+            // document the host configured before the upload.
+            downloadUrl: upload.url,
+            downloadFileName: upload.name,
+          }
         : propSource,
     [propSource, upload],
   )
   const sourceKey = sourceIdentity(normalized)
+  // What the reader remembers (position, highlights, ink) is keyed by the
+  // document, not the session: an upload's blob: URL is new every time, so
+  // uploads are identified by file fingerprint instead. Re-opening the same
+  // file brings its notebook back.
+  const storageKey = upload
+    ? sourceIdentity({ ...normalized, pdfUrl: `upload:${upload.fingerprint}` })
+    : sourceKey
 
   const reducedMotion = usePrefersReducedMotion()
   const reducedTransparency = usePrefersReducedTransparency()
@@ -890,15 +924,23 @@ export function BookPreview({
       }) as CSSProperties,
     [typography],
   )
-  const { chromeHidden, showChrome, chromeHandlers } = useImmersiveChrome({
-    enabled: fullscreen,
-    rootRef,
-  })
+  const { chromeHidden, showChrome, hideForReading, chromeHandlers } =
+    useImmersiveChrome({
+      enabled: fullscreen,
+      rootRef,
+    })
 
   const activeMode = pickControlled(mode, state.mode)
   const activePage = pickControlled(pageIndex, state.pageIndex)
   const activeAppearance = pickControlled(appearance, state.appearance)
   const activeSound = pickControlled(sound, state.sound)
+  // Turning the page puts fullscreen chrome away — reading has resumed.
+  const lastPageRef = useRef(activePage)
+  useEffect(() => {
+    if (lastPageRef.current === activePage) return
+    lastPageRef.current = activePage
+    hideForReading()
+  }, [activePage, hideForReading])
   const compatibleEngines = useMemo(
     () => resolveCompatibleEngines(enabledEngines, normalized),
     [enabledEngines, normalized],
@@ -951,6 +993,7 @@ export function BookPreview({
   // lands last, matching the pre-extraction effect order.
   usePersistedPageIndex({
     sourceKey,
+    storageKey,
     persistPage,
     pageParam,
     pageControlled,
@@ -1024,7 +1067,7 @@ export function BookPreview({
   const engineShortcutsRef = useRef<BookPreviewEngineShortcuts>({})
 
   const { annotations, updateAnnotations } = useAnnotations({
-    sourceKey,
+    sourceKey: storageKey,
     annotations: annotationsProp,
     defaultAnnotations,
     onAnnotationsChange,
@@ -1072,6 +1115,20 @@ export function BookPreview({
     [],
   )
   const [inkAvailable, setInkAvailable] = useState(false)
+
+  // Share: the link (which carries page, mode, view and paper when urlState
+  // is on) through the system share sheet, or copied. An uploaded PDF has no
+  // link to share, so the file itself goes to the sheet where supported.
+  const sharePage = useCallback(
+    (extra?: { text?: string }) =>
+      shareOrCopy({
+        title: normalized.title ?? normalized.pdfFileName ?? label,
+        text: extra?.text,
+        url: upload ? undefined : window.location.href,
+        file: upload && !extra?.text ? upload.file : undefined,
+      }),
+    [label, normalized.pdfFileName, normalized.title, upload],
+  )
 
   const getPageText = useCallback(
     (index: number) => {
@@ -1375,6 +1432,9 @@ export function BookPreview({
       setDraw,
       inkAvailable,
       setInkAvailable,
+      share,
+      sharePage,
+      uploaded: Boolean(upload),
     }),
     [
       activeAppearance,
@@ -1387,6 +1447,9 @@ export function BookPreview({
       draw,
       inkAvailable,
       setDraw,
+      share,
+      sharePage,
+      upload,
       openCompanion,
       setCompanionOpen,
       setCompanionTab,

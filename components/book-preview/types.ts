@@ -214,6 +214,11 @@ export type BookPreviewProps = {
   /** Select text to highlight it, add notes, and bookmark pages. On by
       default; set false for a read-only preview. */
   annotate?: boolean
+  /** A Share button (system share sheet, or copy link) and "Share" on
+      highlights. Links carry page, mode, view and paper when `urlState` is
+      on; an uploaded PDF shares the file itself where the device can.
+      Default true. */
+  share?: boolean
   /** Controlled notebook — pair with `onAnnotationsChange` to sync highlights,
       notes and bookmarks to your own backend (they carry ids and timestamps
       for last-write-wins merging). */

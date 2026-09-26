@@ -11,6 +11,7 @@ import type { BookPreviewTypography } from './typography'
 import type { BookPreviewAiAdapter } from './ai'
 import type { BookPreviewAnnotation } from './annotations'
 import type { BookPreviewInkColor, BookPreviewInkTool } from './ink'
+import type { ShareOutcome } from './share'
 import type {
   BookPreviewAppearance,
   BookPreviewEngine,
@@ -110,6 +111,12 @@ export type BookPreviewContextValue = {
   /** Whether the current view shows page faces that accept ink. */
   inkAvailable: boolean
   setInkAvailable: (available: boolean) => void
+  /** Share affordances are on (the `share` prop). */
+  share: boolean
+  /** Share the current view (or, with `text`, a quote from it). */
+  sharePage: (extra?: { text?: string }) => Promise<ShareOutcome>
+  /** The open document came from the reader's device, not a URL. */
+  uploaded: boolean
 }
 
 export type BookPreviewDrawState = {

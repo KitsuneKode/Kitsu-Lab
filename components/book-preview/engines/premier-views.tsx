@@ -7,6 +7,10 @@ import type {
   BookPreviewNavigationBehavior,
 } from '../types'
 import { useStableHandler } from '../hooks/use-stable-handler'
+import {
+  TAP_TURN_EDGE_FRACTION,
+  tapConsumedByChrome,
+} from '../hooks/use-immersive-chrome'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FALLBACK_ASPECT, type PremierFace } from './premier-faces'
 import {
@@ -451,7 +455,15 @@ function useSwipeTurn({
         return
       const rect = host.getBoundingClientRect()
       const ratio = (event.clientX - rect.left) / Math.max(rect.width, 1)
-      const direction = ratio < 0.18 ? -1 : ratio > 0.82 ? 1 : null
+      // Same zones as the reader chrome: outer thirds turn, the middle band
+      // belongs to show/hide — and a tap the chrome spent never turns.
+      if (tapConsumedByChrome()) return
+      const direction =
+        ratio < TAP_TURN_EDGE_FRACTION
+          ? -1
+          : ratio > 1 - TAP_TURN_EDGE_FRACTION
+            ? 1
+            : null
       if (direction === null) return
       const target = stateRef.current.stepFor(direction)
       if (target !== null) report(target)
@@ -523,6 +535,7 @@ export function PremierSingleView({
   return (
     <div
       ref={hostRef}
+      data-bp-tap-surface
       className={
         zoom === 1
           ? 'h-full w-full touch-pan-y'
@@ -617,6 +630,7 @@ export function PremierSpreadView({
   return (
     <div
       ref={hostRef}
+      data-bp-tap-surface
       className={
         zoom === 1
           ? 'h-full w-full touch-pan-y'

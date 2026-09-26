@@ -218,6 +218,38 @@
         {
           "path": "components/book-preview/book-preview-fit-page.tsx",
           "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/reader-utils.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-active-engine.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-fullscreen.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-engine-loader.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-page-memory.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-reader-preferences.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-uploaded-pdf.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-reader-actions.ts",
+          "type": "registry:component"
         }
       ]
     },

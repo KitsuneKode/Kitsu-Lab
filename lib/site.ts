@@ -1,6 +1,6 @@
 /** The public origin, for canonical URLs, sitemaps and checkout returns. */
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://lab.kitsunelabs.xyz'
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kitsulabs.kitsunekode.in'
 ).replace(/\/+$/, '')
 
 export const SITE_NAME = 'Kitsu Lab'

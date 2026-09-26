@@ -4,7 +4,7 @@
   "title": "Promo badge",
   "description": "A small “New” pill or dot beside a nav item, shown while a live promotion points its button there. Needs no record of its own.",
   "registryDependencies": [
-    "https://lab.kitsunelabs.xyz/r/promotion-provider.json"
+    "https://kitsulabs.kitsunekode.in/r/promotion-provider.json"
   ],
   "files": [
     {

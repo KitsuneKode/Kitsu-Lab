@@ -7,7 +7,7 @@
     "pdfjs-dist"
   ],
   "registryDependencies": [
-    "https://lab.kitsunelabs.xyz/r/book-preview.json",
+    "https://kitsulabs.kitsunekode.in/r/book-preview.json",
     "badge",
     "spinner",
     "button",

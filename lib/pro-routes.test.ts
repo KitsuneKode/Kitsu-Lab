@@ -15,7 +15,7 @@ afterEach(() => {
 
 function getItem(name: string, bearer?: string) {
   return GET(
-    new Request(`https://lab.kitsunelabs.xyz/pro/r/${name}`, {
+    new Request(`https://kitsulabs.kitsunekode.in/pro/r/${name}`, {
       headers: bearer ? { authorization: `Bearer ${bearer}` } : {},
     }),
     { params: Promise.resolve({ name }) },
@@ -59,7 +59,7 @@ describe('pro registry route', () => {
 
 function checkout(body?: Record<string, string>) {
   return POST(
-    new Request('https://lab.kitsunelabs.xyz/api/checkout', {
+    new Request('https://kitsulabs.kitsunekode.in/api/checkout', {
       method: 'POST',
       body: body ? new URLSearchParams(body) : undefined,
     }),
@@ -71,7 +71,7 @@ describe('checkout route', () => {
     const res = await checkout({ plan: 'everything-free' })
     expect(res.status).toBe(303)
     expect(res.headers.get('location')).toBe(
-      'https://lab.kitsunelabs.xyz/pro?checkout=unavailable',
+      'https://kitsulabs.kitsunekode.in/pro?checkout=unavailable',
     )
   })
 

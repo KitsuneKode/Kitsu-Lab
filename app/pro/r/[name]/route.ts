@@ -7,7 +7,7 @@ import { bearerToken, parseItemName } from '@/lib/pro-registry'
  * The `@kitsu-pro` shadcn registry. Buyers add it to components.json:
  *
  * "@kitsu-pro": {
- *   "url": "https://lab.kitsunelabs.xyz/pro/r/{name}.json",
+ *   "url": "https://kitsulabs.kitsunekode.in/pro/r/{name}.json",
  *   "headers": { "Authorization": "Bearer ${KITSU_PRO_KEY}" }
  * }
  *

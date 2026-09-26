@@ -43,7 +43,7 @@ export function productLaunchKit({
     ...routes,
   }
   return {
-    slots: ['announcement'],
+    slots: ['announcement', 'share'],
     provider: {
       suppressOn: QUIET_CHECKOUT,
       dialogEngagement: { delayMs: 12_000, scrollDepth: 0.4 },
@@ -165,6 +165,7 @@ export function productLaunchKit({
         keynote: record({
           id: 'keynote',
           placement: 'dialog',
+          presentation: 'split',
           eyebrow: 'Thursday, 17:00',
           title: 'Watch the 3.0 keynote live',
           body: 'Forty minutes, three launches, and a live Q&A with the team.',
@@ -205,6 +206,128 @@ export function productLaunchKit({
               title: 'شاهد مؤتمر 3.0 مباشرة',
               body: 'أربعون دقيقة وثلاثة إطلاقات وجلسة أسئلة مباشرة.',
               ctaLabel: 'احجز مقعدي',
+            },
+          }),
+        }),
+        whatsnew: record({
+          id: 'whatsnew',
+          placement: 'dialog',
+          presentation: 'story',
+          eyebrow: 'What’s new in 3.0',
+          title: 'Three things that change how your team plans',
+          gallery: images,
+          cta: { label: 'Try workspaces', href: r.changelog },
+          startsAt: startsAt - DAY,
+          endsAt: startsAt + 30 * DAY,
+          priority: 20,
+          // A story only opens on request, so it never needs dismissing.
+          dismiss: { mode: 'session', scope: 'tab' },
+          campaign: 'whatsnew',
+          translations: tr({
+            fr: {
+              eyebrow: 'Nouveautés 3.0',
+              title: 'Trois changements pour mieux planifier',
+              ctaLabel: 'Essayer',
+            },
+            de: {
+              eyebrow: 'Neu in 3.0',
+              title: 'Drei Dinge, die die Planung verändern',
+              ctaLabel: 'Ausprobieren',
+            },
+            ja: {
+              eyebrow: '3.0 の新機能',
+              title: 'チームの計画を変える3つの新機能',
+              ctaLabel: '試してみる',
+            },
+            hi: {
+              eyebrow: '3.0 में नया',
+              title: 'तीन बदलाव जो योजना बदल देंगे',
+              ctaLabel: 'आज़माएँ',
+            },
+            ar: {
+              eyebrow: 'الجديد في 3.0',
+              title: 'ثلاثة أشياء تغيّر طريقة تخطيط فريقك',
+              ctaLabel: 'جرّبها',
+            },
+          }),
+        }),
+        share: record({
+          id: 'share',
+          placement: 'spotlight',
+          slot: 'share',
+          eyebrow: 'New',
+          title: 'Share a workspace with one link',
+          body: 'Guests can view and comment without an account.',
+          startsAt: startsAt - DAY,
+          endsAt: startsAt + 21 * DAY,
+          priority: 55,
+          dismiss: { mode: 'never-again' },
+          campaign: 'share',
+          translations: tr({
+            fr: {
+              eyebrow: 'Nouveau',
+              title: 'Partagez un espace avec un seul lien',
+              body: 'Les invités peuvent lire et commenter sans compte.',
+            },
+            de: {
+              eyebrow: 'Neu',
+              title: 'Workspace mit einem Link teilen',
+              body: 'Gäste können ohne Konto lesen und kommentieren.',
+            },
+            ja: {
+              eyebrow: '新機能',
+              title: 'リンク1つでワークスペースを共有',
+              body: 'ゲストはアカウントなしで閲覧・コメントできます。',
+            },
+            hi: {
+              eyebrow: 'नया',
+              title: 'एक लिंक से वर्कस्पेस शेयर करें',
+              body: 'मेहमान बिना खाते के देख और टिप्पणी कर सकते हैं।',
+            },
+            ar: {
+              eyebrow: 'جديد',
+              title: 'شارك مساحة عمل برابط واحد',
+              body: 'يمكن للضيوف العرض والتعليق دون حساب.',
+            },
+          }),
+        }),
+        status: record({
+          id: 'status',
+          placement: 'side',
+          tone: 'brand',
+          eyebrow: 'Launch week · day 3 of 5',
+          title: 'Today: workspaces for every plan',
+          body: 'Tomorrow: reports. Friday: the keynote and a live Q&A.',
+          cta: { label: 'Follow along', href: r.changelog },
+          startsAt: startsAt - DAY,
+          endsAt: startsAt + 4 * DAY,
+          showCountdown: true,
+          campaign: 'week',
+          translations: tr({
+            fr: {
+              eyebrow: 'Semaine de lancement · jour 3 sur 5',
+              title: 'Aujourd’hui : des espaces pour chaque forfait',
+              ctaLabel: 'Suivre',
+            },
+            de: {
+              eyebrow: 'Launch-Woche · Tag 3 von 5',
+              title: 'Heute: Workspaces für jeden Tarif',
+              ctaLabel: 'Mitverfolgen',
+            },
+            ja: {
+              eyebrow: 'ローンチウィーク · 5日中3日目',
+              title: '本日：全プランにワークスペース',
+              ctaLabel: 'フォローする',
+            },
+            hi: {
+              eyebrow: 'लॉन्च वीक · 5 में से दिन 3',
+              title: 'आज: हर प्लान में वर्कस्पेस',
+              ctaLabel: 'साथ चलें',
+            },
+            ar: {
+              eyebrow: 'أسبوع الإطلاق · اليوم 3 من 5',
+              title: 'اليوم: مساحات عمل لكل الخطط',
+              ctaLabel: 'تابع',
             },
           }),
         }),

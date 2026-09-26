@@ -96,11 +96,18 @@ export const SAMPLE_SWATCHES: PromotionMedia[] = [
   },
 ]
 
+const PAGE_CAPTIONS = [
+  'Workspaces: one place per team.',
+  'Shared queues, with owners and due dates.',
+  'Weekly reports that write themselves.',
+]
+
 export const SAMPLE_PAGES: PromotionMedia[] = [1, 2, 3].map((n) => ({
   src: `/sample-pages/page-${n}.svg`,
   alt: `Page ${n} of the notes`,
   width: 1600,
   height: 900,
+  caption: PAGE_CAPTIONS[n - 1],
 }))
 
 export const QUIET_CHECKOUT = ['/checkout', '/checkout/**', '/login', '/signup']

@@ -8,6 +8,8 @@ import { IconX } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
 import type { Promotion } from './promotion'
 import { usePromotions } from './promotion-provider'
+import { PromoGallery } from './promo-gallery'
+import { PromoStory } from './promo-story'
 import { PromoDialogContentView } from './promotion-views'
 
 const WIDE = '(min-width: 768px)'
@@ -90,8 +92,17 @@ export function PromoDialog({
   /** Portal target, e.g. a device frame in a demo. Defaults to <body>. */
   container?: HTMLElement | null
 }) {
-  const { dialog, now, dismiss, complete, markShown, report, labels, Link } =
-    usePromotions()
+  const {
+    dialog,
+    now,
+    dismiss,
+    complete,
+    release,
+    markShown,
+    report,
+    labels,
+    Link,
+  } = usePromotions()
   const wideScreen = useWideScreen()
   const wide = layout === 'auto' ? wideScreen : layout === 'dialog'
   // The last promotion shown stays mounted so the surface animates out with
@@ -113,9 +124,14 @@ export function PromoDialog({
   const content = (
     Title?: typeof SheetTitle,
     Description?: typeof SheetDescription,
+    withoutMedia = false,
   ) => (
     <PromoDialogContentView
-      promotion={shown}
+      promotion={
+        withoutMedia
+          ? { ...shown, media: undefined, gallery: undefined }
+          : shown
+      }
       now={now}
       Link={Link}
       onClick={() => {
@@ -129,14 +145,75 @@ export function PromoDialog({
     />
   )
 
+  if (shown.presentation === 'story') {
+    return (
+      <PromoStory
+        promotion={shown}
+        open={open}
+        onClose={() => release(shown)}
+        onComplete={() => {
+          report('click', shown)
+          complete(shown)
+        }}
+        onCopy={() => report('copy', shown)}
+        labels={labels}
+        Link={Link}
+        container={container}
+      />
+    )
+  }
+
+  const images = shown.gallery?.length
+    ? shown.gallery
+    : shown.media
+      ? [shown.media]
+      : []
+  if (wide && shown.presentation === 'split' && images.length) {
+    return (
+      <Dialog.Root open={open} onOpenChange={onOpenChange}>
+        <Dialog.Portal container={container}>
+          <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/25 transition-opacity duration-200 ease-out data-ending-style:opacity-0 data-ending-style:duration-150 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-[2px] dark:bg-black/55" />
+          <Dialog.Popup
+            data-slot="promo-dialog"
+            data-presentation="split"
+            className="bg-popover text-popover-foreground ring-foreground/10 fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 grid-cols-[1.1fr_1fr] overflow-hidden rounded-[calc(var(--promo-radius,0.75rem)+0.5rem)] text-sm shadow-2xl ring-1 transition-[opacity,scale] duration-250 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-ending-style:duration-150 data-starting-style:scale-[0.96] data-starting-style:opacity-0 motion-reduce:transition-opacity motion-reduce:data-ending-style:scale-100 motion-reduce:data-starting-style:scale-100"
+          >
+            <PromoGallery
+              images={images}
+              eager
+              aspect="4 / 5"
+              label={shown.title}
+              className="h-full [&_img]:h-full"
+            />
+            <div className="flex flex-col justify-center p-7">
+              {content(DialogTitle, DialogDescription, true)}
+            </div>
+            <Dialog.Close
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="bg-popover/80 absolute end-3 top-3 backdrop-blur-sm"
+                />
+              }
+            >
+              <IconX aria-hidden />
+              <span className="sr-only">{labels.dismiss}</span>
+            </Dialog.Close>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+    )
+  }
+
   if (wide) {
     return (
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal container={container}>
-          <Dialog.Backdrop className="fixed inset-0 bg-black/20 transition-opacity duration-200 ease-out data-ending-style:opacity-0 data-ending-style:duration-150 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-[2px] dark:bg-black/50" />
+          <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/20 transition-opacity duration-200 ease-out data-ending-style:opacity-0 data-ending-style:duration-150 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-[2px] dark:bg-black/50" />
           <Dialog.Popup
             data-slot="promo-dialog"
-            className="bg-popover text-popover-foreground ring-foreground/10 fixed top-1/2 left-1/2 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl p-5 text-sm shadow-2xl ring-1 transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-ending-style:duration-150 data-starting-style:scale-[0.96] data-starting-style:opacity-0 motion-reduce:transition-opacity motion-reduce:data-ending-style:scale-100 motion-reduce:data-starting-style:scale-100"
+            className="bg-popover text-popover-foreground ring-foreground/10 fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl p-5 text-sm shadow-2xl ring-1 transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-ending-style:duration-150 data-starting-style:scale-[0.96] data-starting-style:opacity-0 motion-reduce:transition-opacity motion-reduce:data-ending-style:scale-100 motion-reduce:data-starting-style:scale-100"
           >
             {content(DialogTitle, DialogDescription)}
             <Dialog.Close
@@ -160,8 +237,8 @@ export function PromoDialog({
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange}>
       <Drawer.Portal container={container}>
-        <Drawer.Backdrop className="fixed inset-0 bg-black opacity-[calc(0.2*(1-var(--drawer-swipe-progress)))] transition-opacity duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-starting-style:opacity-0 data-swiping:duration-0 dark:opacity-[calc(0.6*(1-var(--drawer-swipe-progress)))]" />
-        <Drawer.Viewport className="fixed inset-0 flex items-end justify-center">
+        <Drawer.Backdrop className="fixed inset-0 z-50 bg-black opacity-[calc(0.2*(1-var(--drawer-swipe-progress)))] transition-opacity duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-starting-style:opacity-0 data-swiping:duration-0 dark:opacity-[calc(0.6*(1-var(--drawer-swipe-progress)))]" />
+        <Drawer.Viewport className="fixed inset-0 z-50 flex items-end justify-center">
           <Drawer.Popup
             data-slot="promo-dialog"
             className="bg-popover text-popover-foreground ring-foreground/10 -mb-[3rem] max-h-[calc(85dvh+3rem)] w-full [transform:translateY(var(--drawer-swipe-movement-y))] overflow-y-auto overscroll-contain rounded-t-2xl px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px)+3rem)] text-sm ring-1 transition-transform duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] outline-none data-ending-style:[transform:translateY(calc(100%-3rem+2px))] data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-starting-style:[transform:translateY(calc(100%-3rem+2px))] data-swiping:select-none motion-reduce:transition-opacity motion-reduce:data-ending-style:opacity-0 motion-reduce:data-starting-style:opacity-0"

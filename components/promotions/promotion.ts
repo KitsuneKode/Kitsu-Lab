@@ -12,8 +12,19 @@ export const PROMOTION_PLACEMENTS = [
   'card',
   'toast',
   'sheet',
+  'side',
+  'spotlight',
   'dialog',
 ] as const
+
+/**
+ * How a dialog presents itself. `center` is the classic modal; `split` puts
+ * the image beside the copy for launches; `story` is a full-screen sequence
+ * of slides. A story never opens on its own: only `openPromotion(id)`, i.e.
+ * a visitor pressing something like "See what's new", can start it.
+ */
+export const DIALOG_PRESENTATIONS = ['center', 'split', 'story'] as const
+export type DialogPresentation = (typeof DIALOG_PRESENTATIONS)[number]
 export type PromotionPlacement = (typeof PROMOTION_PLACEMENTS)[number]
 
 export const PROMOTION_TONES = ['neutral', 'brand', 'highlight'] as const
@@ -63,6 +74,8 @@ export type PromotionMedia = {
   alt: string
   width: number
   height: number
+  /** Shown over the image in stories and under it in galleries. Plain text. */
+  caption?: string
 }
 
 export type PromotionCta = {
@@ -107,6 +120,8 @@ export type PromotionContent = {
   showCountdown?: boolean
   /** Hide the code behind a "Reveal" button: one small, honest commitment. */
   revealCode?: boolean
+  /** Dialogs only. Defaults to `center`. */
+  presentation?: DialogPresentation
   /**
    * Toast and dialog: at most once every `hours` per visitor, even across
    * tabs and without a dismissal. Defaults to DEFAULT_FREQUENCY_HOURS.
@@ -236,6 +251,9 @@ export type PromotionSelection = {
   bar?: Promotion
   toast?: Promotion
   sheet?: Promotion
+  side?: Promotion
+  /** One spotlight at a time; its `slot` names the anchor it points at. */
+  spotlight?: Promotion
   dialog?: Promotion
   cards: Record<string, Promotion>
 }
@@ -592,11 +610,14 @@ export function parsePromotion(
       !isInt(raw.height, 1, 10_000)
     )
       return null
+    const caption = plainText(raw.caption, 120, false)
+    if (!caption.ok) return null
     return {
       src: raw.src,
       alt: alt.value ?? '',
       width: raw.width,
       height: raw.height,
+      ...(caption.value ? { caption: caption.value } : {}),
     }
   }
 
@@ -676,7 +697,7 @@ export function parsePromotion(
     ok: true,
     value: {
       placement,
-      ...(placement === 'card'
+      ...(placement === 'card' || placement === 'spotlight'
         ? { slot: (slot.ok && slot.value) || 'default' }
         : {}),
       ...(eyebrow.ok && eyebrow.value ? { eyebrow: eyebrow.value } : {}),
@@ -695,6 +716,11 @@ export function parsePromotion(
       dismiss,
       ...(input.showCountdown === true ? { showCountdown: true } : {}),
       ...(code && input.revealCode === true ? { revealCode: true } : {}),
+      ...(placement === 'dialog' &&
+      DIALOG_PRESENTATIONS.some((p) => p === input.presentation) &&
+      input.presentation !== 'center'
+        ? { presentation: input.presentation as DialogPresentation }
+        : {}),
       ...(isInt(rawFrequency, 1, 24 * 90)
         ? { frequency: { hours: rawFrequency } }
         : {}),

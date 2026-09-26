@@ -172,3 +172,77 @@ describe('kits', () => {
     expect(sharesCampaign(selection.bar, selection.toast)).toBe(true)
   })
 })
+
+describe('spotlight, side cards and presentations', () => {
+  const base = { title: 'Hi', startsAt: T0, endsAt: T0 + HOUR }
+
+  test('a spotlight keeps its anchor name in slot', () => {
+    const parsed = parsePromotion({
+      ...base,
+      placement: 'spotlight',
+      slot: 'export',
+    })
+    expect(parsed.ok && parsed.value.slot).toBe('export')
+  })
+
+  test('selection picks one spotlight and one side card', () => {
+    const s = selectPromotions(
+      [
+        promo({
+          id: 's1',
+          placement: 'spotlight',
+          slot: 'export',
+          priority: 10,
+        }),
+        promo({
+          id: 's2',
+          placement: 'spotlight',
+          slot: 'share',
+          priority: 90,
+        }),
+        promo({ id: 'side', placement: 'side' }),
+      ],
+      { pathname: '/', now: T0 },
+    )
+    expect(s.spotlight?.id).toBe('s2')
+    expect(s.side?.id).toBe('side')
+  })
+
+  test('presentation is kept for dialogs only, and center is the default', () => {
+    const story = parsePromotion({
+      ...base,
+      placement: 'dialog',
+      presentation: 'story',
+    })
+    expect(story.ok && story.value.presentation).toBe('story')
+    const center = parsePromotion({
+      ...base,
+      placement: 'dialog',
+      presentation: 'center',
+    })
+    expect(center.ok && center.value.presentation).toBeUndefined()
+    const toast = parsePromotion({
+      ...base,
+      placement: 'toast',
+      presentation: 'story',
+    })
+    expect(toast.ok && toast.value.presentation).toBeUndefined()
+  })
+
+  test('media captions are plain text', () => {
+    const image = { src: '/a.webp', alt: 'A', width: 16, height: 9 }
+    const ok = parsePromotion({
+      ...base,
+      placement: 'card',
+      gallery: [{ ...image, caption: 'Day one' }],
+    })
+    expect(ok.ok && ok.value.gallery?.[0]?.caption).toBe('Day one')
+    expect(
+      parsePromotion({
+        ...base,
+        placement: 'card',
+        gallery: [{ ...image, caption: '<b>x</b>' }],
+      }).ok,
+    ).toBe(false)
+  })
+})

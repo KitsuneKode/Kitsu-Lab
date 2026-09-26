@@ -21,6 +21,8 @@ import {
   PromoPill,
   PromoProgress,
   PromoSheet,
+  PromoSideCard,
+  PromoSpotlight,
   PromoStickyCta,
   PromoToast,
   PromotionProvider,
@@ -164,6 +166,11 @@ function MockSite({
   const page =
     scenario.pages.find((p) => p.value === pathname) ?? scenario.pages[0]!
   const pricing = React.useRef<HTMLDivElement>(null)
+  const content = React.useRef<HTMLElement>(null)
+  const share = React.useRef<HTMLButtonElement>(null)
+  const { selection, openPromotion } = usePromotions()
+  const story = selection.live.find((p) => p.presentation === 'story')
+  const hasSpotlight = selection.live.some((p) => p.placement === 'spotlight')
   const [cart, setCart] = React.useState(scenario.cartStart ?? 0)
   const money = new Intl.NumberFormat(undefined, {
     style: 'currency',
@@ -174,6 +181,11 @@ function MockSite({
   return (
     <>
       <PromoBar />
+      <PromoSideCard
+        container={frame}
+        content={content}
+        className={phone ? 'hidden' : undefined}
+      />
       <header className="border-border/60 flex items-center gap-6 border-b px-5 py-3">
         <button
           type="button"
@@ -213,7 +225,7 @@ function MockSite({
           </nav>
         )}
       </header>
-      <main className="flex flex-col gap-6 p-5 sm:p-8">
+      <main ref={content} className="flex max-w-2xl flex-col gap-6 p-5 sm:p-8">
         <div className="flex flex-col items-start gap-4">
           <PromoPill slot="announcement" />
           <h2
@@ -225,6 +237,25 @@ function MockSite({
             {page.heading}
           </h2>
           <p className="text-muted-foreground max-w-lg text-sm">{page.lede}</p>
+          {story || hasSpotlight ? (
+            <div className="flex flex-wrap gap-2">
+              {hasSpotlight ? (
+                <Button ref={share} size="sm" variant="outline">
+                  Share workspace
+                </Button>
+              ) : null}
+              {story ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => openPromotion(story.id)}
+                >
+                  See what’s new
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          <PromoSpotlight name="share" anchor={share} container={frame} />
         </div>
         <PromoCarousel
           slot="hero"

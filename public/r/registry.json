@@ -528,7 +528,7 @@
       "name": "promo-dialog",
       "type": "registry:component",
       "title": "Promo dialog",
-      "description": "Restrained dialog on wide screens and a swipe-to-dismiss bottom sheet on phones, opened once per visit after engagement. Following the button is never counted as a dismissal.",
+      "description": "The loudest surface, in three presentations: a centred dialog, a split image-and-copy layout for launches, and a full-screen story that only opens when the visitor asks. A swipe-down sheet on phones.",
       "registryDependencies": [
         "https://kitsu-lab.vercel.app/r/promotion-provider.json",
         "button"
@@ -537,10 +537,14 @@
         {
           "path": "components/promotions/promo-dialog.tsx",
           "type": "registry:component"
+        },
+        {
+          "path": "components/promotions/promo-story.tsx",
+          "type": "registry:component"
         }
       ],
       "docs": "Requires Base UI 1.8+ (a base-* shadcn project): the phone layout uses the Base UI Drawer for swipe dismissal.",
-      "dependencies": ["@base-ui/react", "@tabler/icons-react"]
+      "dependencies": ["@base-ui/react", "@tabler/icons-react", "motion"]
     },
     {
       "name": "promotion-labels",
@@ -682,6 +686,41 @@
       "docs": "Kits reference sample images under /promo-samples and /sample-pages; pass `images` with your own."
     },
     {
+      "name": "promo-spotlight",
+      "type": "registry:component",
+      "title": "Promo spotlight",
+      "description": "Points at one feature once: an anchored, non-modal popover with a soft halo on the element. Never takes focus; using the feature counts as a conversion.",
+      "dependencies": ["@base-ui/react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "button"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-spotlight.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Requires Base UI 1.8+ for the anchored Popover. Give the promotion `slot` the same value as the component's `name`."
+    },
+    {
+      "name": "promo-side-card",
+      "type": "registry:component",
+      "title": "Promo side card",
+      "description": "A “what’s on” card beside the page: docked in the free margin on wide screens, peeking from the edge elsewhere, with a pager when several campaigns run.",
+      "dependencies": ["@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "button"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-side-card.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
       "name": "promotion-editor",
       "type": "registry:block",
       "title": "Promotion editor",
@@ -707,7 +746,7 @@
       "name": "promotions",
       "type": "registry:block",
       "title": "Promotions",
-      "description": "The full promotion system: core, provider, stores, plugins, label packs, kits, and every surface (bar, card, carousel, pill, toast, badge, offer sheet, inbox, progress, sticky CTA, dialog) plus the editor.",
+      "description": "The full promotion system: core, provider, stores, plugins, label packs, kits, and every surface (bar, card, carousel, pill, toast, badge, offer sheet, side card, spotlight, inbox, progress, sticky CTA, dialog with centre, split and story presentations) plus the editor.",
       "registryDependencies": [
         "https://kitsu-lab.vercel.app/r/promotion.json",
         "https://kitsu-lab.vercel.app/r/promotion-provider.json",
@@ -723,6 +762,8 @@
         "https://kitsu-lab.vercel.app/r/promo-inbox.json",
         "https://kitsu-lab.vercel.app/r/promo-progress.json",
         "https://kitsu-lab.vercel.app/r/promo-sticky-cta.json",
+        "https://kitsu-lab.vercel.app/r/promo-spotlight.json",
+        "https://kitsu-lab.vercel.app/r/promo-side-card.json",
         "https://kitsu-lab.vercel.app/r/promo-dialog.json",
         "https://kitsu-lab.vercel.app/r/promotion-editor.json"
       ],

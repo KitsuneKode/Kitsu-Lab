@@ -13,6 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   BODY_MAX,
   CODE_MAX,
+  DIALOG_PRESENTATIONS,
   COUNTDOWN_MAX_DAYS,
   CTA_LABEL_MAX,
   EYEBROW_MAX,
@@ -26,6 +27,7 @@ import {
   reviewPromotion,
   targetsRoute,
   toZonedInput,
+  type DialogPresentation,
   type Promotion,
   type PromotionContent,
   type PromotionField,
@@ -93,6 +95,7 @@ type Draft = {
   dismissMode: 'session' | 'days' | 'never-again'
   dismissDays: number
   showCountdown: boolean
+  presentation: DialogPresentation
 }
 
 const PLACEMENT_LABELS: Record<PromotionPlacement, string> = {
@@ -100,6 +103,8 @@ const PLACEMENT_LABELS: Record<PromotionPlacement, string> = {
   card: 'Inline card',
   toast: 'Toast',
   sheet: 'Offer sheet',
+  side: 'Side card',
+  spotlight: 'Spotlight',
   dialog: 'Dialog',
 }
 
@@ -108,6 +113,9 @@ const PLACEMENT_HINTS: Record<PromotionPlacement, string> = {
   card: 'Sits inside a page slot you name. Never interrupts.',
   toast: 'A small card in the corner after a few seconds. Folds to a chip.',
   sheet: 'Waits behind a tab on the screen edge; opens only when asked.',
+  side: 'Sits in the page margin on wide screens, peeks from the edge elsewhere.',
+  spotlight:
+    'Points at one feature on the page, once, and gets out of the way.',
   dialog: 'Interrupts once per visit, after engagement. Use sparingly.',
 }
 
@@ -154,6 +162,7 @@ function initialDraft(
     dismissMode: initial.dismiss?.mode ?? 'days',
     dismissDays: initial.dismiss?.mode === 'days' ? initial.dismiss.days : 7,
     showCountdown: initial.showCountdown ?? false,
+    presentation: initial.presentation ?? 'center',
   }
 }
 
@@ -162,7 +171,11 @@ function toInput(draft: Draft, timeZone: string | undefined) {
   const hasMedia = draft.mediaSrc.trim() !== '' || draft.mediaAlt.trim() !== ''
   return {
     placement: draft.placement,
-    slot: draft.placement === 'card' ? draft.slot : undefined,
+    slot:
+      draft.placement === 'card' || draft.placement === 'spotlight'
+        ? draft.slot
+        : undefined,
+    presentation: draft.placement === 'dialog' ? draft.presentation : undefined,
     eyebrow: draft.eyebrow,
     title: draft.title,
     body: draft.body,
@@ -534,8 +547,50 @@ export function PromotionEditor({
           </ToggleGroup>
         </Field>
 
-        {draft.placement === 'card' && slots && slots.length > 0 ? (
-          <Field id={id('slot')} label="Slot" error={errors.slot}>
+        {draft.placement === 'dialog' ? (
+          <Field
+            id={id('presentation')}
+            label="Presentation"
+            hint={
+              draft.presentation === 'story'
+                ? 'Full screen. Opens only when a visitor asks for it.'
+                : draft.presentation === 'split'
+                  ? 'Image beside the copy on wide screens.'
+                  : 'A calm centred card.'
+            }
+          >
+            <ToggleGroup
+              id={id('presentation')}
+              aria-labelledby={`${id('presentation')}-label`}
+              value={[draft.presentation]}
+              onValueChange={(value) => {
+                if (value[0])
+                  set('presentation', value[0] as DialogPresentation)
+              }}
+              variant="outline"
+              size="sm"
+            >
+              {DIALOG_PRESENTATIONS.map((p) => (
+                <ToggleGroupItem key={p} value={p}>
+                  {p === 'center'
+                    ? 'Centred'
+                    : p === 'split'
+                      ? 'Split'
+                      : 'Story'}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </Field>
+        ) : null}
+
+        {(draft.placement === 'card' || draft.placement === 'spotlight') &&
+        slots &&
+        slots.length > 0 ? (
+          <Field
+            id={id('slot')}
+            label={draft.placement === 'spotlight' ? 'Points at' : 'Slot'}
+            error={errors.slot}
+          >
             <ToggleGroup
               id={id('slot')}
               aria-labelledby={`${id('slot')}-label`}

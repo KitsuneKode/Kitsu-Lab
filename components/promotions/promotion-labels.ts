@@ -17,6 +17,10 @@ type Words = {
   hideOffer: string
   inboxCount: (count: number) => string
   inboxHidden: string
+  gotIt: string
+  whatsOn: string
+  previous: string
+  next: string
 }
 
 /**
@@ -58,6 +62,10 @@ export const promotionLabels = {
     hideOffer: 'Hide this offer',
     inboxCount: (n) => `${n} offer${n === 1 ? '' : 's'}`,
     inboxHidden: 'Hidden',
+    gotIt: 'Got it',
+    whatsOn: 'What’s on',
+    previous: 'Previous',
+    next: 'Next',
   }),
   fr: createPromotionLabels('fr', {
     announcement: 'Annonce',
@@ -75,6 +83,10 @@ export const promotionLabels = {
     hideOffer: 'Masquer cette offre',
     inboxCount: (n) => `${n} offre${n > 1 ? 's' : ''}`,
     inboxHidden: 'Masquée',
+    gotIt: 'Compris',
+    whatsOn: 'En ce moment',
+    previous: 'Précédent',
+    next: 'Suivant',
   }),
   de: createPromotionLabels('de', {
     announcement: 'Ankündigung',
@@ -92,6 +104,10 @@ export const promotionLabels = {
     hideOffer: 'Angebot ausblenden',
     inboxCount: (n) => `${n} Angebot${n === 1 ? '' : 'e'}`,
     inboxHidden: 'Ausgeblendet',
+    gotIt: 'Verstanden',
+    whatsOn: 'Aktuell',
+    previous: 'Zurück',
+    next: 'Weiter',
   }),
   ja: createPromotionLabels('ja', {
     announcement: 'お知らせ',
@@ -109,6 +125,10 @@ export const promotionLabels = {
     hideOffer: 'このオファーを非表示',
     inboxCount: (n) => `${n}件のオファー`,
     inboxHidden: '非表示',
+    gotIt: '了解',
+    whatsOn: '開催中',
+    previous: '前へ',
+    next: '次へ',
   }),
   hi: createPromotionLabels('hi', {
     announcement: 'घोषणा',
@@ -126,6 +146,10 @@ export const promotionLabels = {
     hideOffer: 'यह ऑफ़र छिपाएँ',
     inboxCount: (n) => `${n} ऑफ़र`,
     inboxHidden: 'छिपाया गया',
+    gotIt: 'समझ गया',
+    whatsOn: 'अभी चल रहा है',
+    previous: 'पिछला',
+    next: 'अगला',
   }),
   ar: createPromotionLabels('ar', {
     announcement: 'إعلان',
@@ -143,6 +167,10 @@ export const promotionLabels = {
     hideOffer: 'إخفاء هذا العرض',
     inboxCount: (n) => (n === 1 ? 'عرض واحد' : n === 2 ? 'عرضان' : `${n} عروض`),
     inboxHidden: 'مخفي',
+    gotIt: 'فهمت',
+    whatsOn: 'يحدث الآن',
+    previous: 'السابق',
+    next: 'التالي',
   }),
 } satisfies Record<string, PromotionLabels>
 

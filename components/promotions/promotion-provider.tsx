@@ -70,6 +70,10 @@ export type PromotionLabels = {
   hideOffer: string
   inboxCount: (count: number) => string
   inboxHidden: string
+  gotIt: string
+  whatsOn: string
+  previous: string
+  next: string
 }
 
 export const defaultPromotionLabels: PromotionLabels = {
@@ -89,6 +93,10 @@ export const defaultPromotionLabels: PromotionLabels = {
   hideOffer: 'Hide this offer',
   inboxCount: (count) => `${count} offer${count === 1 ? '' : 's'}`,
   inboxHidden: 'Hidden',
+  gotIt: 'Got it',
+  whatsOn: 'What’s on',
+  previous: 'Previous',
+  next: 'Next',
 }
 
 /* -------------------------------------------------------------------------- */
@@ -139,6 +147,12 @@ type PromotionContextValue = {
   /** The offer behind the edge tab, and whether its sheet is open. */
   sheet: Promotion | null
   sheetOpen: boolean
+  /** The spotlight to show now, if its anchor is on the page. */
+  spotlight: Promotion | null
+  /** Called by PromoSpotlight so the provider knows which anchors exist. */
+  registerAnchor: (name: string) => () => void
+  /** Live side cards, best first. */
+  sides: Promotion[]
   closeSheet: () => void
   card: (slot: string) => Promotion | null
   /** Every live card in a slot, best first, for carousels. */
@@ -153,6 +167,11 @@ type PromotionContextValue = {
   /** Live promotions on this route whose button points at `href`. */
   pointingAt: (href: string) => Promotion | null
   dismiss: (promotion: Promotion) => void
+  /**
+   * Closes a surface the visitor opened themselves (a story) without
+   * recording a dismissal, so it can be watched again.
+   */
+  release: (promotion: Promotion) => void
   /** Closes a surface after its button was used. Not reported as a dismissal. */
   complete: (promotion: Promotion) => void
   minimize: (promotion: Promotion) => void
@@ -443,6 +462,12 @@ const DEFAULT_TOAST_ENGAGEMENT: PromotionEngagement = {
 }
 const NO_LABELS: Partial<PromotionLabels> = {}
 const NO_PLUGINS: readonly PromotionPlugin[] = []
+
+/**
+ * A full-screen story takes over the screen, so only the visitor starts one
+ * (openPromotion from a "See what's new" button); it never auto-opens.
+ */
+const autoOpens = (promotion: Promotion) => promotion.presentation !== 'story'
 const BUDGET_KEY = 'promo:budget:floating'
 
 const shownKey = (promotion: Promotion) => `${dismissalKey(promotion)}:shown`
@@ -486,6 +511,23 @@ export function PromotionProvider({
   const [forced, setForced] = React.useState<string | null>(null)
   const [bottomInset, setBottomInset] = React.useState(0)
   const [inboxOpen, setInboxOpen] = React.useState(false)
+  // Spotlight anchors present on the page right now (registered on mount).
+  const [anchors, setAnchors] = React.useState<ReadonlyMap<string, number>>(
+    () => new Map(),
+  )
+  const registerAnchor = React.useCallback((name: string) => {
+    setAnchors((previous) =>
+      new Map(previous).set(name, (previous.get(name) ?? 0) + 1),
+    )
+    return () =>
+      setAnchors((previous) => {
+        const next = new Map(previous)
+        const count = (next.get(name) ?? 1) - 1
+        if (count <= 0) next.delete(name)
+        else next.set(name, count)
+        return next
+      })
+  }, [])
   const [openFloating, setOpenFloating] = React.useState<{
     id: string
     pathname: string
@@ -616,6 +658,15 @@ export function PromotionProvider({
     selection.sheet && !isDismissed(selection.sheet) && allowed(selection.sheet)
       ? selection.sheet
       : null
+  const spotlightCandidate = available(selection.spotlight)
+  const sides = suppressed
+    ? []
+    : selection.live.filter(
+        (promotion) =>
+          promotion.placement === 'side' &&
+          !isDismissed(promotion) &&
+          allowed(promotion),
+      )
 
   // Frequency: a floating surface shows at most once per its window, and at
   // most one of any campaign per budget window. An unanswered surface that
@@ -647,6 +698,11 @@ export function PromotionProvider({
     Boolean(fresh(dialogCandidate)),
     dialogEngagement,
   )
+  const spotlightEngaged = useEngaged(
+    pathname,
+    Boolean(fresh(spotlightCandidate)),
+    toastEngagement,
+  )
   const toastEngaged = useEngaged(
     pathname,
     Boolean(fresh(toastCandidate)),
@@ -666,11 +722,27 @@ export function PromotionProvider({
     engaged || pluginEngaged[placement] === pathname
   const dialog =
     dialogCandidate &&
-    fresh(dialogCandidate) &&
     (forced === dialogCandidate.id ||
       stillOpen(dialogCandidate) ||
-      (engagedBy('dialog', dialogEngaged) && outranksBar(dialogCandidate)))
+      (fresh(dialogCandidate) &&
+        autoOpens(dialogCandidate) &&
+        engagedBy('dialog', dialogEngaged) &&
+        outranksBar(dialogCandidate)))
       ? dialogCandidate
+      : null
+  // A spotlight points at something on this page, so it needs its anchor
+  // mounted. It ranks between the dialog and the toast: one at a time.
+  const spotlight =
+    !dialog &&
+    spotlightCandidate &&
+    anchors.has(spotlightCandidate.slot ?? 'default') &&
+    (forced === spotlightCandidate.id ||
+      stillOpen(spotlightCandidate) ||
+      (fresh(spotlightCandidate) &&
+        // Small and anchored, it can sit beside an in-flow bar; it still
+        // counts as the one floating surface and spends the daily budget.
+        engagedBy('toast', spotlightEngaged)))
+      ? spotlightCandidate
       : null
   // An ignored toast does not vanish on the next page, nor chase the visitor
   // at full size: it folds into a chip for the rest of the visit.
@@ -693,7 +765,8 @@ export function PromotionProvider({
     toastCandidate &&
     (toastMinimized ||
       toastOpenNow ||
-      (fresh(toastCandidate) &&
+      (!spotlight &&
+        fresh(toastCandidate) &&
         engagedBy('toast', toastEngaged) &&
         outranksBar(toastCandidate)))
       ? toastCandidate
@@ -712,6 +785,9 @@ export function PromotionProvider({
     setBottomInset,
     sheet: sheetCandidate,
     sheetOpen,
+    spotlight,
+    registerAnchor,
+    sides,
     closeSheet: () =>
       setForced((id) => (id === sheetCandidate?.id ? null : id)),
     card: (slot) => {
@@ -749,6 +825,10 @@ export function PromotionProvider({
     },
     dismiss,
     complete: close,
+    release: (promotion) => {
+      setForced((id) => (id === promotion.id ? null : id))
+      setOpenFloating((open) => (open?.id === promotion.id ? null : open))
+    },
     minimize: (promotion) => {
       write(minimizedKey(promotion), 'tab')
       setForced((id) => (id === promotion.id ? null : id))

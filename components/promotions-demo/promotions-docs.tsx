@@ -115,6 +115,48 @@ export function Promotions({ records, children }) {
     ],
   },
   {
+    item: 'promo-side-card',
+    name: 'Side card',
+    tier: 'Surface',
+    summary:
+      'A “what’s on” card in the page margin on wide screens; a 56px peek at the edge elsewhere.',
+    code: `const main = useRef(null)
+<main ref={main}>…</main>
+<PromoSideCard content={main} />   // measures the real free space`,
+    notes: [
+      'Opens on hover, focus or tap when peeking; transform-only on the drawer curve.',
+      'Several side cards become a pager. Hidden on phones by default.',
+    ],
+  },
+  {
+    item: 'promo-spotlight',
+    name: 'Spotlight',
+    tier: 'Surface',
+    summary:
+      'Points at one feature, once, with a halo on the element and an anchored popover.',
+    code: `const share = useRef(null)
+<Button ref={share}>Share</Button>
+<PromoSpotlight name="share" anchor={share} />
+// record: { placement: 'spotlight', slot: 'share', … }`,
+    notes: ['Never takes focus. Using the feature closes it as a conversion.'],
+  },
+  {
+    item: 'promo-dialog',
+    name: 'Split and story dialogs',
+    tier: 'Surface',
+    summary:
+      'presentation: "split" puts images beside the copy; "story" is full screen with slides.',
+    code: `// record
+{ placement: 'dialog', presentation: 'story', gallery: [...] }
+
+// a story only opens when asked
+<Button onClick={() => openPromotion('whatsnew')}>See what’s new</Button>`,
+    notes: [
+      'Stories pause while pressed, on hidden tabs and under reduced motion.',
+      'Closing a story records nothing, so it can be watched again.',
+    ],
+  },
+  {
     item: 'promo-inbox',
     name: 'Offers inbox',
     tier: 'Surface',

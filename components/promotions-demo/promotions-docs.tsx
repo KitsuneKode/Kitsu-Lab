@@ -57,9 +57,9 @@ export function Promotions({ records, children }) {
       'Every pro add-on. Pro items install from an authenticated registry with your key.',
     code: `// components.json
 "registries": {
-  "@kitsu": "https://kitsu-lab.vercel.app/r/{name}.json",
+  "@kitsu": "https://lab.kitsunelabs.xyz/r/{name}.json",
   "@kitsu-pro": {
-    "url": "https://kitsu-lab.vercel.app/pro/r/{name}.json",
+    "url": "https://lab.kitsunelabs.xyz/pro/r/{name}.json",
     "headers": { "Authorization": "Bearer \${KITSU_PRO_KEY}" }
   }
 }

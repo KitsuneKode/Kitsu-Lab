@@ -4,7 +4,7 @@
   "title": "Promo bar",
   "description": "Announcement bar, inline above the header or floating at the bottom of the viewport (no layout shift), with an optional countdown to a real end date and a copyable code.",
   "registryDependencies": [
-    "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+    "https://lab.kitsunelabs.xyz/r/promotion-provider.json"
   ],
   "files": [
     {

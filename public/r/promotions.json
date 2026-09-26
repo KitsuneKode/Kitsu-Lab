@@ -4,14 +4,14 @@
   "title": "Promotions",
   "description": "The free promotions core: rules, provider, stores, plugins, label packs, and the bar, card, badge, toast and dialog surfaces.",
   "registryDependencies": [
-    "https://kitsu-lab.vercel.app/r/promotion.json",
-    "https://kitsu-lab.vercel.app/r/promotion-provider.json",
-    "https://kitsu-lab.vercel.app/r/promotion-labels.json",
-    "https://kitsu-lab.vercel.app/r/promo-bar.json",
-    "https://kitsu-lab.vercel.app/r/promo-card.json",
-    "https://kitsu-lab.vercel.app/r/promo-toast.json",
-    "https://kitsu-lab.vercel.app/r/promo-badge.json",
-    "https://kitsu-lab.vercel.app/r/promo-dialog.json"
+    "https://lab.kitsunelabs.xyz/r/promotion.json",
+    "https://lab.kitsunelabs.xyz/r/promotion-provider.json",
+    "https://lab.kitsunelabs.xyz/r/promotion-labels.json",
+    "https://lab.kitsunelabs.xyz/r/promo-bar.json",
+    "https://lab.kitsunelabs.xyz/r/promo-card.json",
+    "https://lab.kitsunelabs.xyz/r/promo-toast.json",
+    "https://lab.kitsunelabs.xyz/r/promo-badge.json",
+    "https://lab.kitsunelabs.xyz/r/promo-dialog.json"
   ],
   "files": [
     {

@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
   "name": "kitsu-pro",
-  "homepage": "https://kitsu-lab.vercel.app",
+  "homepage": "https://lab.kitsunelabs.xyz",
   "items": [
     {
       "name": "promo-pill",
@@ -10,7 +10,7 @@
       "description": "The “New: … →” announcement pill above a hero, filled from a card slot. In the page flow; never interrupts.",
       "dependencies": ["@tabler/icons-react"],
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+        "https://lab.kitsunelabs.xyz/r/promotion-provider.json"
       ],
       "files": [
         {
@@ -26,7 +26,7 @@
       "description": "An edge tab that opens an offer sheet from its side (a bottom sheet on phones) with a revealable code and an apply link. Opens only when asked.",
       "dependencies": ["@base-ui/react", "@tabler/icons-react"],
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "https://lab.kitsunelabs.xyz/r/promotion-provider.json",
         "button"
       ],
       "files": [
@@ -56,7 +56,7 @@
       "title": "Promo sticky CTA",
       "description": "A thumb-zone bar that appears once the element you watch (usually pricing) has scrolled away, and hides when it returns.",
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "https://lab.kitsunelabs.xyz/r/promotion-provider.json",
         "button"
       ],
       "files": [
@@ -73,7 +73,7 @@
       "description": "Every live card in a slot as a swipeable row with a peeking next card, so several campaigns share one place. Never auto-advances.",
       "dependencies": ["@tabler/icons-react", "motion"],
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+        "https://lab.kitsunelabs.xyz/r/promotion-provider.json"
       ],
       "files": [
         {
@@ -89,7 +89,7 @@
       "description": "A gift button with a count that lists every live offer on the page, one per campaign, including ones the visitor hid.",
       "dependencies": ["@base-ui/react", "@tabler/icons-react"],
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+        "https://lab.kitsunelabs.xyz/r/promotion-provider.json"
       ],
       "files": [
         {
@@ -105,7 +105,7 @@
       "title": "Promotion kits",
       "description": "Ready-made campaigns: storeSaleKit, productLaunchKit and courseEnrolmentKit, each with records in six languages and the provider settings they were designed for.",
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+        "https://lab.kitsunelabs.xyz/r/promotion-provider.json"
       ],
       "files": [
         {
@@ -134,7 +134,7 @@
       "description": "Points at one feature once: an anchored, non-modal popover with a soft halo on the element. Never takes focus; using the feature counts as a conversion.",
       "dependencies": ["@base-ui/react"],
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "https://lab.kitsunelabs.xyz/r/promotion-provider.json",
         "button"
       ],
       "files": [
@@ -152,7 +152,7 @@
       "description": "A “what’s on” card beside the page: docked in the free margin on wide screens, peeking from the edge elsewhere, with a pager when several campaigns run.",
       "dependencies": ["@tabler/icons-react"],
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "https://lab.kitsunelabs.xyz/r/promotion-provider.json",
         "button"
       ],
       "files": [
@@ -168,7 +168,7 @@
       "title": "Promotion editor",
       "description": "Create and review a promotion with a live preview of every placement, a preview clock, a plain-language schedule in an explicit time zone and taste warnings. Owns no data.",
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "https://lab.kitsunelabs.xyz/r/promotion-provider.json",
         "badge",
         "input",
         "label",
@@ -188,7 +188,7 @@
       "type": "registry:component",
       "dependencies": ["@base-ui/react"],
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+        "https://lab.kitsunelabs.xyz/r/promotion-provider.json",
         "button"
       ],
       "name": "promo-story",
@@ -208,7 +208,7 @@
       "title": "Account dismissal store",
       "description": "Dismissals that follow the signed-in visitor across devices, for dismiss.scope: account. Synchronous reads from a local copy, batched saves, and a fetch transport.",
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+        "https://lab.kitsunelabs.xyz/r/promotion-provider.json"
       ],
       "files": [
         {
@@ -223,7 +223,7 @@
       "title": "Promotions Pro",
       "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, inbox, spotlight, side card, story, kits, editor and the account store.",
       "registryDependencies": [
-        "https://kitsu-lab.vercel.app/r/promotions.json",
+        "https://lab.kitsunelabs.xyz/r/promotions.json",
         "@kitsu-pro/promo-pill",
         "@kitsu-pro/promo-sheet",
         "@kitsu-pro/promo-progress",

@@ -13,7 +13,9 @@ import { isAuthorized, readKeys } from './pro-registry'
  * subscription it belongs to.
  */
 const cache = createLicenseCache()
-// Fresh lookups only; cached answers never count against it.
+// Fresh lookups only; cached answers never count against it. Per-process:
+// on serverless each instance gets its own budget, so enumeration scales
+// with instance count — move to shared storage if abuse shows up.
 const lookups = createRateLimit({ limit: 60, windowMs: 60_000 })
 
 /** `busy` when too many unknown keys were checked in the last minute. */

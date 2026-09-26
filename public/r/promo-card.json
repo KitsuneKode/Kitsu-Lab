@@ -4,7 +4,7 @@
   "title": "Promo card",
   "description": "Inline promotion for a named slot. Lays itself out from its own width with container queries and folds away when dismissed.",
   "registryDependencies": [
-    "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+    "https://lab.kitsunelabs.xyz/r/promotion-provider.json"
   ],
   "files": [
     {

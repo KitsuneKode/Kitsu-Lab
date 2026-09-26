@@ -4,7 +4,7 @@
   "title": "Account dismissal store",
   "description": "Dismissals that follow the signed-in visitor across devices, for dismiss.scope: account. Synchronous reads from a local copy, batched saves, and a fetch transport.",
   "registryDependencies": [
-    "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+    "https://lab.kitsunelabs.xyz/r/promotion-provider.json"
   ],
   "files": [
     {

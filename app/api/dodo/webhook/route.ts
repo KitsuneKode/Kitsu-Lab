@@ -8,6 +8,10 @@ import { forgetLicenses } from '@/lib/pro-license'
  * KITSU_SALES_WEBHOOK_URL is set, posts a one-line sale notice to your
  * Discord or Slack channel.
  */
+// Per-process: each serverless instance keeps its own set, so a replayed
+// event can fire once per instance (a duplicate sale ping at most — the
+// handler is idempotent). If fulfillment ever lives here, move this to
+// durable storage keyed on webhook-id.
 const seen = new Set<string>()
 
 const ENDS_ACCESS = new Set([

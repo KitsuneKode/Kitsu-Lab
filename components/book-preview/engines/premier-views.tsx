@@ -2,6 +2,7 @@
 
 import { spreadSlots, spreadStep } from './premier-math'
 import { usePageArrival } from '../hooks/use-page-arrival'
+import { useBookPreview } from '../book-preview-provider'
 import type {
   BookPreviewAppearance,
   BookPreviewNavigationBehavior,
@@ -207,7 +208,10 @@ function FaceBox({
       data-bp-ink-paper={face.pageNumber !== null ? 'light' : undefined}
       data-page-index={index}
       className={
-        'bg-card relative h-full max-w-full shrink-0 overflow-hidden rounded-md border shadow-sm ' +
+        // A PDF face is white paper whatever the theme — while its bitmap
+        // decodes it must stay paper, not flash the dark card colour.
+        (face.pageNumber !== null ? 'bg-white ' : 'bg-card ') +
+        'relative h-full max-w-full shrink-0 overflow-hidden rounded-md border shadow-sm ' +
         (className ?? '')
       }
       style={{ aspectRatio: `${face.aspect ?? FALLBACK_ASPECT}` }}
@@ -563,7 +567,8 @@ export function PremierSingleView({
               face={face}
               index={Math.min(pageIndex, faces.length - 1)}
               arrival={arrival}
-              key={face.key}
+              // One slot, reused across turns — see the spread view.
+              key="single"
             >
               {doc && face.pageNumber !== null ? (
                 <PdfFaceOverlay
@@ -609,6 +614,16 @@ export function PremierSpreadView({
   const faceRef = useRef<HTMLDivElement | null>(null)
   const { pair, left, right } = spreadSlots(pageIndex, faces.length)
   const arrival = usePageArrival(pair)
+  const { setPageStep } = useBookPreview()
+  const faceCount = faces.length
+  // Arrows, Space and the pager turn a whole spread here — stepping one page
+  // would land on the facing page, already on screen, and look dead.
+  useEffect(() => {
+    setPageStep((from, direction) =>
+      spreadStep(Math.floor(Math.max(0, from) / 2), direction, faceCount),
+    )
+    return () => setPageStep(null)
+  }, [faceCount, setPageStep])
   useSwipeTurn({
     hostRef,
     faceRef,
@@ -657,7 +672,11 @@ export function PremierSpreadView({
               face={leftFace}
               index={left}
               arrival={arrival}
-              key={leftFace.key}
+              // Keyed by slot, not page: the same element — and the same
+              // <img> — carries the next page, and the browser keeps the
+              // old bitmap up until the new one decodes. A per-page key
+              // remounted both faces and blanked them for a few frames.
+              key="left"
             >
               {doc && leftFace.pageNumber !== null ? (
                 <PdfFaceOverlay
@@ -675,7 +694,7 @@ export function PremierSpreadView({
               face={rightFace}
               index={right}
               arrival={arrival}
-              key={rightFace.key}
+              key="right"
             >
               {doc && rightFace.pageNumber !== null ? (
                 <PdfFaceOverlay

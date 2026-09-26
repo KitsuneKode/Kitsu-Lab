@@ -200,7 +200,9 @@ export default function ArchivalCurlEngine({
     sizing: 'uniform',
     // An archival reader that cannot find a word in the document is a viewer.
     extractText: true,
-    windowRadius: 3,
+    // A spread turn reveals up to three pages past the left one; one more
+    // keeps the spread after that already painted.
+    windowRadius: 4,
     onError: reportError,
     errorMessage: 'This PDF could not be opened for the archival reader.',
   })

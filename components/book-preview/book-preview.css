@@ -174,6 +174,28 @@
   );
 }
 
+/* Endpaper: blank, slightly shaded toward the binding like board-backed
+   paper. */
+.book-preview [data-book-preview-curl-endpaper] {
+  background-image: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0.08),
+    rgb(0 0 0 / 0) 18%
+  );
+}
+
+/* The gutter of an open spread: the pages dip into the binding. */
+.book-preview [data-book-preview-curl-spine] {
+  background: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0) 0%,
+    rgb(0 0 0 / 0.1) 42%,
+    rgb(0 0 0 / 0.22) 50%,
+    rgb(0 0 0 / 0.1) 58%,
+    rgb(0 0 0 / 0) 100%
+  );
+}
+
 /* The shadow the leaf casts on the page it uncovers. */
 .book-preview [data-book-preview-curl-shadow] {
   background: linear-gradient(
@@ -467,29 +489,29 @@ html[data-book-preview-immersive] body > [data-base-ui-portal] {
   }
 }
 
-/* Page-turn arrival: the incoming spread drifts in from the direction the
-   leaf was pushed toward, so button, keyboard, and gesture navigation all
-   land the same way.
+/* Page-turn arrival: the incoming page drifts the last few pixels in from
+   the direction the leaf was pushed toward, so button, keyboard and gesture
+   turns all land the same way.
+
+   Position only — never opacity. Pages are paper-white on a dark stage:
+   any fade dips the page toward the stage colour and reads as a flash on
+   every turn. The entering pose is applied instantly (no transition out of
+   the settled state), then the settle transitions in.
 
    Paging is a high-frequency action. When turns arrive faster than this
    animation can finish -- a held arrow key, a dragged slider -- the engine
-   sets data-instant and the page simply appears. Replaying a 220ms entrance
-   ten times a second reads as flicker, not motion. */
+   sets data-instant and the page simply appears. */
 .book-preview [data-book-preview-page] {
-  opacity: 0;
-  transform: translateX(var(--book-preview-enter-x, 0.75rem));
-  transition:
-    opacity var(--book-preview-ui-ms) var(--book-preview-ease-out),
-    transform var(--book-preview-ui-ms) var(--book-preview-ease-out);
+  transform: translateX(var(--book-preview-enter-x, 0.5rem));
 }
 
 .book-preview [data-book-preview-page][data-enter-dir='prev'] {
-  --book-preview-enter-x: -0.75rem;
+  --book-preview-enter-x: -0.5rem;
 }
 
 .book-preview [data-book-preview-page][data-mounted] {
-  opacity: 1;
   transform: translateX(0);
+  transition: transform var(--book-preview-ui-ms) var(--book-preview-ease-out);
 }
 
 .book-preview [data-book-preview-page][data-instant] {
@@ -497,13 +519,10 @@ html[data-book-preview-immersive] body > [data-base-ui-portal] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Keep the fade for comprehension, drop the travel. */
-  .book-preview [data-book-preview-page] {
-    transform: none;
-    transition: opacity 160ms linear;
-  }
+  .book-preview [data-book-preview-page],
   .book-preview [data-book-preview-page][data-mounted] {
     transform: none;
+    transition: none;
   }
 }
 
@@ -513,15 +532,14 @@ html[data-book-preview-immersive] body > [data-base-ui-portal] {
    Declared after the generic rules so equal-specificity overrides land. */
 .book-preview [data-book-preview-pdf-stage][data-book-preview-page] {
   transform: none;
-  translate: var(--book-preview-enter-x, 0.75rem) 0;
-  transition:
-    opacity var(--book-preview-ui-ms) var(--book-preview-ease-out),
-    translate var(--book-preview-ui-ms) var(--book-preview-ease-out);
+  translate: var(--book-preview-enter-x, 0.5rem) 0;
 }
 
 .book-preview
   [data-book-preview-pdf-stage][data-book-preview-page][data-mounted] {
+  transform: none;
   translate: 0 0;
+  transition: translate var(--book-preview-ui-ms) var(--book-preview-ease-out);
 }
 
 .book-preview [data-book-preview-pdf-stage][data-instant] {
@@ -531,7 +549,7 @@ html[data-book-preview-immersive] body > [data-base-ui-portal] {
 @media (prefers-reduced-motion: reduce) {
   .book-preview [data-book-preview-pdf-stage][data-book-preview-page] {
     translate: none;
-    transition: opacity 160ms linear;
+    transition: none;
   }
 }
 

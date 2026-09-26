@@ -9,6 +9,7 @@ import {
   curlFold,
   curlForwardProgress,
   curlSettleMs,
+  curlSpreadBackwardProgress,
   curlWindow,
   easeInOutCubic,
 } from './engines/curl-math'
@@ -137,5 +138,13 @@ describe('curl motion', () => {
     expect(curlWindow(5, 10)).toEqual([4, 5, 6, 7])
     expect(curlWindow(9, 10)).toEqual([8, 9])
     expect(curlWindow(5, 10, [6])).toEqual([4, 5, 6, 7, 8])
+  })
+})
+
+describe('curl spreads', () => {
+  test('a spread back-drag follows the finger across both pages', () => {
+    expect(curlSpreadBackwardProgress(100, 100, W)).toBe(1)
+    expect(curlSpreadBackwardProgress(100, 500, W)).toBeCloseTo(0.5, 6)
+    expect(curlSpreadBackwardProgress(100, 900, W)).toBe(0)
   })
 })

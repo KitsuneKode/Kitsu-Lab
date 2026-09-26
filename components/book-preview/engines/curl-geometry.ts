@@ -11,6 +11,12 @@ export const CURL_CLICK_SLOP_PX = 24
     flick should already be turning the page, not sitting in a dead zone. */
 export const CURL_TOUCH_SLOP_PX = 10
 export const CURL_STAGE_PAD_X = 24
+/** A spread is only worth showing if each leaf stays comfortably readable. */
+export const CURL_SPREAD_MIN_PAGE_WIDTH = 260
+/** …and if showing two pages barely shrinks them: a landscape laptop or
+    iPad, not a portrait phone where each leaf would be half as tall. */
+export const CURL_SPREAD_MIN_HEIGHT_SHARE = 0.85
+
 export type CurlPageSize = {
   width: number
   height: number
@@ -120,4 +126,44 @@ export function curlReleaseVelocity(
   }
   const dt = last.t - first.t
   return dt > 0 ? (last.x - first.x) / dt : 0
+}
+
+/**
+ * Whether the stage should show two facing pages. Only when both leaves stay
+ * readable and the pair is nearly as tall as a single page would be — the
+ * shape of the stage decides, so rotating a tablet flips between the two.
+ */
+export function curlUseSpread(
+  clientWidth: number,
+  clientHeight: number,
+  ratio: number = CURL_PAGE_RATIO,
+): boolean {
+  const single = curlPageSizeForStage(clientWidth, clientHeight, ratio, false)
+  const paired = curlPageSizeForStage(clientWidth, clientHeight, ratio, true)
+  return (
+    paired.width >= CURL_SPREAD_MIN_PAGE_WIDTH &&
+    paired.height >= single.height * CURL_SPREAD_MIN_HEIGHT_SHARE
+  )
+}
+
+/** First page of the spread holding `pageIndex` — spreads pair (1|2),
+    (3|4)… from the first page, like a document's two-page view. */
+export function curlSpreadStart(pageIndex: number): number {
+  return Math.max(0, pageIndex - (pageIndex % 2))
+}
+
+/** Where a next/previous turn lands: one page, or one whole spread. Null
+    when there is nothing that way. */
+export function curlStepTarget(
+  from: number,
+  direction: 1 | -1,
+  pageCount: number,
+  spread: boolean,
+): number | null {
+  if (!spread) {
+    const next = from + direction
+    return next >= 0 && next < pageCount ? next : null
+  }
+  const next = curlSpreadStart(from) + direction * 2
+  return next >= 0 && next < pageCount ? next : null
 }

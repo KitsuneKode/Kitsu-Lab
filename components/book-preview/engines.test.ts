@@ -19,6 +19,9 @@ import {
   CURL_COMMIT_VELOCITY,
   curlPageSizeForStage,
   quantizeCurlPageSize,
+  curlUseSpread,
+  curlSpreadStart,
+  curlStepTarget,
 } from './engines/curl-geometry'
 import { normalizeSource } from './normalize'
 import type { BookPreviewEngine } from './types'
@@ -416,5 +419,33 @@ describe('curl sheet ratio', () => {
     const size = curlPageSizeForStage(900, 700, landscape)
     expect(size.height / size.width).toBeCloseTo(landscape, 2)
     expect(size.height).toBeLessThanOrEqual(700)
+  })
+})
+
+describe('curl spreads', () => {
+  test('a landscape laptop stage shows two pages', () => {
+    expect(curlUseSpread(1400, 800)).toBe(true)
+  })
+
+  test('a portrait phone or tablet stays on one page', () => {
+    expect(curlUseSpread(390, 700)).toBe(false)
+    expect(curlUseSpread(820, 1100)).toBe(false)
+  })
+
+  test('spreads pair (1|2), (3|4)… from the first page', () => {
+    expect(curlSpreadStart(0)).toBe(0)
+    expect(curlSpreadStart(1)).toBe(0)
+    expect(curlSpreadStart(5)).toBe(4)
+  })
+
+  test('a turn moves a page, or a whole spread', () => {
+    expect(curlStepTarget(3, 1, 10, false)).toBe(4)
+    expect(curlStepTarget(3, 1, 10, true)).toBe(4)
+    expect(curlStepTarget(2, 1, 10, true)).toBe(4)
+    expect(curlStepTarget(3, -1, 10, true)).toBe(0)
+    expect(curlStepTarget(1, -1, 10, true)).toBeNull()
+    // A lone last page is still a spread to land on.
+    expect(curlStepTarget(7, 1, 9, true)).toBe(8)
+    expect(curlStepTarget(8, 1, 9, true)).toBeNull()
   })
 })

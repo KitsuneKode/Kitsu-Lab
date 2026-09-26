@@ -26,6 +26,7 @@ import { DEFAULT_CAPABILITIES } from '../capabilities'
 import { usePageArrival } from '../hooks/use-page-arrival'
 import { usePageGesture } from '../hooks/use-page-gesture'
 import { useStableHandler } from '../hooks/use-stable-handler'
+import { useBookPreview } from '../book-preview-provider'
 import { pageSearchText } from '../normalize'
 import { useFinePointer } from '../media'
 import type { BookPreviewEngineProps, BookPreviewPage } from '../types'
@@ -329,8 +330,10 @@ export default function SpreadEngine({
   const reportError = useStableHandler(onError)
 
   // Direction of travel for the enter animation.
+  // Keyed to the spread, not the page: stepping to the facing page changes
+  // nothing on screen and must not replay the arrival drift.
   const arrival = usePageArrival(
-    pageIndex,
+    viewMode === 'page' ? pageIndex : evenIndex,
     reducedMotion || navigationBehavior === 'instant',
   )
 
@@ -366,23 +369,43 @@ export default function SpreadEngine({
     })
   }, [finePointer, pages.length, reportError, reportReady, source.downloadUrl])
 
+  // Two pages on screen turn two at a time — a one-page step would land on
+  // the facing page, already visible, and every other swipe would look dead.
+  const stride = viewMode === 'spread' ? 2 : 1
+  const from = viewMode === 'spread' ? evenIndex : pageIndex
+  const prevTarget = from - stride >= 0 ? from - stride : null
+  const nextTarget = from + stride < pages.length ? from + stride : null
+  const { setPageStep } = useBookPreview()
+  useEffect(() => {
+    if (viewMode !== 'spread') return
+    const count = pages.length
+    setPageStep((at, direction) => {
+      const target = at - (at % 2) + direction * 2
+      return target >= 0 && target < count ? target : null
+    })
+    return () => setPageStep(null)
+  }, [pages.length, setPageStep, viewMode])
+
   const { surfaceRef } = usePageGesture({
     enabled: viewMode !== 'thumbs',
     reducedMotion,
-    canGoPrev: pageIndex > 0,
-    canGoNext: pageIndex < pages.length - 1,
+    canGoPrev: prevTarget !== null,
+    canGoNext: nextTarget !== null,
     onCommitPrev: () => {
+      if (prevTarget === null) return
       if (soundEnabled) playPageTurnSound()
-      onPageChange(Math.max(0, pageIndex - 1))
+      onPageChange(prevTarget)
     },
     onCommitNext: () => {
+      if (nextTarget === null) return
       if (soundEnabled) playPageTurnSound()
-      onPageChange(Math.min(pages.length - 1, pageIndex + 1))
+      onPageChange(nextTarget)
     },
   })
 
-  const stageKey =
-    viewMode === 'page' ? `p-${pageIndex}` : `s-${evenIndex}-${viewMode}`
+  // Keyed by view, not by page: a per-page key remounted the stage on every
+  // turn, re-decoding its images — a blank frame, a flash.
+  const stageKey = viewMode
 
   return (
     <div

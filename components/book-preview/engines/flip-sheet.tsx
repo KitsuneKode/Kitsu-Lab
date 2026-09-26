@@ -25,6 +25,7 @@ export function renderCurlLeaf(
     appearance: BookPreviewEngineProps['appearance']
   },
   index: number,
+  side: 'left' | 'right' = 'right',
 ): ReactNode {
   if (source.usePdf) {
     const sheet = source.sheets?.[index]
@@ -40,9 +41,9 @@ export function renderCurlLeaf(
       <BookPreviewPageView
         page={page}
         appearance={source.appearance}
-        // A single-leaf book is bound on the left: every leaf is a
-        // right-hand page, gutter shading on the spine side.
-        isLeftPage={false}
+        // Gutter shading sits on the spine side: a single-leaf book is bound
+        // on the left (every leaf a right-hand page); a spread says which.
+        isLeftPage={side === 'left'}
       />
     </FlipSheet>
   ) : null
@@ -54,7 +55,8 @@ export function curlLeaves(source: Parameters<typeof renderCurlLeaf>[0]) {
     pageCount: source.usePdf
       ? (source.sheets?.length ?? 0)
       : source.pages.length,
-    renderPage: (index: number) => renderCurlLeaf(source, index),
+    renderPage: (index: number, side: 'left' | 'right') =>
+      renderCurlLeaf(source, index, side),
     // Rasterized pages are white paper whatever the theme.
     leafBack: source.usePdf ? '#fff' : undefined,
   }

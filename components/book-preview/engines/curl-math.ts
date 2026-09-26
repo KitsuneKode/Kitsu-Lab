@@ -221,6 +221,19 @@ export function curlBackwardProgress(
   return 1 - unfolded
 }
 
+/**
+ * Progress of a backward drag across a spread. The turned leaf lies on the
+ * left page, so the finger holds its paper just as it does going forward:
+ * the corner travels exactly as far as the finger, across both pages.
+ */
+export function curlSpreadBackwardProgress(
+  startX: number,
+  x: number,
+  width: number,
+): number {
+  return clamp(1 - (x - startX) / (2 * Math.max(width, 1)), 0, 1)
+}
+
 /** Ease-out: already moving, settling. */
 export function easeOutCubic(t: number): number {
   const u = 1 - clamp(t, 0, 1)

@@ -55,6 +55,7 @@ import {
   type BookPreviewContextValue,
   type BookPreviewDrawState,
   type BookPreviewEngineShortcuts,
+  type BookPreviewPageStep,
 } from './book-preview-provider'
 import {
   describeEngineLoadFailure,
@@ -723,7 +724,9 @@ function useBookPreviewActions({
   onAppearanceChange,
   onSoundChange,
   onCapabilitiesChange,
+  pageStep,
 }: {
+  pageStep: BookPreviewPageStep | null
   modeControlled: boolean
   pageControlled: boolean
   appearanceControlled: boolean
@@ -756,14 +759,20 @@ function useBookPreviewActions({
     [onPageChange, pageControlled, totalPages, setNavigationBehavior, dispatch],
   )
 
-  const nextPage = useCallback(
-    () => goToPage(activePage + 1),
-    [activePage, goToPage],
+  // A view that shows two pages turns a whole spread; at an end, nothing.
+  const stepPage = useCallback(
+    (direction: 1 | -1, behavior?: BookPreviewNavigationBehavior) => {
+      if (!pageStep) {
+        goToPage(activePage + direction, behavior)
+        return
+      }
+      const target = pageStep(activePage, direction)
+      if (target !== null) goToPage(target, behavior)
+    },
+    [activePage, goToPage, pageStep],
   )
-  const prevPage = useCallback(
-    () => goToPage(activePage - 1),
-    [activePage, goToPage],
-  )
+  const nextPage = useCallback(() => stepPage(1), [stepPage])
+  const prevPage = useCallback(() => stepPage(-1), [stepPage])
 
   const setAppearance = useCallback(
     (next: BookPreviewAppearance) => {
@@ -807,6 +816,7 @@ function useBookPreviewActions({
   return {
     setMode,
     goToPage,
+    stepPage,
     nextPage,
     prevPage,
     setAppearance,
@@ -1053,9 +1063,17 @@ export function BookPreview({
   const activeEngine = activeResolution.engine
   const effectiveMode = activeEngine?.id ?? activeMode
 
+  const [pageStep, setPageStepState] = useState<BookPreviewPageStep | null>(
+    null,
+  )
+  const setPageStep = useCallback(
+    (step: BookPreviewPageStep | null) => setPageStepState(() => step),
+    [],
+  )
   const {
     setMode,
     goToPage,
+    stepPage,
     nextPage,
     prevPage,
     setAppearance,
@@ -1064,6 +1082,7 @@ export function BookPreview({
     handleEngineReady,
     handleEngineError,
   } = useBookPreviewActions({
+    pageStep,
     modeControlled,
     pageControlled,
     appearanceControlled,
@@ -1256,15 +1275,15 @@ export function BookPreview({
       const shortcuts = engineShortcutsRef.current
       if (event.key === 'ArrowRight' || event.key === 'PageDown') {
         event.preventDefault()
-        goToPage(activePage + 1, 'instant')
+        stepPage(1, 'instant')
       }
       if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
         event.preventDefault()
-        goToPage(activePage - 1, 'instant')
+        stepPage(-1, 'instant')
       }
       if (event.key === ' ') {
         event.preventDefault()
-        goToPage(activePage + (event.shiftKey ? -1 : 1), 'instant')
+        stepPage(event.shiftKey ? -1 : 1, 'instant')
       }
       if (event.key === 'Home') {
         event.preventDefault()
@@ -1390,6 +1409,7 @@ export function BookPreview({
       }
     },
     [
+      stepPage,
       activePage,
       cssImmersive,
       goToPage,
@@ -1517,8 +1537,10 @@ export function BookPreview({
       reducedTransparency,
       moreContrast,
       finePointer,
-      canGoPrev: activePage > 0,
-      canGoNext: activePage < state.totalPages - 1,
+      canGoPrev: pageStep ? pageStep(activePage, -1) !== null : activePage > 0,
+      canGoNext: pageStep
+        ? pageStep(activePage, 1) !== null
+        : activePage < state.totalPages - 1,
       setMode,
       goToPage,
       nextPage,
@@ -1531,6 +1553,7 @@ export function BookPreview({
       prefetchMode,
       uploadPdf,
       engineShortcutsRef,
+      setPageStep,
       toggleFullscreen,
       fullscreen,
       chrome,
@@ -1576,6 +1599,8 @@ export function BookPreview({
       setCompanionTab,
       updateAnnotations,
       effectiveMode,
+      setPageStep,
+      pageStep,
       activePage,
       activeSound,
       finePointer,

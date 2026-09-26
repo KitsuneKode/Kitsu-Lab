@@ -183,6 +183,10 @@ export function BookPreviewAnnotationLayer() {
       subtree: true,
       childList: true,
       characterData: true,
+      // Flat views reuse a face's element across turns (no remount flash):
+      // the page it shows changes by attribute alone.
+      attributes: true,
+      attributeFilter: ['data-page-index'],
     })
     return () => {
       observer.disconnect()

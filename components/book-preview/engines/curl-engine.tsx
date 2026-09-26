@@ -45,7 +45,9 @@ export default function CurlEngine({
     sizing: 'uniform',
     // The book mounts only the leaves around the reading position, so
     // rasters stay bounded however long the document is.
-    windowRadius: 3,
+    // A spread turn reveals up to three pages past the left one; one more
+    // keeps the spread after that already painted.
+    windowRadius: 4,
     onError: reportError,
     errorMessage: 'This PDF could not be opened for curl.',
   })

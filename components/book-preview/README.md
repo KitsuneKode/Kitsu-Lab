@@ -182,7 +182,9 @@ When pages use custom `render` functions, pass `source.revision` and change it w
 - WebGL pauses when the document is hidden or the reader is offscreen and releases renderer, textures, geometry, and context on teardown.
 - Reduced-motion disables travel, shadows, page-corner flourishes, and continuous WebGL animation.
 
-The curl book is single-leaf, bound on the left; the spread engine and premier's two-page view provide facing-page reading.
+The curl book opens as a two-page spread when the stage is wide enough that two pages are nearly as tall as one (landscape laptops and tablets), and as a single page bound on the left otherwise — rotating a tablet switches between them without losing your place. A spread's right leaf turns over the spine carrying the next left page on its back; turning back is the same fold in reverse. Every two-page view (curl, premier, spread) pairs pages document-style, 1–2, 3–4…, with only a final odd page standing alone (beside a blank endpaper in the curl book), and arrow keys, Space and the pager turn a whole spread.
+
+Page turns in the flat views never fade: a page drifts the last few pixels into place, while faces keep their element across turns so the browser holds the old bitmap until the new one decodes — no blank or dark frame between pages.
 
 Validate the registry before publishing:
 

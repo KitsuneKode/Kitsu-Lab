@@ -36,6 +36,13 @@ export type BookPreviewEngineShortcuts = {
   pageText?: (pageIndex: number) => string
 }
 
+/** Where a next/previous turn lands from `from`: views that show two pages
+    turn a whole spread. Null means there is nothing that way. */
+export type BookPreviewPageStep = (
+  from: number,
+  direction: 1 | -1,
+) => number | null
+
 export type BookPreviewCompanionTab = 'notes' | 'ask'
 
 /** What the Ask tab opens with — the passage and, optionally, a question. */
@@ -76,6 +83,10 @@ export type BookPreviewContextValue = {
       object URL so every engine can read the document. */
   uploadPdf: (file: File) => void
   engineShortcutsRef: RefObject<BookPreviewEngineShortcuts>
+  /** Registered by a view that pages by spreads (the curl book, premier's
+      two-page view) so arrows, the pager and Space turn a spread, not half
+      of one — and Previous/Next disable at the true ends. */
+  setPageStep: (step: BookPreviewPageStep | null) => void
   toggleFullscreen: () => void
   fullscreen: boolean
   /** Fullscreen chrome: hidden while reading, optionally pinned up. */

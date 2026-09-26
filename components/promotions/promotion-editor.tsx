@@ -17,16 +17,17 @@ import {
   COUNTDOWN_MAX_DAYS,
   CTA_LABEL_MAX,
   EYEBROW_MAX,
+  HOLDOUT_MAX,
   PROMOTION_PLACEMENTS,
   PROMOTION_TONES,
   TITLE_MAX,
+  VARIANTS_MAX,
   deliveryState,
   describeSchedule,
   fromZonedInput,
   parsePromotion,
   reviewPromotion,
   targetsRoute,
-  toZonedInput,
   type DialogPresentation,
   type Promotion,
   type PromotionContent,
@@ -35,6 +36,15 @@ import {
   type PromotionPlacement,
   type PromotionTone,
 } from './promotion'
+import {
+  HAS_FREQUENCY,
+  OPENS_ON_EVENT,
+  initialDraft,
+  names,
+  toInput,
+  type Draft,
+  type DraftVariant,
+} from './promotion-editor-draft'
 import {
   PromoBarView,
   PromoCardView,
@@ -68,34 +78,14 @@ export type PromotionEditorProps = {
   submitLabel?: string
   onSubmit: (content: PromotionContent) => void | Promise<void>
   onCancel?: () => void
+  /**
+   * Segment names your site passes to the provider (`member`, `plan:pro`),
+   * suggested in the audience fields. `new` and `returning` are built in.
+   */
+  segments?: readonly string[]
   /** Server-side errors to show against fields, e.g. after a failed save. */
   errors?: Partial<Record<PromotionField, string>>
   className?: string
-}
-
-type Draft = {
-  placement: PromotionPlacement
-  slot: string
-  eyebrow: string
-  title: string
-  body: string
-  tone: PromotionTone
-  ctaLabel: string
-  ctaHref: string
-  code: string
-  mediaSrc: string
-  mediaAlt: string
-  mediaWidth: number
-  mediaHeight: number
-  include: string[]
-  exclude: string[]
-  startsAt: string
-  endsAt: string
-  priority: number
-  dismissMode: 'session' | 'days' | 'never-again'
-  dismissDays: number
-  showCountdown: boolean
-  presentation: DialogPresentation
 }
 
 const PLACEMENT_LABELS: Record<PromotionPlacement, string> = {
@@ -132,98 +122,6 @@ const STATE_LABELS = {
   live: 'Live',
   ended: 'Ended',
 } as const
-
-/** Builds the form draft from an existing record, showing its dates in the editor time zone. */
-function initialDraft(
-  initial: Partial<PromotionContent> = {},
-  now: number,
-  timeZone: string | undefined,
-): Draft {
-  const startsAt = initial.startsAt ?? Math.ceil(now / HOUR) * HOUR
-  const endsAt = initial.endsAt ?? startsAt + 7 * DAY
-  return {
-    placement: initial.placement ?? 'bar',
-    slot: initial.slot ?? 'default',
-    eyebrow: initial.eyebrow ?? '',
-    title: initial.title ?? '',
-    body: initial.body ?? '',
-    tone: initial.tone ?? 'neutral',
-    ctaLabel: initial.cta?.label ?? '',
-    ctaHref: initial.cta?.href ?? '',
-    code: initial.code ?? '',
-    mediaSrc: initial.media?.src ?? '',
-    mediaAlt: initial.media?.alt ?? '',
-    mediaWidth: initial.media?.width ?? 1600,
-    mediaHeight: initial.media?.height ?? 900,
-    include: initial.include ?? [],
-    exclude: initial.exclude ?? [],
-    startsAt: toZonedInput(startsAt, timeZone),
-    endsAt: toZonedInput(endsAt, timeZone),
-    priority: initial.priority ?? 50,
-    dismissMode: initial.dismiss?.mode ?? 'days',
-    dismissDays: initial.dismiss?.mode === 'days' ? initial.dismiss.days : 7,
-    showCountdown: initial.showCountdown ?? false,
-    presentation: initial.presentation ?? 'center',
-  }
-}
-
-/**
- * Fields the form does not show (yet) are carried over from `initial`, so
- * saving an existing promotion never silently drops its gallery,
- * translations, frequency, campaign or dismissal scope.
- */
-function toInput(
-  draft: Draft,
-  timeZone: string | undefined,
-  initial: Partial<PromotionContent> = {},
-) {
-  const hasCta = draft.ctaLabel.trim() !== '' || draft.ctaHref.trim() !== ''
-  const hasMedia = draft.mediaSrc.trim() !== '' || draft.mediaAlt.trim() !== ''
-  return {
-    placement: draft.placement,
-    slot:
-      draft.placement === 'card' || draft.placement === 'spotlight'
-        ? draft.slot
-        : undefined,
-    presentation: draft.placement === 'dialog' ? draft.presentation : undefined,
-    eyebrow: draft.eyebrow,
-    title: draft.title,
-    body: draft.body,
-    tone: draft.tone,
-    cta: hasCta ? { label: draft.ctaLabel, href: draft.ctaHref } : undefined,
-    code: draft.code,
-    media: hasMedia
-      ? {
-          src: draft.mediaSrc.trim(),
-          alt: draft.mediaAlt,
-          width: draft.mediaWidth,
-          height: draft.mediaHeight,
-        }
-      : undefined,
-    include: draft.include,
-    exclude: draft.exclude,
-    startsAt: fromZonedInput(draft.startsAt, timeZone),
-    endsAt: fromZonedInput(draft.endsAt, timeZone),
-    priority: draft.priority,
-    dismiss: {
-      ...(draft.dismissMode === 'days'
-        ? { mode: 'days', days: draft.dismissDays }
-        : { mode: draft.dismissMode }),
-      ...(initial.dismiss?.scope ? { scope: initial.dismiss.scope } : {}),
-    },
-    showCountdown: draft.showCountdown,
-    gallery: initial.gallery,
-    translations: initial.translations,
-    revealCode: initial.revealCode,
-    frequency: initial.frequency,
-    campaign: initial.campaign,
-    // Kept only where they can apply, so switching to a bar never trips an
-    // error on a field this form does not show.
-    triggers: ['toast', 'dialog', 'sheet'].includes(draft.placement)
-      ? initial.triggers
-      : undefined,
-  }
-}
 
 /** Label, control, hint and error laid out together, with the ids wired for assistive tech. */
 function Field({
@@ -362,6 +260,7 @@ export function PromotionEditor({
   submitLabel = 'Save',
   onSubmit,
   onCancel,
+  segments,
   errors: serverErrors,
   className,
 }: PromotionEditorProps) {
@@ -384,6 +283,13 @@ export function PromotionEditor({
   )
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((previous) => ({ ...previous, [key]: value }))
+  const setVariant = (index: number, patch: Partial<DraftVariant>) =>
+    setDraft((previous) => ({
+      ...previous,
+      variants: previous.variants.map((variant, i) =>
+        i === index ? { ...variant, ...patch } : variant,
+      ),
+    }))
 
   const parseOptions = React.useMemo<PromotionParseOptions>(
     () => ({
@@ -930,6 +836,349 @@ export function PromotionEditor({
           />
           Show “Ends in …” during the last {COUNTDOWN_MAX_DAYS} days
         </label>
+
+        <details
+          className="border-border group rounded-xl border px-4 py-3"
+          open={Boolean(
+            draft.campaign ||
+            draft.triggers ||
+            draft.audienceInclude ||
+            draft.audienceExclude ||
+            draft.frequencyHours ||
+            draft.dismissScope,
+          )}
+        >
+          <summary className="flex cursor-pointer items-center justify-between text-sm font-medium marker:content-none">
+            Who and when
+            <span
+              aria-hidden
+              className="text-muted-foreground transition-transform duration-200 ease-out group-open:rotate-45 motion-reduce:transition-none"
+            >
+              +
+            </span>
+          </summary>
+          <div className="mt-4 flex flex-col gap-6">
+            <Field
+              id={id('campaign')}
+              label="Campaign (optional)"
+              hint="Promotions in one campaign never repeat each other, and one purchase stops them all."
+            >
+              <Input
+                id={id('campaign')}
+                value={draft.campaign}
+                placeholder="spring-sale"
+                spellCheck={false}
+                onChange={(e) => set('campaign', e.target.value)}
+              />
+            </Field>
+
+            <div className="grid gap-6 sm:grid-cols-2">
+              <Field
+                id={id('audience')}
+                label="Only for (optional)"
+                error={errors.audience}
+                hint={`Segment names, comma separated. Built in: new, returning${segments?.length ? `. Yours: ${segments.join(', ')}` : ''}.`}
+              >
+                <Input
+                  id={id('audience')}
+                  value={draft.audienceInclude}
+                  placeholder="returning, member"
+                  spellCheck={false}
+                  aria-invalid={Boolean(errors.audience) || undefined}
+                  aria-describedby={describedBy('audience')}
+                  onBlur={leave('audience')}
+                  onChange={(e) => set('audienceInclude', e.target.value)}
+                />
+              </Field>
+              <Field
+                id={id('audience-exclude')}
+                label="Never for (optional)"
+                hint="Wins over “Only for”."
+              >
+                <Input
+                  id={id('audience-exclude')}
+                  value={draft.audienceExclude}
+                  placeholder="member"
+                  spellCheck={false}
+                  onBlur={leave('audience')}
+                  onChange={(e) => set('audienceExclude', e.target.value)}
+                />
+              </Field>
+            </div>
+
+            {OPENS_ON_EVENT.has(draft.placement) ? (
+              <Field
+                id={id('triggers')}
+                label="Opens on an event (optional)"
+                error={errors.triggers}
+                hint={
+                  <>
+                    Leave empty to open by itself. With a name, it opens only
+                    when your code calls{' '}
+                    <code className="font-mono">
+                      trigger('{names(draft.triggers)[0] ?? 'upgrade-intent'}')
+                    </code>
+                    , e.g. when someone clicks Upgrade.
+                  </>
+                }
+              >
+                <Input
+                  id={id('triggers')}
+                  value={draft.triggers}
+                  placeholder="upgrade-intent"
+                  spellCheck={false}
+                  className="font-mono"
+                  aria-invalid={Boolean(errors.triggers) || undefined}
+                  aria-describedby={describedBy('triggers')}
+                  onBlur={leave('triggers')}
+                  onChange={(e) => set('triggers', e.target.value)}
+                />
+              </Field>
+            ) : null}
+
+            <div className="grid gap-6 sm:grid-cols-2">
+              {HAS_FREQUENCY.has(draft.placement) ? (
+                <Field
+                  id={id('frequency')}
+                  label="Show at most every (hours)"
+                  error={errors.frequency}
+                  hint="Empty or 0 uses the default, once a day."
+                >
+                  <Input
+                    id={id('frequency')}
+                    type="number"
+                    min={0}
+                    max={24 * 90}
+                    value={draft.frequencyHours || ''}
+                    placeholder="24"
+                    aria-invalid={Boolean(errors.frequency) || undefined}
+                    aria-describedby={describedBy('frequency')}
+                    onBlur={leave('frequency')}
+                    onChange={(e) =>
+                      set('frequencyHours', Number(e.target.value) || 0)
+                    }
+                  />
+                </Field>
+              ) : null}
+              <Field
+                id={id('scope')}
+                label="Remember dismissals in"
+                hint="Account follows a signed-in visitor across devices."
+              >
+                <select
+                  id={id('scope')}
+                  value={draft.dismissScope}
+                  onChange={(e) =>
+                    set('dismissScope', e.target.value as Draft['dismissScope'])
+                  }
+                  className="border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 h-8 w-full rounded-lg border bg-transparent px-2 text-sm outline-none focus-visible:ring-3"
+                >
+                  <option value="">This browser</option>
+                  <option value="tab">This tab only</option>
+                  <option value="cookie">A cookie (server can read it)</option>
+                  <option value="account">The visitor’s account</option>
+                </select>
+              </Field>
+            </div>
+
+            {draft.code.trim() ? (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="accent-primary size-4"
+                  checked={draft.revealCode}
+                  onChange={(e) => set('revealCode', e.target.checked)}
+                />
+                Hide the code until the visitor taps Reveal
+              </label>
+            ) : null}
+          </div>
+        </details>
+
+        <details
+          className="border-border group rounded-xl border px-4 py-3"
+          open={draft.variants.length > 0 || draft.holdout > 0}
+        >
+          <summary className="flex cursor-pointer items-center justify-between text-sm font-medium marker:content-none">
+            A/B test
+            <span
+              aria-hidden
+              className="text-muted-foreground transition-transform duration-200 ease-out group-open:rotate-45 motion-reduce:transition-none"
+            >
+              +
+            </span>
+          </summary>
+          <div
+            id={id('variants')}
+            className="mt-4 flex flex-col gap-4"
+            aria-describedby={describedBy('variants')}
+          >
+            <p className="text-muted-foreground text-xs">
+              Each visitor sees one version, the same one every time. Events say
+              which, so you can compare conversions. Empty fields keep the
+              original copy.
+            </p>
+            {draft.variants.length ? (
+              <Field
+                id={id('control-weight')}
+                label="Original copy: share of visitors"
+                hint="Relative to the variants’ shares."
+              >
+                <Input
+                  id={id('control-weight')}
+                  type="number"
+                  min={1}
+                  max={100}
+                  className="w-24"
+                  value={draft.controlWeight}
+                  onChange={(e) =>
+                    set(
+                      'controlWeight',
+                      Math.max(1, Number(e.target.value) || 1),
+                    )
+                  }
+                />
+              </Field>
+            ) : null}
+            {draft.variants.map((variant, index) => (
+              <fieldset
+                key={variant.key}
+                className="border-border grid gap-4 rounded-lg border p-3 sm:grid-cols-2"
+              >
+                <legend className="px-1 text-xs font-medium">
+                  Variant {index + 1}
+                </legend>
+                <Field id={id(`variant-${index}-id`)} label="Name">
+                  <Input
+                    id={id(`variant-${index}-id`)}
+                    value={variant.id}
+                    spellCheck={false}
+                    className="font-mono"
+                    onBlur={leave('variants')}
+                    onChange={(e) => setVariant(index, { id: e.target.value })}
+                  />
+                </Field>
+                <Field id={id(`variant-${index}-weight`)} label="Share">
+                  <Input
+                    id={id(`variant-${index}-weight`)}
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={variant.weight}
+                    onChange={(e) =>
+                      setVariant(index, {
+                        weight: Math.max(1, Number(e.target.value) || 1),
+                      })
+                    }
+                  />
+                </Field>
+                <Field id={id(`variant-${index}-title`)} label="Title">
+                  <Input
+                    id={id(`variant-${index}-title`)}
+                    value={variant.title}
+                    placeholder={draft.title}
+                    maxLength={TITLE_MAX}
+                    onBlur={leave('variants')}
+                    onChange={(e) =>
+                      setVariant(index, { title: e.target.value })
+                    }
+                  />
+                </Field>
+                <Field id={id(`variant-${index}-cta`)} label="Button text">
+                  <Input
+                    id={id(`variant-${index}-cta`)}
+                    value={variant.ctaLabel}
+                    placeholder={draft.ctaLabel}
+                    maxLength={CTA_LABEL_MAX}
+                    onBlur={leave('variants')}
+                    onChange={(e) =>
+                      setVariant(index, { ctaLabel: e.target.value })
+                    }
+                  />
+                </Field>
+                <div className="sm:col-span-2">
+                  <Field id={id(`variant-${index}-body`)} label="Message">
+                    <Textarea
+                      id={id(`variant-${index}-body`)}
+                      value={variant.body}
+                      placeholder={draft.body}
+                      maxLength={BODY_MAX}
+                      rows={2}
+                      onBlur={leave('variants')}
+                      onChange={(e) =>
+                        setVariant(index, { body: e.target.value })
+                      }
+                    />
+                  </Field>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="justify-self-start"
+                  onClick={() =>
+                    set(
+                      'variants',
+                      draft.variants.filter((_, i) => i !== index),
+                    )
+                  }
+                >
+                  Remove variant {index + 1}
+                </Button>
+              </fieldset>
+            ))}
+            {errors.variants ? (
+              <p
+                id={`${id('variants')}-error`}
+                role="alert"
+                className="text-destructive text-xs"
+              >
+                {errors.variants}
+              </p>
+            ) : null}
+            {draft.variants.length < VARIANTS_MAX - 1 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="self-start"
+                onClick={() =>
+                  set('variants', [
+                    ...draft.variants,
+                    {
+                      key: `added-${Date.now()}`,
+                      id: `v${draft.variants.length + 2}`,
+                      title: '',
+                      body: '',
+                      ctaLabel: '',
+                      weight: 1,
+                    },
+                  ])
+                }
+              >
+                Add a variant
+              </Button>
+            ) : null}
+            <Field
+              id={id('holdout')}
+              label={`Hold out · ${draft.holdout}%`}
+              error={errors.holdout}
+              hint="This share of visitors never sees it, so you can measure whether it helps at all."
+            >
+              <Slider
+                id={id('holdout')}
+                className="w-full"
+                min={0}
+                max={HOLDOUT_MAX}
+                step={5}
+                value={[draft.holdout]}
+                onValueChange={(value) =>
+                  set('holdout', Array.isArray(value) ? (value[0] ?? 0) : value)
+                }
+              />
+            </Field>
+          </div>
+        </details>
 
         {formError ? (
           <p

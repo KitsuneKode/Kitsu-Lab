@@ -180,6 +180,10 @@
         {
           "path": "components/promotions/promotion-editor.tsx",
           "type": "registry:component"
+        },
+        {
+          "path": "components/promotions/promotion-editor-draft.ts",
+          "type": "registry:lib"
         }
       ],
       "docs": "Requires Base UI primitives (a base-* shadcn project): ToggleGroup and Slider use array values. Pass `timeZone` so dates are entered in the campaign's zone, not the reviewer's."

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { track } from '@vercel/analytics/react'
 import {
   IconArrowsMaximize,
   IconCheck,
@@ -523,13 +524,18 @@ export function PromotionsDemo() {
     () => base + offsetHours * HOUR,
     [base, offsetHours],
   )
-  const onEvent = React.useCallback(
-    (event: PromotionEvent) =>
-      setEvents((previous) =>
-        [{ ...event, seq: ++seq.current }, ...previous].slice(0, 12),
-      ),
-    [],
-  )
+  const onEvent = React.useCallback((event: PromotionEvent) => {
+    setEvents((previous) =>
+      [{ ...event, seq: ++seq.current }, ...previous].slice(0, 12),
+    )
+    track(`promo_${event.type}`, {
+      id: event.id,
+      placement: event.placement,
+      campaign: event.campaign ?? null,
+      variant: event.variant ?? null,
+      pathname: event.pathname,
+    })
+  }, [])
   const navigate = React.useCallback(
     (href: string) => {
       setPathname(href)

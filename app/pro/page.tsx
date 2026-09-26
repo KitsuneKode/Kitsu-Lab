@@ -4,8 +4,8 @@ import type { Metadata } from 'next'
 import { cn } from '@/lib/utils'
 import { SITE_NAME, SITE_URL } from '@/lib/site'
 import { PRO_PLANS } from '@/lib/pro-plans'
-import { buttonVariants } from '@/components/ui/button-variants'
 import { CheckoutNotice } from '@/components/pro/checkout-notice'
+import { CheckoutForm } from '@/components/pro/checkout-form'
 
 export const metadata: Metadata = {
   title: 'Kitsu Pro',
@@ -140,22 +140,12 @@ export default function ProPage() {
                   </li>
                 ))}
               </ul>
-              <form action="/api/checkout" method="post">
-                <input type="hidden" name="plan" value={plan.id} />
-                <button
-                  type="submit"
-                  disabled={!plan.available}
-                  className={cn(
-                    buttonVariants({
-                      variant: plan.highlight ? 'default' : 'outline',
-                      size: 'lg',
-                    }),
-                    'w-full',
-                  )}
-                >
-                  {plan.available ? `Get ${plan.name}` : 'Opening soon'}
-                </button>
-              </form>
+              <CheckoutForm
+                id={plan.id}
+                name={plan.name}
+                available={plan.available}
+                highlight={plan.highlight}
+              />
             </article>
           ))}
         </section>

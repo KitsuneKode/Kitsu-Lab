@@ -108,6 +108,12 @@ function isPdfFile(file: File): boolean {
   )
 }
 
+/** An opened file is held in memory as an object URL and decoded by
+    pdf.js — a cap keeps a drop (or a stray huge pick) from paging the tab
+    to death. 100 MB covers real books; bigger files belong in a viewer
+    with a byte-range backend anyway. */
+const MAX_PDF_UPLOAD_BYTES = 100 * 1024 * 1024
+
 function eventHasFiles(event: DragEvent<HTMLElement>): boolean {
   return Array.from(event.dataTransfer.types).includes('Files')
 }
@@ -680,6 +686,16 @@ function useUploadedPdf({
         })
         return
       }
+      if (file.size > MAX_PDF_UPLOAD_BYTES) {
+        dispatch({
+          type: 'engine-error',
+          error: {
+            kind: 'upload',
+            message: 'That PDF is over 100 MB — too large to open here.',
+          },
+        })
+        return
+      }
       setUpload({
         url: URL.createObjectURL(file),
         name: file.name,
@@ -909,7 +925,9 @@ export function BookPreview({
   const propSource = useMemo(() => normalizeSource(source), [source])
   const urlKeys = resolveUrlKeys(urlState, pageParamProp)
   const pageParam = urlKeys.page
-  const propSourceKey = sourceIdentity(propSource)
+  // sourceIdentity serializes and hashes the whole source — it must be
+  // memoized, or every render (each page turn included) re-reads the book.
+  const propSourceKey = useMemo(() => sourceIdentity(propSource), [propSource])
   const enabledEngines = useMemo(
     () => resolveEnabledEngines(engines, enabledModes),
     [engines, enabledModes],
@@ -970,14 +988,21 @@ export function BookPreview({
         : propSource,
     [propSource, upload],
   )
-  const sourceKey = sourceIdentity(normalized)
+  const sourceKey = useMemo(() => sourceIdentity(normalized), [normalized])
   // What the reader remembers (position, highlights, ink) is keyed by the
   // document, not the session: an upload's blob: URL is new every time, so
   // uploads are identified by file fingerprint instead. Re-opening the same
   // file brings its notebook back.
-  const storageKey = upload
-    ? sourceIdentity({ ...normalized, pdfUrl: `upload:${upload.fingerprint}` })
-    : sourceKey
+  const storageKey = useMemo(
+    () =>
+      upload
+        ? sourceIdentity({
+            ...normalized,
+            pdfUrl: `upload:${upload.fingerprint}`,
+          })
+        : sourceKey,
+    [upload, normalized, sourceKey],
+  )
 
   const reducedMotion = usePrefersReducedMotion()
   const reducedTransparency = usePrefersReducedTransparency()

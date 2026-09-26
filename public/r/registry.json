@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
   "name": "kitsu-lab",
-  "homepage": "https://kitsulab.vercel.app",
+  "homepage": "https://lab.kitsunelabs.xyz",
   "items": [
     {
       "name": "book-preview",
@@ -250,7 +250,7 @@
       ],
       "dependencies": ["pdfjs-dist"],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview.json",
+        "https://lab.kitsunelabs.xyz/r/book-preview.json",
         "badge",
         "spinner",
         "button",
@@ -294,7 +294,7 @@
         }
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview-pdf.json"
+        "https://lab.kitsunelabs.xyz/r/book-preview-pdf.json"
       ]
     },
     {
@@ -313,7 +313,7 @@
         }
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview-curl.json",
+        "https://lab.kitsunelabs.xyz/r/book-preview-curl.json",
         "input"
       ]
     },
@@ -345,7 +345,7 @@
         }
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview-curl.json",
+        "https://lab.kitsunelabs.xyz/r/book-preview-curl.json",
         "input"
       ]
     },
@@ -365,7 +365,7 @@
         }
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview-pdf.json"
+        "https://lab.kitsunelabs.xyz/r/book-preview-pdf.json"
       ]
     },
     {
@@ -384,7 +384,7 @@
         }
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview.json",
+        "https://lab.kitsunelabs.xyz/r/book-preview.json",
         "input",
         "toggle-group"
       ]
@@ -415,7 +415,7 @@
         "maath"
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview.json"
+        "https://lab.kitsunelabs.xyz/r/book-preview.json"
       ]
     },
     {
@@ -430,13 +430,13 @@
         }
       ],
       "registryDependencies": [
-        "https://kitsulab.vercel.app/r/book-preview-pdf.json",
-        "https://kitsulab.vercel.app/r/book-preview-curl.json",
-        "https://kitsulab.vercel.app/r/book-preview-archival-curl.json",
-        "https://kitsulab.vercel.app/r/book-preview-premier.json",
-        "https://kitsulab.vercel.app/r/book-preview-scroll.json",
-        "https://kitsulab.vercel.app/r/book-preview-spread.json",
-        "https://kitsulab.vercel.app/r/book-preview-webgl.json"
+        "https://lab.kitsunelabs.xyz/r/book-preview-pdf.json",
+        "https://lab.kitsunelabs.xyz/r/book-preview-curl.json",
+        "https://lab.kitsunelabs.xyz/r/book-preview-archival-curl.json",
+        "https://lab.kitsunelabs.xyz/r/book-preview-premier.json",
+        "https://lab.kitsunelabs.xyz/r/book-preview-scroll.json",
+        "https://lab.kitsunelabs.xyz/r/book-preview-spread.json",
+        "https://lab.kitsunelabs.xyz/r/book-preview-webgl.json"
       ]
     },
     {

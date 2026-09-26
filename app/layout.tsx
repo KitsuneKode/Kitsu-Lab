@@ -7,6 +7,7 @@ import { Analytics } from '@vercel/analytics/next'
 
 const orbitron = Orbitron({
   subsets: ['latin'],
+  weight: '700',
   variable: '--font-orbitron',
   display: 'swap',
 })
@@ -23,17 +24,18 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 })
 
+const DESCRIPTION =
+  'A registry of animated, accessible components and a book reader engine for shadcn/ui — by kitsunekode.'
+
 export const metadata: Metadata = {
-  metadataBase: new URL('https://kitsulab.vercel.app'),
+  metadataBase: new URL('https://lab.kitsunelabs.xyz'),
   title: 'Kitsu Lab',
-  description:
-    'The destination for all your component. This website shows all the trial components by kitsunekode',
+  description: DESCRIPTION,
 
   twitter: {
     card: 'summary_large_image',
     title: 'Kitsu Lab',
-    description:
-      'The destination for all your component. This website shows all the trial components by kitsunekode',
+    description: DESCRIPTION,
     site: '@kitsunekode',
   },
 }

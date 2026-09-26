@@ -7,7 +7,18 @@ import { Button } from '@/components/ui/button'
 import { usePromotions } from './promotion-provider'
 
 const RING_STYLE_ID = 'promo-spotlight-ring'
-const noopSubscribe = () => () => {}
+/**
+ * Notifies on DOM insertions and removals anywhere in the page, so anchor
+ * presence is re-read even when the anchor mounts in another subtree that
+ * never re-renders the spotlight. Refs are attached in the same commit that
+ * inserts the node, before the observer's callback runs.
+ */
+function subscribeDom(onChange: () => void) {
+  if (typeof MutationObserver === 'undefined') return () => {}
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.body, { childList: true, subtree: true })
+  return () => observer.disconnect()
+}
 
 /** One tiny stylesheet for the halo, so the host element needs no classes. */
 function ensureRingStyle() {
@@ -67,11 +78,11 @@ export function PromoSpotlight({
   const mine =
     spotlight && (spotlight.slot ?? 'default') === name ? spotlight : null
 
-  // The ref object never changes, so read the element as a snapshot: React
-  // re-checks it after each commit, so an anchor that mounts later (after
-  // data loads) still registers.
+  // The ref object never changes, so read the element as a snapshot,
+  // re-checked after this component commits and whenever the page's DOM
+  // changes: an anchor that mounts later, anywhere, still registers.
   const present = React.useSyncExternalStore(
-    noopSubscribe,
+    subscribeDom,
     () => anchor.current !== null,
     () => false,
   )

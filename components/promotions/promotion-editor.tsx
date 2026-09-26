@@ -98,6 +98,15 @@ const PLACEMENT_LABELS: Record<PromotionPlacement, string> = {
   dialog: 'Dialog',
 }
 
+/** Shown under the preview when the surface renders an approximation. */
+const PREVIEW_NOTE: Partial<Record<PromotionPlacement, string>> = {
+  side: 'Approximate preview — the card docks in the page margin on wide screens and peeks from the edge on phones.',
+  sheet:
+    'Approximate preview — the sheet waits behind a tab on the screen edge and opens only when asked.',
+  spotlight:
+    'Approximate preview — the spotlight anchors to a slot on the page and points at it.',
+}
+
 const PLACEMENT_HINTS: Record<PromotionPlacement, string> = {
   bar: 'A strip above the header. Quiet, seen by everyone.',
   card: 'Sits inside a page slot you name. Never interrupts.',
@@ -359,6 +368,9 @@ export function PromotionEditor({
   const scrubMin = startsAt - DAY
   const scrubMax = endsAt + DAY
   const [previewAt, setPreviewAt] = React.useState<number | null>(null)
+  const [previewDevice, setPreviewDevice] = React.useState<'desktop' | 'phone'>(
+    'desktop',
+  )
   const previewNow = Math.min(
     scrubMax,
     Math.max(scrubMin, previewAt ?? Math.max(mountedAt, startsAt)),
@@ -1216,7 +1228,7 @@ export function PromotionEditor({
               {!onRoute ? ' · not on this page' : ''}
             </Badge>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
             <div className="flex flex-col gap-1.5">
               <Label
                 htmlFor={id('preview-route')}
@@ -1229,6 +1241,27 @@ export function PromotionEditor({
                 value={previewRoute}
                 onChange={(e) => setPreviewRoute(e.target.value || '/')}
               />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span
+                className="text-muted-foreground text-xs font-medium"
+                id={id('preview-size')}
+              >
+                Size
+              </span>
+              <ToggleGroup
+                aria-labelledby={id('preview-size')}
+                value={[previewDevice]}
+                onValueChange={(value) => {
+                  if (value[0])
+                    setPreviewDevice(value[0] as 'desktop' | 'phone')
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <ToggleGroupItem value="desktop">Desktop</ToggleGroupItem>
+                <ToggleGroupItem value="phone">Phone</ToggleGroupItem>
+              </ToggleGroup>
             </div>
             <div className="flex flex-col gap-1.5">
               <span
@@ -1255,8 +1288,9 @@ export function PromotionEditor({
 
           <div
             className={cn(
-              'overflow-hidden rounded-lg border border-dashed border-border bg-background transition-opacity',
+              'overflow-hidden rounded-lg border border-dashed border-border bg-background transition-[opacity,max-width] duration-200',
               (state !== 'live' || !onRoute) && 'opacity-40',
+              previewDevice === 'phone' && 'mx-auto w-full max-w-[22rem]',
             )}
           >
             {preview.placement === 'bar' ? (
@@ -1279,6 +1313,32 @@ export function PromotionEditor({
                   className="w-full max-w-[22rem]"
                 />
               </div>
+            ) : preview.placement === 'side' ? (
+              <div className="flex min-h-40 justify-end bg-black/[0.03] p-4 pr-0">
+                <div className="w-full max-w-[20rem]">
+                  <PromoCardView promotion={preview} now={previewNow} />
+                </div>
+              </div>
+            ) : preview.placement === 'sheet' ? (
+              <div className="flex min-h-48 justify-end bg-black/[0.03]">
+                <div className="border-border bg-popover text-popover-foreground w-full max-w-xs border-l p-4 shadow-lg">
+                  <PromoDialogContentView
+                    promotion={preview}
+                    now={previewNow}
+                    onDismiss={() => {}}
+                  />
+                </div>
+              </div>
+            ) : preview.placement === 'spotlight' ? (
+              <div className="flex min-h-44 items-start bg-black/[0.03] p-4 pt-10 pl-10">
+                <div className="relative w-full max-w-[20rem]">
+                  <span
+                    aria-hidden
+                    className="border-foreground/30 absolute -top-6 left-4 h-4 w-4 rounded-sm border-2 border-dashed"
+                  />
+                  <PromoCardView promotion={preview} now={previewNow} />
+                </div>
+              </div>
             ) : (
               <div className="flex justify-center bg-black/5 p-6">
                 <div className="bg-popover text-popover-foreground ring-foreground/10 w-full max-w-sm rounded-xl p-4 shadow-lg ring-1">
@@ -1291,6 +1351,11 @@ export function PromotionEditor({
               </div>
             )}
           </div>
+          {PREVIEW_NOTE[preview.placement] ? (
+            <p className="text-muted-foreground text-xs">
+              {PREVIEW_NOTE[preview.placement]}
+            </p>
+          ) : null}
         </div>
 
         <dl className="border-border/60 grid gap-2 rounded-xl border p-4 text-sm">

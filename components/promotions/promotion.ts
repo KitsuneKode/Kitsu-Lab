@@ -1183,6 +1183,7 @@ export type PromotionWarning = {
     | 'everywhere-dialog'
     | 'dialog-without-cta'
     | 'toast-overlap'
+    | 'floating-overlap'
   message: string
 }
 
@@ -1209,6 +1210,41 @@ export function routesMayOverlap(
         matchRoute(pa, `${routeBase(pb)}/x`) ||
         matchRoute(pb, `${routeBase(pa)}/x`),
     ),
+  )
+}
+
+/**
+ * The placements that share the one floating slot: the provider opens at
+ * most one at a time, preferring dialog, then spotlight, then toast.
+ */
+export const FLOATING_PLACEMENTS = ['dialog', 'spotlight', 'toast'] as const
+export type FloatingPlacement = (typeof FLOATING_PLACEMENTS)[number]
+
+/**
+ * Whether two published floating records could fight for the one slot:
+ * different ids, overlapping windows and routes that could meet.
+ * Conservative like `routesMayOverlap` — a spotlight still needs its anchor
+ * on the page, but a spare warning beats a missed collision.
+ */
+export function overlaysCollide(
+  a: Pick<
+    Promotion,
+    'id' | 'placement' | 'state' | 'startsAt' | 'endsAt' | 'include'
+  >,
+  b: Pick<
+    Promotion,
+    'id' | 'placement' | 'state' | 'startsAt' | 'endsAt' | 'include'
+  >,
+): boolean {
+  return (
+    a.id !== b.id &&
+    (FLOATING_PLACEMENTS as readonly string[]).includes(a.placement) &&
+    (FLOATING_PLACEMENTS as readonly string[]).includes(b.placement) &&
+    a.state === 'published' &&
+    b.state === 'published' &&
+    a.startsAt < b.endsAt &&
+    b.startsAt < a.endsAt &&
+    routesMayOverlap(a, b)
   )
 }
 
@@ -1267,6 +1303,33 @@ export function reviewPromotion(
       warnings.push({
         code: draft.placement === 'dialog' ? 'dialog-overlap' : 'toast-overlap',
         message: `“${overlapping.title}” is also a ${draft.placement} on these pages in this window. Only the higher priority one shows.`,
+      })
+  }
+  // Floating surfaces of different placements also share the one open slot.
+  // Dialog and toast pairs already warn above, so only the spotlight still
+  // needs its own placement checked here.
+  if ((FLOATING_PLACEMENTS as readonly string[]).includes(draft.placement)) {
+    const samePlacementWarned =
+      draft.placement === 'dialog' || draft.placement === 'toast'
+    const overlapping = others.find(
+      (other) =>
+        (!samePlacementWarned || other.placement !== draft.placement) &&
+        overlaysCollide(
+          {
+            id: id ?? '',
+            placement: draft.placement,
+            state: 'published',
+            startsAt: draft.startsAt,
+            endsAt: draft.endsAt,
+            include: draft.include,
+          },
+          other,
+        ),
+    )
+    if (overlapping)
+      warnings.push({
+        code: 'floating-overlap',
+        message: `“${overlapping.title}” also opens floating on these pages in this window. Only one shows — a dialog first, then a spotlight, then a toast.`,
       })
   }
   return warnings

@@ -9,7 +9,7 @@ This registry targets shadcn's Base UI styles (`base-*`, including `base-nova`).
 ```json
 {
   "registries": {
-    "@kitsu": "https://lab.kitsunelabs.xyz/r/{name}.json"
+    "@kitsu": "https://kitsulabs.kitsunekode.in/r/{name}.json"
   }
 }
 ```
@@ -32,7 +32,7 @@ npx shadcn@latest add @kitsu/book-preview-premier
 npx shadcn@latest add @kitsu/book-preview-webgl
 ```
 
-Every item is also addressable by URL (`https://lab.kitsunelabs.xyz/r/<name>.json`), which is how items reference each other so they install without the namespace configured.
+Every item is also addressable by URL (`https://kitsulabs.kitsunekode.in/r/<name>.json`), which is how items reference each other so they install without the namespace configured.
 
 `@kitsu/book-preview-engines` is a convenience bundle for demos that genuinely need every mode. Production apps should prefer individual engine items to avoid installing unused PDF, page-flip, or Three.js packages.
 

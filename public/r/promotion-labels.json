@@ -4,7 +4,7 @@
   "title": "Promotion labels",
   "description": "Label packs for English, French, German, Japanese, Hindi and Arabic, with countdowns from Intl.RelativeTimeFormat, plus createPromotionLabels for your own languages.",
   "registryDependencies": [
-    "https://lab.kitsunelabs.xyz/r/promotion-provider.json"
+    "https://kitsulabs.kitsunekode.in/r/promotion-provider.json"
   ],
   "files": [
     {

@@ -2,7 +2,7 @@
 
 A shadcn registry of production components, each with a live exhibit.
 
-**Live:** https://lab.kitsunelabs.xyz
+**Live:** https://kitsulabs.kitsunekode.in
 
 ## Install a component
 
@@ -11,7 +11,7 @@ Register the namespace once in your project's `components.json`:
 ```json
 {
   "registries": {
-    "@kitsu": "https://lab.kitsunelabs.xyz/r/{name}.json"
+    "@kitsu": "https://kitsulabs.kitsunekode.in/r/{name}.json"
   }
 }
 ```
@@ -34,7 +34,7 @@ key in `.env.local`:
 
 ```json
 "@kitsu-pro": {
-  "url": "https://lab.kitsunelabs.xyz/pro/r/{name}.json",
+  "url": "https://kitsulabs.kitsunekode.in/pro/r/{name}.json",
   "headers": { "Authorization": "Bearer ${KITSU_PRO_KEY}" }
 }
 ```

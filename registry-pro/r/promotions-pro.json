@@ -4,7 +4,7 @@
   "title": "Promotions Pro",
   "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, inbox, spotlight, side card, story, kits, editor and the account store.",
   "registryDependencies": [
-    "https://lab.kitsunelabs.xyz/r/promotions.json",
+    "https://kitsulabs.kitsunekode.in/r/promotions.json",
     "@kitsu-pro/promo-pill",
     "@kitsu-pro/promo-sheet",
     "@kitsu-pro/promo-progress",

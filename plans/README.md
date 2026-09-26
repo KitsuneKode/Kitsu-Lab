@@ -1,21 +1,21 @@
 # Improvement plans — Kitsu Lab audit
 
-Generated from a full audit of `main` + open PRs #1–#7 (stack: #3←#7, #5←#6; #4 superseded by #5; #2 merged; #1 is ImgBot noise).
+Generated from a full audit of `main` + open PRs #1–#7 (stack: #3←#7, #5←#6; #4 superseded by #5; #2 merged; #1 is ImgBot noise). Implementation started 2026-09-XX — see status column.
 
 ## Execution order
 
-| #   | Plan                                                                        | Depends on                    | Risk | Status  |
-| --- | --------------------------------------------------------------------------- | ----------------------------- | ---- | ------- |
-| 01  | [PR merge order and stack hygiene](01-pr-merge-order.md)                    | —                             | Low  | pending |
-| 02  | [Security hardening: payments, registry, headers](02-security-hardening.md) | 01 (lands on merged tree)     | Med  | pending |
-| 03  | [Reader performance audit fixes](03-reader-performance.md)                  | #7 merged (or rebase onto it) | Low  | pending |
-| 04  | [Reader API freeze and engine scope](04-reader-scope.md)                    | 03                            | Med  | pending |
-| 05  | [E2E in CI and payment-route coverage](05-testing-ci.md)                    | #7 merged, 02                 | Low  | pending |
-| 06  | [Design and taste pass](06-design-taste.md)                                 | 01 (post-merge baseline)      | Low  | pending |
+| # | Plan | Depends on | Risk | Status |
+|---|------|-----------|------|--------|
+| 01 | [PR merge order and stack hygiene](01-pr-merge-order.md) | — | Low | 🟡 partial — vendored `.claude/skills` removed on #5's branch; hostname unified on #3/#5/#6/#7 branches. **Remaining:** close #4, push branches, merge in order (#3→#7, #5→#6) |
+| 02 | [Security hardening: payments, registry, headers](02-security-hardening.md) | 01 | Med | 🟡 partial — headers + report-only CSP on all branches; per-process limits documented on #6; rotation note in `.env.example`. **Remaining:** promote CSP to enforce after reports; durable dedup if fulfillment is ever added |
+| 03 | [Reader performance audit fixes](03-reader-performance.md) | #7 merged | Low | 🟡 partial — `sourceIdentity` memoized on #3/#5/#7 branches; upload size cap on all. **Remaining:** bundle-isolation measurement (PERF-03), PDF DPR-cap verification (PERF-04) |
+| 04 | [Reader API freeze and engine scope](04-reader-scope.md) | 03 | Med | ⬜ pending — product decision (tier A/B in plan) |
+| 05 | [E2E in CI and payment-route coverage](05-testing-ci.md) | #7 merged, 02 | Low | 🟡 partial — e2e CI job added on #7 branch; `/pro/r` + `/api/checkout` route tests added on #6 (`lib/pro-routes.test.ts`, 8 tests, hermetic). **Remaining:** selector-stability + sourceIdentity regression tests (TEST-03) |
+| 06 | [Design and taste pass](06-design-taste.md) | 01 | Low | 🟡 partial — meta copy fixed, hostname unified, Orbitron pinned to used weight. **Remaining:** visual QA pass (engines × widths × landscape), pricing-page review, cursor-in-immersive decision (note: reader root already sets `data-native-cursor`, so the custom cursor already steps aside everywhere in the reader) |
 
 ## Notes for the executor
 
 - Run the full gate before committing anything: `npm run check`, then `npm run build` and `npm run registry:build`. `registry:check` fails if `public/r/` drifts.
-- oxlint warnings that are intentional (worker-pump awaits, cleanup closures, `role="status"`, dropzone tabIndex) are documented in `AGENTS.md` — do not "fix" them.
+- oxlint warnings that are intentional (worker-pump awaits, cleanup closures, `role="status"`, dropzone `tabIndex` on the reader section — it is the keyboard-interactive surface) are documented in `AGENTS.md` — do not "fix" them.
 - React Compiler is enabled; do not add manual `useMemo`/`useCallback` that fights it — but module-scope hash calls over fresh objects (plan 03) still need care.
-- Do not regenerate or hand-edit `public/r/*.json`; only `shadcn build` writes them.
+- Do not regenerate or hand-edit `public/r/*.json`; only `shadcn build` writes them. On the payments branch: `npx -y shadcn@4.21.0 build` (free) + `npx -y shadcn@4.21.0 build registry-pro.json -o registry-pro/r` (pro).

@@ -6,7 +6,7 @@ import { isAuthorized, parseItemName, readKeys } from '@/lib/pro-registry'
  * The `@kitsu-pro` shadcn registry. Buyers add it to components.json:
  *
  * "@kitsu-pro": {
- *   "url": "https://kitsu-lab.vercel.app/pro/r/{name}.json",
+ *   "url": "https://lab.kitsunelabs.xyz/pro/r/{name}.json",
  *   "headers": { "Authorization": "Bearer ${KITSU_PRO_KEY}" }
  * }
  *

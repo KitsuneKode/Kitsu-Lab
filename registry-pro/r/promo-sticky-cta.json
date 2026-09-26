@@ -4,7 +4,7 @@
   "title": "Promo sticky CTA",
   "description": "A thumb-zone bar that appears once the element you watch (usually pricing) has scrolled away, and hides when it returns.",
   "registryDependencies": [
-    "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+    "https://lab.kitsunelabs.xyz/r/promotion-provider.json",
     "button"
   ],
   "files": [

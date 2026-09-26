@@ -4,7 +4,7 @@
   "title": "Promotion editor",
   "description": "Create and review a promotion with a live preview of every placement, a preview clock, a plain-language schedule in an explicit time zone and taste warnings. Owns no data.",
   "registryDependencies": [
-    "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+    "https://lab.kitsunelabs.xyz/r/promotion-provider.json",
     "badge",
     "input",
     "label",

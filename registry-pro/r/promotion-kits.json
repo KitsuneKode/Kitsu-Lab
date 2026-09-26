@@ -4,7 +4,7 @@
   "title": "Promotion kits",
   "description": "Ready-made campaigns: storeSaleKit, productLaunchKit and courseEnrolmentKit, each with records in six languages and the provider settings they were designed for.",
   "registryDependencies": [
-    "https://kitsu-lab.vercel.app/r/promotion-provider.json"
+    "https://lab.kitsunelabs.xyz/r/promotion-provider.json"
   ],
   "files": [
     {

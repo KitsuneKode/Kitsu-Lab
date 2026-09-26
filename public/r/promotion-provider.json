@@ -8,7 +8,7 @@
     "motion"
   ],
   "registryDependencies": [
-    "https://kitsu-lab.vercel.app/r/promotion.json",
+    "https://lab.kitsunelabs.xyz/r/promotion.json",
     "button"
   ],
   "files": [

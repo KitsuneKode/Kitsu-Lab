@@ -7,7 +7,7 @@
     "@base-ui/react"
   ],
   "registryDependencies": [
-    "https://kitsu-lab.vercel.app/r/promotion-provider.json",
+    "https://lab.kitsunelabs.xyz/r/promotion-provider.json",
     "button"
   ],
   "files": [

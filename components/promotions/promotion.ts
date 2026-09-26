@@ -158,6 +158,7 @@ export const DEFAULT_FREQUENCY_HOURS = 24
 /*  Routes                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/** Drops the query, hash and trailing slashes so `/pricing/?a=1` matches `/pricing`. */
 function normalizePath(path: string): string {
   const withoutQuery = path.split(/[?#]/, 1)[0] ?? ''
   const trimmed = withoutQuery.replace(/\/+$/, '')
@@ -187,6 +188,7 @@ export function matchRoute(pattern: string, pathname: string): boolean {
   return normalizePath(p) === path
 }
 
+/** Whether a pathname is included and not excluded. Exclusions always win. */
 export function targetsRoute(
   promotion: Pick<PromotionContent, 'include' | 'exclude'>,
   pathname: string,
@@ -212,6 +214,7 @@ export function deliveryState(
   return 'live'
 }
 
+/** Whether to show a countdown: asked for, not yet ended, and ending within `COUNTDOWN_MAX_DAYS`. */
 export function countdownVisible(
   promotion: Pick<Promotion, 'showCountdown' | 'endsAt'>,
   now: number,
@@ -235,6 +238,7 @@ export function timeLeft(
   return { unit: 'minute', value: Math.max(1, Math.floor(remaining / MINUTE)) }
 }
 
+/** English fallback text for the time left, e.g. "Ends in 2 days"; null once ended. */
 export function formatTimeLeft(endsAt: number, now: number): string | null {
   const left = timeLeft(endsAt, now)
   if (!left) return null
@@ -258,6 +262,7 @@ export type PromotionSelection = {
   cards: Record<string, Promotion>
 }
 
+/** Ranking between two live candidates: higher priority wins, ties go to the lower id so the pick is stable. */
 function beats(candidate: Promotion, current: Promotion | undefined) {
   if (!current) return true
   if (candidate.priority !== current.priority)
@@ -445,10 +450,12 @@ export function defaultIsAllowedHref(href: string): boolean {
   return SAFE_HREF.test(href) && !/[\s<>"\\\u0000-\u001f]/.test(href)
 }
 
+/** Accepts `*` and plain path patterns; rejects anything that could be a URL or script. */
 function defaultIsAllowedRoute(pattern: string): boolean {
   return pattern === '*' || /^\/[\w\-/.*]*$/.test(pattern)
 }
 
+/** A plain object, not null or an array. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -470,6 +477,7 @@ function plainText(
   return { ok: true, value: trimmed }
 }
 
+/** An integer within the inclusive range. */
 function isInt(value: unknown, min: number, max: number): value is number {
   return (
     typeof value === 'number' &&
@@ -479,10 +487,12 @@ function isInt(value: unknown, min: number, max: number): value is number {
   )
 }
 
+/** A finite epoch in milliseconds. */
 function isTime(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
+/** Validates a list of route patterns; null when any entry is not allowed. */
 function routeList(
   value: unknown,
   allowed: (pattern: string) => boolean,
@@ -499,6 +509,7 @@ function routeList(
   return [...new Set(routes)]
 }
 
+/** Validates a dismissal rule (mode, days, scope); null when malformed. */
 function parseDismiss(value: unknown): PromotionDismiss | null {
   if (!isRecord(value)) return null
   if (
@@ -517,6 +528,7 @@ function parseDismiss(value: unknown): PromotionDismiss | null {
 
 const LOCALE_TAG = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/
 
+/** Validates per-locale copy; undefined when absent, null when malformed. */
 function parseTranslations(
   value: unknown,
 ): Record<string, PromotionCopy> | undefined | null {
@@ -736,6 +748,7 @@ export function parsePromotion(
 /*  Untrusted records                                                         */
 /* -------------------------------------------------------------------------- */
 
+/** An array whose every entry is a string. */
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
@@ -747,6 +760,7 @@ function isStringArray(value: unknown): value is string[] {
 const optionalString = (value: unknown) =>
   value === undefined || typeof value === 'string'
 
+/** Type guard for a stored record: required fields present and every optional field well formed. */
 export function isPromotion(value: unknown): value is Promotion {
   if (!isRecord(value)) return false
   return (
@@ -919,6 +933,7 @@ export type PromotionWarning = {
   message: string
 }
 
+/** The fixed prefix of a pattern: `/docs/**` becomes `/docs`. */
 function routeBase(pattern: string): string {
   return pattern.replace(/\/\*\*?$/, '') || '/'
 }

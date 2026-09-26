@@ -14,12 +14,14 @@ import { PromoDialogContentView } from './promotion-views'
 
 const WIDE = '(min-width: 768px)'
 
+/** Re-renders on crossing the dialog/sheet breakpoint. */
 function subscribeWide(onChange: () => void) {
   const list = window.matchMedia(WIDE)
   list.addEventListener('change', onChange)
   return () => list.removeEventListener('change', onChange)
 }
 
+/** True at `sm` and up, where the dialog layout is used; false on the server. */
 function useWideScreen() {
   return React.useSyncExternalStore(
     subscribeWide,
@@ -28,6 +30,7 @@ function useWideScreen() {
   )
 }
 
+/** Title slot for the bottom-sheet layout, wired to the drawer for `aria-labelledby`. */
 function SheetTitle(props: { className?: string; children?: React.ReactNode }) {
   return (
     <Drawer.Title
@@ -37,6 +40,7 @@ function SheetTitle(props: { className?: string; children?: React.ReactNode }) {
   )
 }
 
+/** Description slot for the bottom-sheet layout, wired for `aria-describedby`. */
 function SheetDescription(props: {
   className?: string
   children?: React.ReactNode
@@ -49,6 +53,7 @@ function SheetDescription(props: {
   )
 }
 
+/** Title slot for the centred and split layouts, wired to the dialog for `aria-labelledby`. */
 function DialogTitle(props: {
   className?: string
   children?: React.ReactNode
@@ -61,6 +66,7 @@ function DialogTitle(props: {
   )
 }
 
+/** Description slot for the centred and split layouts, wired for `aria-describedby`. */
 function DialogDescription(props: {
   className?: string
   children?: React.ReactNode

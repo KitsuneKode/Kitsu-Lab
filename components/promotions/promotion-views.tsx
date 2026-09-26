@@ -58,6 +58,7 @@ type ViewProps = {
   onCopy?: () => void
 }
 
+/** Plain anchor used when no `Link` component is passed. */
 function PlainLink({
   href,
   className,
@@ -79,6 +80,7 @@ function PlainLink({
   )
 }
 
+/** Localised "Ends in …" text from the label pack, or null when no countdown should show. */
 export function countdownLabel(
   promotion: Pick<PromotionContent, 'showCountdown' | 'endsAt'>,
   now: number | null,
@@ -89,6 +91,7 @@ export function countdownLabel(
   return left ? labels.endsIn(left) : null
 }
 
+/** The countdown chip; renders nothing when `countdownLabel` is null. */
 function Countdown({
   promotion,
   now,
@@ -105,6 +108,7 @@ function Countdown({
   )
 }
 
+/** The call to action; external targets open in a new tab with a safe `rel` and an announced hint. */
 function CtaLink({
   promotion,
   Link = PlainLink,
@@ -139,6 +143,7 @@ function CtaLink({
   )
 }
 
+/** Copies text; false when the Clipboard API is missing or refused. */
 async function writeClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text)
@@ -269,6 +274,7 @@ export function PromoCode({
   )
 }
 
+/** A small icon-only button with an accessible label (dismiss, minimise). */
 function IconAction({
   onAction,
   label,
@@ -369,6 +375,7 @@ export function PromoBarView({
   )
 }
 
+/** The promotion image, with intrinsic size to avoid layout shift; lazy unless `eager`. */
 function Media({
   media,
   className,
@@ -393,6 +400,7 @@ function Media({
   )
 }
 
+/** Presentational card shared by the inline card and the carousel slides. */
 export function PromoCardView({
   promotion,
   now,
@@ -575,10 +583,12 @@ type TextComponent = React.ComponentType<{
   children?: React.ReactNode
 }>
 
+/** Fallback title element when the host passes none. */
 function DefaultTitle({ children }: { children?: React.ReactNode }) {
   return <p className="text-lg font-medium">{children}</p>
 }
 
+/** Fallback description element when the host passes none. */
 function DefaultDescription({ children }: { children?: React.ReactNode }) {
   return <p className="text-muted-foreground text-sm">{children}</p>
 }

@@ -133,6 +133,7 @@ const STATE_LABELS = {
   ended: 'Ended',
 } as const
 
+/** Builds the form draft from an existing record, showing its dates in the editor time zone. */
 function initialDraft(
   initial: Partial<PromotionContent> = {},
   now: number,
@@ -219,6 +220,7 @@ function toInput(
   }
 }
 
+/** Label, control, hint and error laid out together, with the ids wired for assistive tech. */
 function Field({
   id,
   label,
@@ -254,6 +256,7 @@ function Field({
   )
 }
 
+/** Characters used against the limit; turns red past it. */
 function Counter({ value, max }: { value: string; max: number }) {
   return (
     <span
@@ -264,6 +267,7 @@ function Counter({ value, max }: { value: string; max: number }) {
   )
 }
 
+/** Include/exclude routes: toggle chips for the host's known routes, or a comma-separated field when it passes none. */
 function RoutePicker({
   id,
   options,
@@ -467,6 +471,7 @@ export function PromotionEditor({
     timeZoneName: 'short',
   })
 
+  /** Validates the draft, reports the first problem, then hands the content to `onSubmit`. */
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setTouched(true)

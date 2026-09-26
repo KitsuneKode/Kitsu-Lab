@@ -102,6 +102,7 @@ export const defaultPromotionLabels: PromotionLabels = {
 /*  Defaults                                                                  */
 /* -------------------------------------------------------------------------- */
 
+/** Plain anchor used when the host passes no `linkComponent`. */
 function DefaultLink({
   href,
   className,
@@ -190,6 +191,7 @@ type PromotionContextValue = {
 
 const PromotionContext = React.createContext<PromotionContextValue | null>(null)
 
+/** Everything a surface needs: the current selection, the clock, labels and the actions. Throws outside a provider. */
 export function usePromotions(): PromotionContextValue {
   const value = React.useContext(PromotionContext)
   if (!value)
@@ -258,6 +260,7 @@ export type PromotionProviderProps = {
   children: React.ReactNode
 }
 
+/** Resolves `source` (an array or an async loader) to records, reloading only when `sourceKey` changes. */
 function useLoadedRecords(
   source: PromotionSource,
   sourceKey: string | number | undefined,
@@ -292,6 +295,7 @@ function useLoadedRecords(
   return fromArray ?? loaded
 }
 
+/** True while the tab is in the background, when nothing should open. */
 function isHidden() {
   return (
     typeof document !== 'undefined' && document.visibilityState === 'hidden'
@@ -490,6 +494,7 @@ const BUDGET_KEY = 'promo:budget:floating'
 const shownKey = (promotion: Promotion) => `${dismissalKey(promotion)}:shown`
 const minimizedKey = (promotion: Promotion) => `${dismissalKey(promotion)}:min`
 
+/** Holds promotion state for one page tree: selection, frequency, dismissals, plugins and events. Surfaces read it with `usePromotions`. */
 export function PromotionProvider({
   source,
   sourceKey,

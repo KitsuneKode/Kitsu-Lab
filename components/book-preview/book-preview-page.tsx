@@ -47,6 +47,7 @@ const paperThemes: Record<
   },
 }
 
+/** Paper and ink classes for the page appearance. */
 function themeClasses(appearance: BookPreviewAppearance) {
   if (appearance === 'system') {
     return {
@@ -69,6 +70,7 @@ type BookPreviewPageViewProps = {
   ref?: Ref<HTMLDivElement>
 }
 
+/** Renders one page (cover, image or text) in the chosen appearance. */
 export function BookPreviewPageView({
   page,
   appearance = 'system',
@@ -174,6 +176,7 @@ type BookPreviewThemePageProps = {
   ref?: Ref<HTMLDivElement>
 }
 
+/** The cover: title, subtitle and author. */
 function BookPreviewCoverPage({
   page,
   appearance,
@@ -212,6 +215,7 @@ function BookPreviewCoverPage({
   )
 }
 
+/** A text page: heading and paragraphs on the themed paper. */
 function BookPreviewTextPage({
   page,
   appearance,

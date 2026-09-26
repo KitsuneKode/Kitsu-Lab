@@ -13,6 +13,7 @@ import {
 } from './promotion-provider'
 import { PromoCardView } from './promotion-views'
 
+/** One card in the carousel; registers its node for paging and reports its own impression, clicks and copies. */
 function Slide({
   promotion,
   dismissible,

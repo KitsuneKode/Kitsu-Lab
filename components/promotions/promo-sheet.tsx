@@ -12,12 +12,14 @@ import { PromoCode } from './promotion-views'
 
 const WIDE = '(min-width: 768px)'
 
+/** Re-renders on crossing the side/bottom sheet breakpoint. */
 function subscribeWide(onChange: () => void) {
   const list = window.matchMedia(WIDE)
   list.addEventListener('change', onChange)
   return () => list.removeEventListener('change', onChange)
 }
 
+/** True at `sm` and up, where the sheet opens from the side; false on the server. */
 function useWideScreen() {
   return React.useSyncExternalStore(
     subscribeWide,

@@ -286,3 +286,14 @@ body[data-custom-cursor] * {
   animation-duration: var(--nav-duration-move);
   animation-timing-function: var(--nav-ease);
 }
+
+/* An exhibit in an immersive preview owns the screen: page chrome steps out. */
+html[data-exhibit-immersive] [data-exhibit-chrome] {
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+html[data-exhibit-immersive] {
+  overflow: hidden;
+}

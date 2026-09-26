@@ -5,6 +5,7 @@ import type {
   NormalizedBookSource,
 } from './types'
 
+/** A stable id for a page, falling back to its number. */
 function pageId(page: BookPreviewPage, index: number): string {
   if (page.id.trim().length > 0) return page.id
   return `page-${page.pageNumber || index + 1}`
@@ -30,6 +31,7 @@ export function normalizePageImage(
   }
 }
 
+/** Cleans pages for rendering: stable ids, validated images, and a readable fallback for pages that would render empty. */
 export function normalizePages(
   pages: BookPreviewPage[] | undefined,
 ): BookPreviewPage[] {
@@ -61,6 +63,7 @@ export function normalizePages(
   })
 }
 
+/** Normalises a book source: pages, PDF URL and upload options. */
 export function normalizeSource(
   source: BookPreviewSource,
 ): NormalizedBookSource {
@@ -84,6 +87,7 @@ export function normalizeSource(
   }
 }
 
+/** FNV-1a hash, enough to tell sources apart without storing them. */
 function hashIdentity(value: string): string {
   let hash = 2166136261
   for (let index = 0; index < value.length; index += 1) {
@@ -93,6 +97,7 @@ function hashIdentity(value: string): string {
   return (hash >>> 0).toString(36)
 }
 
+/** A key that changes whenever the visible content of a source does. */
 export function sourceIdentity(source: NormalizedBookSource): string {
   const serializable = {
     revision: source.revision,
@@ -110,6 +115,7 @@ export function sourceIdentity(source: NormalizedBookSource): string {
   return hashIdentity(JSON.stringify(serializable))
 }
 
+/** The text search runs against: explicit search text, or the page's own words. */
 export function pageSearchText(page: BookPreviewPage): string {
   if (page.searchableText) return page.searchableText
   return [
@@ -124,12 +130,14 @@ export function pageSearchText(page: BookPreviewPage): string {
     .join(' ')
 }
 
+/** Keeps a page index inside the book; 0 for an empty book or a bad value. */
 export function clampPageIndex(pageIndex: number, totalPages: number): number {
   if (totalPages <= 0) return 0
   if (!Number.isFinite(pageIndex)) return 0
   return Math.min(Math.max(0, Math.trunc(pageIndex)), totalPages - 1)
 }
 
+/** True when there is nothing to show and nothing to upload. */
 export function isEmptySource(source: NormalizedBookSource): boolean {
   return source.pages.length === 0 && !source.pdfUrl && !source.allowPdfUpload
 }

@@ -14,6 +14,7 @@ export type DismissalStore = {
   subscribe?: (onChange: () => void) => () => void
 }
 
+/** Web Storage, or null where touching it throws (private windows, sandboxed frames). */
 function safeStorage(kind: 'local' | 'session'): Storage | null {
   try {
     return kind === 'local' ? window.localStorage : window.sessionStorage
@@ -22,6 +23,7 @@ function safeStorage(kind: 'local' | 'session'): Storage | null {
   }
 }
 
+/** Parses a stored epoch; anything non-finite reads as never written. */
 function readNumber(raw: string | null | undefined): number | null {
   const value = raw ? Number(raw) : Number.NaN
   return Number.isFinite(value) ? value : null

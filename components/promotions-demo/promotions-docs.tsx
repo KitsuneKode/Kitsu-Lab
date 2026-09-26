@@ -279,6 +279,7 @@ const sale = storeSaleKit({
   },
 ]
 
+/** Copies a snippet and confirms briefly. */
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = React.useState(false)
   return (
@@ -312,6 +313,7 @@ const TIER_CLASS: Record<Doc['tier'], string> = {
   Kit: 'bg-primary text-primary-foreground',
 }
 
+/** Install commands and usage snippets for every surface, add-on and kit. */
 export function PromotionsDocs() {
   return (
     <div className="flex flex-col gap-4">

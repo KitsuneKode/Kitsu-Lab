@@ -2,10 +2,17 @@
 
 import * as React from 'react'
 import {
+  IconArrowsMaximize,
   IconDeviceDesktop,
   IconDeviceLaptop,
   IconDeviceMobile,
+  IconLayoutNavbarCollapse,
+  IconLayoutNavbarExpand,
+  IconMaximize,
   IconMenu2,
+  IconMinimize,
+  IconRefresh,
+  IconX,
 } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 
@@ -66,6 +73,54 @@ const DEVICES = {
 } as const
 type Device = keyof typeof DEVICES
 
+/**
+ * Full-window sizes: the real viewport for desktop, a 13-inch laptop and a
+ * modern phone, each clamped to the space available.
+ */
+const THEATRE: Record<Device, { width: string; height: string }> = {
+  wide: { width: '100%', height: '100%' },
+  laptop: { width: 'min(1280px, 100%)', height: 'min(800px, 100%)' },
+  phone: { width: 'min(390px, 100%)', height: 'min(844px, 100%)' },
+}
+
+const subscribeFullscreen = (onChange: () => void) => {
+  document.addEventListener('fullscreenchange', onChange)
+  return () => document.removeEventListener('fullscreenchange', onChange)
+}
+const noopSubscribe = () => () => {}
+
+/** Narrow real screens always get the phone layout, whatever the toggle says. */
+function useNarrowViewport() {
+  return React.useSyncExternalStore(
+    (onChange) => {
+      const query = window.matchMedia('(max-width: 639px)')
+      query.addEventListener('change', onChange)
+      return () => query.removeEventListener('change', onChange)
+    },
+    () => window.matchMedia('(max-width: 639px)').matches,
+    () => false,
+  )
+}
+
+/** The frame's real size in CSS pixels, for the preview readout. */
+function useElementSize(element: HTMLElement | null) {
+  const [size, setSize] = React.useState<{ w: number; h: number } | null>(null)
+  React.useEffect(() => {
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      const box = entry.borderBoxSize?.[0]
+      setSize({
+        w: Math.round(box?.inlineSize ?? entry.contentRect.width),
+        h: Math.round(box?.blockSize ?? entry.contentRect.height),
+      })
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [element])
+  return size
+}
+
 const LANGUAGES: {
   value: PromotionLabelLocale
   label: string
@@ -88,6 +143,7 @@ const NO_PLUGINS: readonly PromotionPlugin[] = []
 function useDemoLink(navigate: (href: string) => void) {
   return React.useMemo(
     () =>
+      /** Keeps the demo on one page: internal links switch the mock route. */
       function DemoLink({
         href,
         className,
@@ -112,6 +168,7 @@ function useDemoLink(navigate: (href: string) => void) {
   )
 }
 
+/** Small caption above a demo control. */
 function Label({ children, id }: { children: React.ReactNode; id?: string }) {
   return (
     <span id={id} className="text-muted-foreground text-xs font-medium">
@@ -121,19 +178,27 @@ function Label({ children, id }: { children: React.ReactNode; id?: string }) {
 }
 
 /** Manual triggers: the same `openPromotion` a host would wire to a button. */
-function Triggers() {
+function Triggers({ compact = false }: { compact?: boolean }) {
   const { selection, openPromotion } = usePromotions()
   const floating = [selection.toast, selection.sheet, selection.dialog].filter(
     (p): p is Promotion => Boolean(p),
   )
   if (floating.length === 0)
-    return (
+    return compact ? null : (
       <p className="text-muted-foreground text-xs">
         No toast, sheet or dialog is live on this page.
       </p>
     )
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div
+      className={cn(
+        'flex items-center gap-1.5',
+        compact ? 'shrink-0' : 'flex-wrap',
+      )}
+    >
+      {compact ? (
+        <span className="text-muted-foreground text-xs">Open</span>
+      ) : null}
       {floating.map((promotion) => (
         <Button
           key={promotion.id}
@@ -141,13 +206,14 @@ function Triggers() {
           variant="outline"
           onClick={() => openPromotion(promotion.id)}
         >
-          Open {promotion.placement} now
+          {compact ? promotion.placement : `Open ${promotion.placement} now`}
         </Button>
       ))}
     </div>
   )
 }
 
+/** The fictional site inside the preview frame, with every surface placed where a real site would put it. */
 function MockSite({
   scenario,
   pathname,
@@ -225,7 +291,11 @@ function MockSite({
           </nav>
         )}
       </header>
-      <main ref={content} className="flex max-w-2xl flex-col gap-6 p-5 sm:p-8">
+      {/* A centred column, like a real site: the side card docks only where the margin is wide enough. */}
+      <main
+        ref={content}
+        className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-5 sm:p-8"
+      >
         <div className="flex flex-col items-start gap-4">
           <PromoPill slot="announcement" />
           <h2
@@ -329,6 +399,7 @@ function MockSite({
   )
 }
 
+/** The exhibit: live site, editor and docs, with device frames and a full-window preview. */
 export function PromotionsDemo() {
   const [base] = React.useState(() => Math.floor(Date.now() / HOUR) * HOUR)
   const [scenarioId, setScenarioId] = React.useState<ScenarioId>('launch')
@@ -351,6 +422,25 @@ export function PromotionsDemo() {
   const [resetKey, setResetKey] = React.useState(0)
   const [frame, setFrame] = React.useState<HTMLDivElement | null>(null)
   const [scroller, setScroller] = React.useState<HTMLDivElement | null>(null)
+  const [theatre, setTheatre] = React.useState(false)
+  const [bare, setBare] = React.useState(false)
+  const [peekDock, setPeekDock] = React.useState(false)
+  const stageRef = React.useRef<HTMLDivElement>(null)
+  const opener = React.useRef<HTMLElement | null>(null)
+  const narrow = useNarrowViewport()
+  const frameSize = useElementSize(frame)
+  const canFullscreen = React.useSyncExternalStore(
+    noopSubscribe,
+    () => Boolean(document.fullscreenEnabled),
+    () => false,
+  )
+  const browserFull = React.useSyncExternalStore(
+    subscribeFullscreen,
+    () =>
+      Boolean(stageRef.current) &&
+      document.fullscreenElement === stageRef.current,
+    () => false,
+  )
 
   const now = React.useCallback(
     () => base + offsetHours * HOUR,
@@ -392,25 +482,143 @@ export function PromotionsDemo() {
     hour: 'numeric',
   }).format(now())
   const spec = DEVICES[device]
-  const phone = device === 'phone'
+  const phone = device === 'phone' || narrow
   const rtl = isRightToLeft(lang)
+  const size = theatre
+    ? THEATRE[device]
+    : { width: spec.width, height: spec.height }
+
+  const pageToggle = (wrap: boolean) => (
+    <ToggleGroup
+      aria-label="Page"
+      value={[pathname]}
+      onValueChange={(value) => {
+        if (value[0]) navigate(value[0])
+      }}
+      variant="outline"
+      size="sm"
+      className={wrap ? 'flex-wrap' : 'shrink-0'}
+    >
+      {scenario.pages.map((page) => (
+        <ToggleGroupItem key={page.value} value={page.value}>
+          {page.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  )
+  const deviceToggle = (
+    <ToggleGroup
+      aria-label="Device"
+      value={[narrow ? 'phone' : device]}
+      onValueChange={(value) => {
+        if (value[0]) setDevice(value[0] as Device)
+      }}
+      variant="outline"
+      size="sm"
+    >
+      {(Object.keys(DEVICES) as Device[]).map((key) => {
+        const Icon = DEVICES[key].icon
+        return (
+          <ToggleGroupItem
+            key={key}
+            value={key}
+            aria-label={DEVICES[key].label}
+            disabled={narrow && key !== 'phone'}
+          >
+            <Icon aria-hidden />
+          </ToggleGroupItem>
+        )
+      })}
+    </ToggleGroup>
+  )
+  const languageToggle = (
+    <ToggleGroup
+      aria-label="Language"
+      value={[lang]}
+      onValueChange={(value) => {
+        if (value[0]) setLang(value[0] as PromotionLabelLocale)
+      }}
+      variant="outline"
+      size="sm"
+    >
+      {LANGUAGES.map((l) => (
+        <ToggleGroupItem
+          key={l.value}
+          value={l.value}
+          lang={l.value}
+          aria-label={l.name}
+        >
+          {l.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  )
+
+  const openTheatre = () => {
+    opener.current = document.activeElement as HTMLElement | null
+    setTheatre(true)
+  }
+  const closeTheatre = React.useCallback(() => {
+    if (document.fullscreenElement)
+      void document.exitFullscreen().catch(() => {})
+    setTheatre(false)
+    setBare(false)
+    setPeekDock(false)
+    opener.current?.focus()
+  }, [])
+  const toggleBrowserFull = () => {
+    if (document.fullscreenElement)
+      void document.exitFullscreen().catch(() => {})
+    else void stageRef.current?.requestFullscreen?.().catch(() => {})
+  }
+
+  // The page behind steps aside (see globals.css) and stops scrolling.
+  React.useEffect(() => {
+    if (!theatre) return
+    const root = document.documentElement
+    root.setAttribute('data-exhibit-immersive', '')
+    stageRef.current?.focus({ preventScroll: true })
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      // Escape belongs to whatever surface is open inside the site first.
+      const inSite = frame?.contains(document.activeElement)
+      const open = frame?.querySelector(
+        '[role="dialog"], [data-slot="promo-story"], [data-slot="promo-spotlight"]',
+      )
+      if (inSite || open) return
+      closeTheatre()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      root.removeAttribute('data-exhibit-immersive')
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [theatre, frame, closeTheatre])
 
   return (
     <div className="flex w-full max-w-5xl flex-col gap-6 px-4 pb-16">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ToggleGroup
-          aria-label="Demo view"
-          value={[view]}
-          onValueChange={(value) => {
-            if (value[0]) setView(value[0] as 'site' | 'editor' | 'docs')
-          }}
-          variant="outline"
-          size="sm"
-        >
-          <ToggleGroupItem value="site">Live site</ToggleGroupItem>
-          <ToggleGroupItem value="editor">Editor</ToggleGroupItem>
-          <ToggleGroupItem value="docs">Docs</ToggleGroupItem>
-        </ToggleGroup>
+        <div className="flex flex-wrap items-center gap-2">
+          <ToggleGroup
+            aria-label="Demo view"
+            value={[view]}
+            onValueChange={(value) => {
+              if (value[0]) setView(value[0] as 'site' | 'editor' | 'docs')
+            }}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="site">Live site</ToggleGroupItem>
+            <ToggleGroupItem value="editor">Editor</ToggleGroupItem>
+            <ToggleGroupItem value="docs">Docs</ToggleGroupItem>
+          </ToggleGroup>
+          {view === 'site' ? (
+            <Button size="sm" variant="outline" onClick={openTheatre}>
+              <IconArrowsMaximize aria-hidden />
+              Full-window preview
+            </Button>
+          ) : null}
+        </div>
         <ToggleGroup
           aria-label="Scenario"
           value={[scenarioId]}
@@ -450,22 +658,7 @@ export function PromotionsDemo() {
           <div className="border-border/60 grid gap-4 rounded-xl border p-4 md:grid-cols-[1.3fr_1fr]">
             <div className="flex flex-col gap-2">
               <Label>Page</Label>
-              <ToggleGroup
-                aria-label="Page"
-                value={[pathname]}
-                onValueChange={(value) => {
-                  if (value[0]) navigate(value[0])
-                }}
-                variant="outline"
-                size="sm"
-                className="flex-wrap"
-              >
-                {scenario.pages.map((page) => (
-                  <ToggleGroupItem key={page.value} value={page.value}>
-                    {page.label}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
+              {pageToggle(true)}
               <Triggers />
             </div>
             <div className="flex flex-col gap-3">
@@ -486,48 +679,8 @@ export function PromotionsDemo() {
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <ToggleGroup
-                  aria-label="Device"
-                  value={[device]}
-                  onValueChange={(value) => {
-                    if (value[0]) setDevice(value[0] as Device)
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  {(Object.keys(DEVICES) as Device[]).map((key) => {
-                    const Icon = DEVICES[key].icon
-                    return (
-                      <ToggleGroupItem
-                        key={key}
-                        value={key}
-                        aria-label={DEVICES[key].label}
-                      >
-                        <Icon aria-hidden />
-                      </ToggleGroupItem>
-                    )
-                  })}
-                </ToggleGroup>
-                <ToggleGroup
-                  aria-label="Language"
-                  value={[lang]}
-                  onValueChange={(value) => {
-                    if (value[0]) setLang(value[0] as PromotionLabelLocale)
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  {LANGUAGES.map((l) => (
-                    <ToggleGroupItem
-                      key={l.value}
-                      value={l.value}
-                      lang={l.value}
-                      aria-label={l.name}
-                    >
-                      {l.label}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
+                {deviceToggle}
+                {languageToggle}
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 <Button
@@ -557,41 +710,180 @@ export function PromotionsDemo() {
             A stand-in viewport: `transform` makes it the containing block for
             the fixed surfaces, and the dialogs portal into it.
           */}
-          <div className="flex justify-center">
+          <div
+            ref={stageRef}
+            tabIndex={theatre ? -1 : undefined}
+            role={theatre ? 'dialog' : undefined}
+            aria-modal={theatre || undefined}
+            aria-label={
+              theatre ? `${scenario.brand} full-window preview` : undefined
+            }
+            data-promo-theatre={
+              theatre ? (bare ? 'bare' : 'docked') : undefined
+            }
+            className={cn(
+              'flex justify-center outline-none',
+              theatre && 'bg-muted fixed inset-0 z-[90] flex-col items-stretch',
+            )}
+          >
+            {theatre ? (
+              <div
+                className={cn(
+                  'bg-background/95 supports-backdrop-filter:bg-background/80 border-border z-10 flex h-12 shrink-0 items-center gap-2 overflow-x-auto border-b px-3 supports-backdrop-filter:backdrop-blur-md',
+                  bare &&
+                    'absolute inset-x-0 top-0 transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] focus-within:translate-y-0 motion-reduce:transition-none',
+                  bare && !peekDock && '-translate-y-full',
+                )}
+                onPointerLeave={(event) => {
+                  if (event.pointerType === 'mouse') setPeekDock(false)
+                }}
+              >
+                <span className="shrink-0 text-sm font-medium">
+                  {scenario.brand}
+                </span>
+                <span className="text-muted-foreground shrink-0 font-mono text-xs tabular-nums">
+                  {frameSize ? `${frameSize.w} × ${frameSize.h}` : null}
+                </span>
+                <span
+                  className="bg-border mx-1 h-5 w-px shrink-0"
+                  aria-hidden
+                />
+                {pageToggle(false)}
+                <span
+                  className="bg-border mx-1 h-5 w-px shrink-0"
+                  aria-hidden
+                />
+                <div className="shrink-0">{deviceToggle}</div>
+                <div className="shrink-0">{languageToggle}</div>
+                <span
+                  className="bg-border mx-1 h-5 w-px shrink-0"
+                  aria-hidden
+                />
+                <Triggers compact />
+                {/* Pinned to the end, so Close never scrolls out of reach. */}
+                <div className="bg-background sticky end-0 ms-auto flex shrink-0 items-center gap-1 ps-2">
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="Reset visitor"
+                    title="Reset visitor"
+                    onClick={resetVisitor}
+                  >
+                    <IconRefresh aria-hidden />
+                  </Button>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-pressed={bare}
+                    aria-label={bare ? 'Show controls' : 'Hide controls'}
+                    title={bare ? 'Show controls' : 'Hide controls'}
+                    onClick={(event) => {
+                      setBare((b) => !b)
+                      setPeekDock(false)
+                      // A pointer click should let the dock tuck away; keyboard keeps focus.
+                      if (event.detail > 0) event.currentTarget.blur()
+                    }}
+                  >
+                    {bare ? (
+                      <IconLayoutNavbarExpand aria-hidden />
+                    ) : (
+                      <IconLayoutNavbarCollapse aria-hidden />
+                    )}
+                  </Button>
+                  {canFullscreen ? (
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-pressed={browserFull}
+                      aria-label={
+                        browserFull
+                          ? 'Leave browser full screen'
+                          : 'Browser full screen'
+                      }
+                      title={
+                        browserFull
+                          ? 'Leave browser full screen'
+                          : 'Browser full screen'
+                      }
+                      onClick={toggleBrowserFull}
+                    >
+                      {browserFull ? (
+                        <IconMinimize aria-hidden />
+                      ) : (
+                        <IconMaximize aria-hidden />
+                      )}
+                    </Button>
+                  ) : null}
+                  <Button size="sm" variant="outline" onClick={closeTheatre}>
+                    <IconX aria-hidden />
+                    Close
+                    <kbd className="text-muted-foreground ms-1 font-mono text-[0.6875rem] max-sm:hidden">
+                      Esc
+                    </kbd>
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {theatre && bare ? (
+              // A handle to bring the controls back, sized for a thumb.
+              <button
+                type="button"
+                aria-label="Show controls"
+                onPointerEnter={(event) => {
+                  if (event.pointerType === 'mouse') setPeekDock(true)
+                }}
+                onClick={() => setPeekDock((p) => !p)}
+                className="absolute top-0 left-1/2 z-20 flex h-6 w-16 -translate-x-1/2 items-start justify-center pt-1.5 outline-none"
+              >
+                <span className="bg-foreground/35 h-1 w-10 rounded-full" />
+              </button>
+            ) : null}
             <div
-              ref={setFrame}
-              dir={rtl ? 'rtl' : 'ltr'}
-              lang={lang}
-              style={{ width: spec.width, height: spec.height }}
               className={cn(
-                'border-border bg-background relative max-w-full transform-gpu overflow-hidden border shadow-sm transition-[width] duration-300 ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none',
-                phone ? 'rounded-[2rem] border-4' : 'rounded-xl',
+                'flex justify-center',
+                theatre && 'min-h-0 flex-1 items-center',
+                theatre && device !== 'wide' && !narrow && 'p-4 sm:p-6',
               )}
             >
               <div
-                ref={setScroller}
-                className="h-full overflow-y-auto overscroll-contain"
+                ref={setFrame}
+                dir={rtl ? 'rtl' : 'ltr'}
+                lang={lang}
+                style={size}
+                className={cn(
+                  'border-border bg-background relative max-w-full transform-gpu overflow-hidden shadow-sm transition-[width,height] duration-300 ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none',
+                  theatre && device === 'wide'
+                    ? 'max-h-full'
+                    : phone && !(theatre && narrow)
+                      ? 'max-h-full rounded-[2rem] border-4'
+                      : 'max-h-full rounded-xl border',
+                )}
               >
-                <MockSite
-                  key={scenarioId}
-                  scenario={scenario}
-                  pathname={pathname}
-                  phone={phone}
-                  scroller={scroller}
-                  frame={frame}
-                  navigate={navigate}
+                <div
+                  ref={setScroller}
+                  className="h-full overflow-y-auto overscroll-contain"
+                >
+                  <MockSite
+                    key={scenarioId}
+                    scenario={scenario}
+                    pathname={pathname}
+                    phone={phone}
+                    scroller={scroller}
+                    frame={frame}
+                    navigate={navigate}
+                  />
+                </div>
+                <PromoToast />
+                <PromoSheet
+                  layout={phone ? 'bottom' : 'side'}
+                  container={frame}
+                  dir={rtl ? 'rtl' : 'ltr'}
+                />
+                <PromoDialog
+                  layout={phone ? 'sheet' : 'dialog'}
+                  container={frame}
                 />
               </div>
-              <PromoToast />
-              <PromoSheet
-                layout={phone ? 'bottom' : 'side'}
-                container={frame}
-                dir={rtl ? 'rtl' : 'ltr'}
-              />
-              <PromoDialog
-                layout={phone ? 'sheet' : 'dialog'}
-                container={frame}
-              />
             </div>
           </div>
 

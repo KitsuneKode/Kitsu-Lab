@@ -18,6 +18,7 @@ import { PromoCode, countdownLabel } from './promotion-views'
 const CARD_WIDTH = 288
 const STRIP = 56
 
+/** Observes an element's size, or the window when none is given. */
 function subscribeResize(target: HTMLElement | null, onChange: () => void) {
   if (target && typeof ResizeObserver !== 'undefined') {
     const observer = new ResizeObserver(onChange)

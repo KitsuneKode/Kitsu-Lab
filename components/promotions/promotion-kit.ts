@@ -35,6 +35,7 @@ export type KitOptions<Routes extends Record<string, string>> = {
 export type Langs = 'fr' | 'de' | 'ja' | 'hi' | 'ar'
 export const tr = (copy: Record<Langs, PromotionCopy>) => copy
 
+/** Fills a kit record with safe defaults, so each kit only states what is specific to it. */
 export function record(
   base: Pick<Promotion, 'id' | 'placement' | 'title'> & Partial<Promotion>,
 ): Promotion {

@@ -1136,7 +1136,6 @@ export function PromotionsDemo() {
               { value: 'sticky', label: 'Sticky CTA' },
             ]}
             others={records}
-            segments={MEMBER}
             timeZone="Europe/Paris"
             submitLabel="Publish to the demo"
             onSubmit={(content) => {

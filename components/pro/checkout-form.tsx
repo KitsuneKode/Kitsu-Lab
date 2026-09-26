@@ -27,7 +27,10 @@ export function CheckoutForm({
         type="submit"
         disabled={!available}
         className={cn(
-          buttonVariants({ variant: highlight ? 'default' : 'outline', size: 'lg' }),
+          buttonVariants({
+            variant: highlight ? 'default' : 'outline',
+            size: 'lg',
+          }),
           'w-full',
         )}
       >

@@ -12,7 +12,6 @@ import {
   sharesCampaign,
   slotPromotions,
   matchRoute,
-  nextBoundary,
   sanitizePromotions,
   selectPromotions,
   targetsRoute,
@@ -306,8 +305,10 @@ function isHidden() {
 function createClockStore(
   now: () => number,
   tickMs: number,
-  records: readonly Promotion[],
+  edges: readonly number[],
 ) {
+  // The snapshot is taken once here and only refreshed by `tick`, so what
+  // React rendered is what it reads back after subscribing.
   let value = now()
   return {
     subscribe(onChange: () => void) {
@@ -320,7 +321,7 @@ function createClockStore(
       const schedule = () => {
         window.clearTimeout(timer)
         const current = now()
-        const edge = nextBoundary(records, current)
+        const edge = edges.find((at) => at > current) ?? null
         const untilEdge = edge === null ? tickMs : edge - current + 20
         timer = window.setTimeout(
           tick,
@@ -330,7 +331,6 @@ function createClockStore(
       const onVisible = () => {
         if (!isHidden()) tick()
       }
-      value = now()
       schedule()
       document.addEventListener('visibilitychange', onVisible)
       return () => {
@@ -353,9 +353,26 @@ function useClock(
   tickMs: number,
   records: readonly Promotion[],
 ): number | null {
+  // Keyed on the schedule's content, not the array's identity: a host that
+  // builds `source` during render (a kit call) must not get a new store, and
+  // a new subscription, on every render.
+  const signature = React.useMemo(() => {
+    const at = new Set<number>()
+    for (const record of records) {
+      if (record.state !== 'published') continue
+      at.add(record.startsAt)
+      at.add(record.endsAt)
+    }
+    return [...at].sort((a, b) => a - b).join(',')
+  }, [records])
   const store = React.useMemo(
-    () => createClockStore(now, tickMs, records),
-    [now, tickMs, records],
+    () =>
+      createClockStore(
+        now,
+        tickMs,
+        signature ? signature.split(',').map(Number) : [],
+      ),
+    [now, tickMs, signature],
   )
   return React.useSyncExternalStore(store.subscribe, store.get, serverClock)
 }
@@ -790,10 +807,12 @@ export function PromotionProvider({
     sides,
     closeSheet: () =>
       setForced((id) => (id === sheetCandidate?.id ? null : id)),
-    card: (slot) => {
-      const candidate = selection.cards[slot]
-      return candidate && !isDismissed(candidate) ? candidate : null
-    },
+    // The best card in the slot the visitor has not dismissed and no plugin
+    // vetoed, so a lower card can take the place of an ineligible one.
+    card: (slot) =>
+      slotPromotions(selection, slot).find(
+        (promotion) => !isDismissed(promotion) && allowed(promotion),
+      ) ?? null,
     cards: (slot) =>
       slotPromotions(selection, slot).filter(
         (promotion) => !isDismissed(promotion) && allowed(promotion),
@@ -811,15 +830,17 @@ export function PromotionProvider({
         selection.bar,
         selection.toast,
         selection.sheet,
+        selection.side,
         selection.dialog,
         ...Object.values(selection.cards),
       ]
       return (
         all.find(
-          (promotion) =>
+          (promotion): promotion is Promotion =>
             promotion?.cta?.href === href &&
             targetsRoute(promotion, pathname) &&
-            !isDismissed(promotion),
+            !isDismissed(promotion) &&
+            allowed(promotion),
         ) ?? null
       )
     },

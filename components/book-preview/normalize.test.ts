@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   clampPageIndex,
   isEmptySource,
+  normalizePages,
   normalizeSource,
   sourceIdentity,
 } from './normalize'
@@ -106,5 +107,47 @@ describe('image pages', () => {
         normalizeSource({ pages: [{ id: 'p', pageNumber: 1, image }] }),
       ),
     ).toBe(false)
+  })
+})
+
+describe('image pages that fail validation', () => {
+  test('fall back to their description instead of rendering blank', () => {
+    const [page] = normalizePages([
+      {
+        id: 'a',
+        pageNumber: 3,
+        image: {
+          src: ' ',
+          alt: 'A map of the valley',
+          width: 800,
+          height: 1000,
+        },
+      },
+    ])
+    expect(page?.image).toBeUndefined()
+    expect(page?.paragraphs).toEqual(['A map of the valley'])
+  })
+
+  test('use a generic line when there is no description', () => {
+    const [page] = normalizePages([
+      {
+        id: 'b',
+        pageNumber: 4,
+        image: { src: '/x.webp', alt: '', width: 0, height: 10 },
+      },
+    ])
+    expect(page?.paragraphs).toEqual(['Page 4 could not be shown.'])
+  })
+
+  test('keep their own text when they have some', () => {
+    const [page] = normalizePages([
+      {
+        id: 'c',
+        pageNumber: 5,
+        paragraphs: ['Real text'],
+        image: { src: '', alt: 'x', width: 1, height: 1 },
+      },
+    ])
+    expect(page?.paragraphs).toEqual(['Real text'])
   })
 })

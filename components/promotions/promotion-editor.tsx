@@ -166,7 +166,16 @@ function initialDraft(
   }
 }
 
-function toInput(draft: Draft, timeZone: string | undefined) {
+/**
+ * Fields the form does not show (yet) are carried over from `initial`, so
+ * saving an existing promotion never silently drops its gallery,
+ * translations, frequency, campaign or dismissal scope.
+ */
+function toInput(
+  draft: Draft,
+  timeZone: string | undefined,
+  initial: Partial<PromotionContent> = {},
+) {
   const hasCta = draft.ctaLabel.trim() !== '' || draft.ctaHref.trim() !== ''
   const hasMedia = draft.mediaSrc.trim() !== '' || draft.mediaAlt.trim() !== ''
   return {
@@ -195,11 +204,18 @@ function toInput(draft: Draft, timeZone: string | undefined) {
     startsAt: fromZonedInput(draft.startsAt, timeZone),
     endsAt: fromZonedInput(draft.endsAt, timeZone),
     priority: draft.priority,
-    dismiss:
-      draft.dismissMode === 'days'
+    dismiss: {
+      ...(draft.dismissMode === 'days'
         ? { mode: 'days', days: draft.dismissDays }
-        : { mode: draft.dismissMode },
+        : { mode: draft.dismissMode }),
+      ...(initial.dismiss?.scope ? { scope: initial.dismiss.scope } : {}),
+    },
     showCountdown: draft.showCountdown,
+    gallery: initial.gallery,
+    translations: initial.translations,
+    revealCode: initial.revealCode,
+    frequency: initial.frequency,
+    campaign: initial.campaign,
   }
 }
 
@@ -372,8 +388,8 @@ export function PromotionEditor({
     [routes, targets],
   )
   const result = React.useMemo(
-    () => parsePromotion(toInput(draft, timeZone), parseOptions),
-    [draft, parseOptions, timeZone],
+    () => parsePromotion(toInput(draft, timeZone, initial), parseOptions),
+    [draft, parseOptions, timeZone, initial],
   )
   const errors: Partial<Record<PromotionField, string>> = { ...serverErrors }
   if (!result.ok) {

@@ -4,6 +4,7 @@ import {
   dismissScope,
   frequencyAllows,
   localizePromotion,
+  isPromotion,
   parsePromotion,
   selectPromotions,
   type Promotion,
@@ -210,5 +211,32 @@ describe('label packs', () => {
     expect(isRightToLeft('he-IL')).toBe(true)
     expect(isRightToLeft('en')).toBe(false)
     expect(isRightToLeft('arn')).toBe(false)
+  })
+})
+
+describe('review fixes', () => {
+  test('isPromotion drops rows whose text fields would crash rendering', () => {
+    const ok = promo()
+    expect(isPromotion(ok)).toBe(true)
+    expect(isPromotion({ ...ok, eyebrow: { nested: true } })).toBe(false)
+    expect(isPromotion({ ...ok, code: 20 })).toBe(false)
+    expect(
+      isPromotion({ ...ok, translations: { fr: { title: { x: 1 } } } }),
+    ).toBe(false)
+    expect(isPromotion({ ...ok, frequency: { hours: '24' } })).toBe(false)
+    expect(isPromotion({ ...ok, presentation: 'carousel' })).toBe(false)
+    expect(
+      isPromotion({
+        ...ok,
+        frequency: { hours: 12 },
+        translations: { fr: { title: 'Soldes' } },
+      }),
+    ).toBe(true)
+  })
+
+  test('one malformed cookie is skipped, the rest still read', () => {
+    const map = readPromotionCookies('promo_a=%E0%A4%A; promo_b=42')
+    expect(map.has('promo_a')).toBe(false)
+    expect(map.get('promo_b')).toBe(42)
   })
 })

@@ -744,6 +744,9 @@ function isStringArray(value: unknown): value is string[] {
  * Structural check for a stored record. The provider usually sits in the root
  * layout, so one malformed row from a CMS must be dropped, not crash the app.
  */
+const optionalString = (value: unknown) =>
+  value === undefined || typeof value === 'string'
+
 export function isPromotion(value: unknown): value is Promotion {
   if (!isRecord(value)) return false
   return (
@@ -752,6 +755,19 @@ export function isPromotion(value: unknown): value is Promotion {
     PROMOTION_STATES.some((state) => state === value.state) &&
     PROMOTION_PLACEMENTS.some((placement) => placement === value.placement) &&
     typeof value.title === 'string' &&
+    // Everything that renders as text must be text, or React throws.
+    optionalString(value.eyebrow) &&
+    optionalString(value.body) &&
+    optionalString(value.code) &&
+    optionalString(value.slot) &&
+    optionalString(value.campaign) &&
+    (value.translations === undefined ||
+      parseTranslations(value.translations) !== null) &&
+    (value.frequency === undefined ||
+      (isRecord(value.frequency) &&
+        isInt(value.frequency.hours, 1, 24 * 90))) &&
+    (value.presentation === undefined ||
+      DIALOG_PRESENTATIONS.some((p) => p === value.presentation)) &&
     PROMOTION_TONES.some((tone) => tone === value.tone) &&
     isStringArray(value.include) &&
     isStringArray(value.exclude) &&
@@ -772,7 +788,8 @@ export function isPromotion(value: unknown): value is Promotion {
           (item) =>
             isRecord(item) &&
             typeof item.src === 'string' &&
-            typeof item.alt === 'string',
+            typeof item.alt === 'string' &&
+            optionalString(item.caption),
         ))) &&
     (value.media === undefined ||
       (isRecord(value.media) &&

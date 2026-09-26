@@ -73,7 +73,14 @@ export function readPromotionCookies(header: string): Map<string, number> {
   for (const part of header.split(';')) {
     const [rawName, ...rest] = part.trim().split('=')
     if (!rawName?.startsWith('promo_')) continue
-    const value = readNumber(decodeURIComponent(rest.join('=')))
+    let decoded: string
+    try {
+      decoded = decodeURIComponent(rest.join('='))
+    } catch {
+      // One malformed cookie must not break rendering; skip just that one.
+      continue
+    }
+    const value = readNumber(decoded)
     if (value !== null) values.set(rawName, value)
   }
   return values

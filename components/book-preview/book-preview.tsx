@@ -52,6 +52,7 @@ import type {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -286,18 +287,22 @@ function usePersistedPageIndex({
   goToPage: (next: number, behavior?: BookPreviewNavigationBehavior) => void
   dispatch: Dispatch<BookPreviewAction>
 }) {
-  // Reset when the source itself changes, adjusted during render rather than
-  // in an effect. Effects run child-first, so an effect here fired *after* the
-  // remounted engine had already reported ready and put the reader back into
-  // a loading state nobody would clear.
-  const [resetFor, setResetFor] = useState(sourceKey)
-  if (resetFor !== sourceKey) {
-    setResetFor(sourceKey)
+  // Reset when the source itself changes. A passive effect here would run
+  // *after* the remounted engine's own passive effect reported ready (effects
+  // run child-first) and leave the reader loading forever; dispatching during
+  // render mutated the external store from render, which React may discard.
+  // A layout effect is both pure-render and early enough: every layout effect
+  // in the tree flushes before any passive effect, and engines report ready
+  // from passive effects or later.
+  const resetFor = useRef(sourceKey)
+  useLayoutEffect(() => {
+    if (resetFor.current === sourceKey) return
+    resetFor.current = sourceKey
     dispatch({
       type: 'reset-source',
       pageIndex: pageControlled ? pageIndex : defaultPageIndex,
     })
-  }
+  }, [sourceKey, pageControlled, pageIndex, defaultPageIndex, dispatch])
 
   const restoredKeyRef = useRef<string | null>(null)
   const persistKey = `book-preview:page:${sourceKey}`
@@ -469,6 +474,7 @@ function useUploadedPdf({
 // The public action surface: each callback notifies the controlled listener
 // and only dispatches to internal state when that prop is uncontrolled.
 function useBookPreviewActions({
+  sourceKey,
   modeControlled,
   pageControlled,
   appearanceControlled,
@@ -483,6 +489,7 @@ function useBookPreviewActions({
   onSoundChange,
   onCapabilitiesChange,
 }: {
+  sourceKey: string
   modeControlled: boolean
   pageControlled: boolean
   appearanceControlled: boolean
@@ -543,8 +550,17 @@ function useBookPreviewActions({
 
   const retry = useCallback(() => dispatch({ type: 'retry' }), [dispatch])
 
+  // Engines remount per source; a late report from the previous instance
+  // (an async load that resolved after the switch) must not mark the new
+  // source ready. Each handler remembers the source it was made for.
+  const readyFor = sourceKey
+  const liveSourceKey = useRef(sourceKey)
+  useLayoutEffect(() => {
+    liveSourceKey.current = sourceKey
+  }, [sourceKey])
   const handleEngineReady = useCallback(
     (info: BookPreviewEngineReadyInfo) => {
+      if (liveSourceKey.current !== readyFor) return
       dispatch({
         type: 'engine-ready',
         totalPages: info.totalPages,
@@ -553,7 +569,8 @@ function useBookPreviewActions({
       })
       onCapabilitiesChange?.(info.capabilities)
     },
-    [onCapabilitiesChange, dispatch],
+    // readyFor pins this handler to one source.
+    [onCapabilitiesChange, dispatch, readyFor],
   )
 
   const handleEngineError = useCallback(
@@ -734,6 +751,7 @@ export function BookPreview({
     handleEngineReady,
     handleEngineError,
   } = useBookPreviewActions({
+    sourceKey,
     modeControlled,
     pageControlled,
     appearanceControlled,

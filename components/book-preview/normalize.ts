@@ -34,15 +34,31 @@ export function normalizePages(
   pages: BookPreviewPage[] | undefined,
 ): BookPreviewPage[] {
   if (!pages || pages.length === 0) return []
-  return pages.map((page, index) => ({
-    ...page,
-    id: pageId(page, index),
-    pageNumber: page.pageNumber > 0 ? page.pageNumber : index + 1,
-    paragraphs: page.paragraphs?.filter(
+  return pages.map((page, index) => {
+    const pageNumber = page.pageNumber > 0 ? page.pageNumber : index + 1
+    const paragraphs = page.paragraphs?.filter(
       (paragraph) => paragraph.trim().length > 0,
-    ),
-    image: normalizePageImage(page.image),
-  }))
+    )
+    const image = normalizePageImage(page.image)
+    // An image page whose image was rejected (blank src, bad size) would
+    // otherwise render as a blank page that still counts as ready. Fall back
+    // to its description so the reader shows what should be there.
+    const lostImage =
+      page.image !== undefined &&
+      image === undefined &&
+      !page.render &&
+      !paragraphs?.length &&
+      !page.title?.trim()
+    return {
+      ...page,
+      id: pageId(page, index),
+      pageNumber,
+      paragraphs: lostImage
+        ? [page.image?.alt?.trim() || `Page ${pageNumber} could not be shown.`]
+        : paragraphs,
+      image,
+    }
+  })
 }
 
 export function normalizeSource(

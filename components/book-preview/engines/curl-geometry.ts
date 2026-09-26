@@ -150,10 +150,14 @@ export function curlUseSpread(
   )
 }
 
-/** First page of the spread holding `pageIndex` — spreads pair (1|2),
-    (3|4)… from the first page, like a document's two-page view. */
-export function curlSpreadStart(pageIndex: number): number {
-  return Math.max(0, pageIndex - (pageIndex % 2))
+/**
+ * Left page of the spread holding `pageIndex`. Documents pair (1|2),
+ * (3|4)… from the first page. A book with a cover shows the cover alone on
+ * the right — its left slot is -1, an endpaper — then pairs (2|3), (4|5)….
+ */
+export function curlSpreadStart(pageIndex: number, cover = false): number {
+  const index = Math.max(0, pageIndex)
+  return index - ((index + (cover ? 1 : 0)) % 2)
 }
 
 /** Where a next/previous turn lands: one page, or one whole spread. Null
@@ -163,11 +167,40 @@ export function curlStepTarget(
   direction: 1 | -1,
   pageCount: number,
   spread: boolean,
+  cover = false,
 ): number | null {
   if (!spread) {
     const next = from + direction
     return next >= 0 && next < pageCount ? next : null
   }
-  const next = curlSpreadStart(from) + direction * 2
-  return next >= 0 && next < pageCount ? next : null
+  // A spread exists while either of its slots holds a page; it is reported
+  // by its first real page (the cover spread's left slot is an endpaper).
+  const next = curlSpreadStart(from, cover) + direction * 2
+  if (next < -1 || next > pageCount - 1) return null
+  if (next === -1 && !cover) return null
+  return Math.max(0, next)
+}
+
+export type CurlSpreadPreference = 'auto' | 'single' | 'double'
+
+/** Smallest leaf a forced spread may shrink to before it gives up and shows
+    one page — "two pages" on a phone held upright would be unreadable. */
+export const CURL_FORCED_SPREAD_MIN_WIDTH = 200
+
+/** The reader's choice, then the stage: auto decides by shape, "double"
+    insists unless the leaves would be unreadably small. */
+export function curlResolveSpread(
+  preference: CurlSpreadPreference,
+  clientWidth: number,
+  clientHeight: number,
+  ratio: number,
+  pageCount: number,
+  current: boolean,
+): boolean {
+  if (pageCount < 2 || preference === 'single') return false
+  if (preference === 'double') {
+    const paired = curlPageSizeForStage(clientWidth, clientHeight, ratio, true)
+    return paired.width >= CURL_FORCED_SPREAD_MIN_WIDTH
+  }
+  return curlUseSpread(clientWidth, clientHeight, ratio, current)
 }

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { BookPreviewPageView } from '../book-preview-page'
+import { BookPreviewFitPage } from '../book-preview-fit-page'
 import type { PdfSheet } from '../hooks/use-pdf-sheets'
 import type { BookPreviewEngineProps, BookPreviewPage } from '../types'
 import { CurlPdfSheet } from './curl-pdf-sheet'
@@ -38,13 +39,15 @@ export function renderCurlLeaf(
   const page = source.pages[index]
   return page ? (
     <FlipSheet>
-      <BookPreviewPageView
-        page={page}
-        appearance={source.appearance}
-        // Gutter shading sits on the spine side: a single-leaf book is bound
-        // on the left (every leaf a right-hand page); a spread says which.
-        isLeftPage={side === 'left'}
-      />
+      <BookPreviewFitPage>
+        <BookPreviewPageView
+          page={page}
+          appearance={source.appearance}
+          // Gutter shading sits on the spine side: a single-leaf book is bound
+          // on the left (every leaf a right-hand page); a spread says which.
+          isLeftPage={side === 'left'}
+        />
+      </BookPreviewFitPage>
     </FlipSheet>
   ) : null
 }

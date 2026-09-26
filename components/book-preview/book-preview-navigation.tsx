@@ -7,8 +7,15 @@ import { Slider } from '@/components/ui/slider'
 import { useBookPreview } from './book-preview-provider'
 
 export function BookPreviewNavigation() {
-  const { state, canGoPrev, canGoNext, prevPage, nextPage, goToPage } =
-    useBookPreview()
+  const {
+    state,
+    canGoPrev,
+    canGoNext,
+    prevPage,
+    nextPage,
+    goToPage,
+    minutesLeft,
+  } = useBookPreview()
   const total = Math.max(state.totalPages, 1)
   const [scrub, setScrub] = useState<number | null>(null)
   const [jumpDraft, setJumpDraft] = useState<string | null>(null)
@@ -80,8 +87,22 @@ export function BookPreviewNavigation() {
               }}
             />
             <span aria-hidden>of {state.totalPages}</span>
+            {minutesLeft !== null ? (
+              // Learned from this reader's own pace; the number that makes
+              // the end of a chapter feel close.
+              <span
+                aria-hidden
+                className="text-muted-foreground/80 hidden sm:inline"
+                data-book-preview-time-left
+              >
+                · {minutesLeft < 1 ? 'almost done' : `${minutesLeft} min left`}
+              </span>
+            ) : null}
             <span className="sr-only">
               Page {shown + 1} of {state.totalPages}
+              {minutesLeft !== null && minutesLeft > 0
+                ? `, about ${minutesLeft} minutes left`
+                : ''}
             </span>
           </form>
         )}

@@ -3,7 +3,7 @@
 import { SUPPORT_NOTES } from './support'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { useBookPreview } from './book-preview-provider'
+import { useBookPreviewSelector } from './book-preview-provider'
 import {
   IconCopy,
   IconNote,
@@ -118,7 +118,19 @@ export function BookPreviewAnnotationLayer() {
     sharePage,
     source,
     uploaded,
-  } = useBookPreview()
+  } = useBookPreviewSelector((v) => ({
+    annotate: v.annotate,
+    annotations: v.annotations,
+    updateAnnotations: v.updateAnnotations,
+    rootRef: v.rootRef,
+    ai: v.ai,
+    openCompanion: v.openCompanion,
+    finePointer: v.finePointer,
+    share: v.share,
+    sharePage: v.sharePage,
+    source: v.source,
+    uploaded: v.uploaded,
+  }))
   const instanceId = useId()
   const [card, setCard] = useState<Card | null>(null)
   const [noteDraft, setNoteDraft] = useState('')

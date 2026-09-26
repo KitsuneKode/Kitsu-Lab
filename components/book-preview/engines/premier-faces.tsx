@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { pageSearchText } from '../normalize'
 import type { PdfSheet } from '../hooks/use-pdf-sheets'
 import { BookPreviewPageView } from '../book-preview-page'
+import { BookPreviewFitPage } from '../book-preview-fit-page'
 import type { BookPreviewAppearance, BookPreviewPage } from '../types'
 
 export type PremierFace = {
@@ -65,12 +66,14 @@ export function buildPremierFaces(input: {
     pageNumber: null,
     hasRaster: true,
     content: (
-      <BookPreviewPageView
-        page={page}
-        appearance={appearance}
-        // Spreads pair (1|2), (3|4)…: the even index is the left-hand page.
-        isLeftPage={index % 2 === 0}
-      />
+      <BookPreviewFitPage>
+        <BookPreviewPageView
+          page={page}
+          appearance={appearance}
+          // Spreads pair (1|2), (3|4)…: the even index is the left-hand page.
+          isLeftPage={index % 2 === 0}
+        />
+      </BookPreviewFitPage>
     ),
   }))
 }

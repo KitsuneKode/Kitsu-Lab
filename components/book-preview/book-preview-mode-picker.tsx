@@ -11,7 +11,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { useBookPreview } from './book-preview-provider'
+import { useBookPreviewSelector } from './book-preview-provider'
 import { engineSupportNote } from './support'
 import type { BookPreviewEngine, BookPreviewMode } from './types'
 
@@ -34,8 +34,15 @@ function useUnsupportedEngines(engines: BookPreviewEngine[]): Set<string> {
 }
 
 export function BookPreviewModePicker() {
-  const { enabledEngines, state, setMode, prefetchMode, finePointer } =
-    useBookPreview()
+  const { enabledEngines, mode, setMode, prefetchMode, finePointer } =
+    useBookPreviewSelector((v) => ({
+      enabledEngines: v.enabledEngines,
+      mode: v.state.mode,
+      setMode: v.setMode,
+      prefetchMode: v.prefetchMode,
+      finePointer: v.finePointer,
+    }))
+  const state = { mode }
   const [sheetOpen, setSheetOpen] = useState(false)
   const unsupported = useUnsupportedEngines(enabledEngines)
 

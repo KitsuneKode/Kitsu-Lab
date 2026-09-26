@@ -612,22 +612,28 @@ export function PremierSpreadView({
   const hostRef = useRef<HTMLDivElement | null>(null)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const faceRef = useRef<HTMLDivElement | null>(null)
-  const { pair, left, right } = spreadSlots(pageIndex, faces.length)
+  const { setPageStep, pageLayout } = useBookPreview()
+  const cover = pageLayout.cover
+  const { pair, left, right } = spreadSlots(pageIndex, faces.length, cover)
   const arrival = usePageArrival(pair)
-  const { setPageStep } = useBookPreview()
   const faceCount = faces.length
   // Arrows, Space and the pager turn a whole spread here — stepping one page
   // would land on the facing page, already on screen, and look dead.
   useEffect(() => {
     setPageStep((from, direction) =>
-      spreadStep(Math.floor(Math.max(0, from) / 2), direction, faceCount),
+      spreadStep(
+        spreadSlots(from, faceCount, cover).pair,
+        direction,
+        faceCount,
+        cover,
+      ),
     )
     return () => setPageStep(null)
-  }, [faceCount, setPageStep])
+  }, [cover, faceCount, setPageStep])
   useSwipeTurn({
     hostRef,
     faceRef,
-    stepFor: (direction) => spreadStep(pair, direction, faces.length),
+    stepFor: (direction) => spreadStep(pair, direction, faces.length, cover),
     zoom,
     reducedMotion,
     onPageChange,
@@ -640,7 +646,7 @@ export function PremierSpreadView({
     onZoom,
   })
 
-  const leftFace = faces[left]
+  const leftFace = left >= 0 ? faces[left] : null
   const rightFace = right >= 0 ? faces[right] : null
   return (
     <div
@@ -663,7 +669,9 @@ export function PremierSpreadView({
             // Sized as a pair even when a face stands alone (the cover, a
             // lone last page), so pages keep their size as the reader turns.
             // A lone face sits centred rather than beside an empty slot.
-            height: fitHeight(2 * (leftFace?.aspect ?? FALLBACK_ASPECT)),
+            height: fitHeight(
+              2 * ((leftFace ?? rightFace)?.aspect ?? FALLBACK_ASPECT),
+            ),
           }}
           className="m-auto flex items-stretch gap-0.5"
         >

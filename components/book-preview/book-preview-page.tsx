@@ -184,15 +184,19 @@ function BookPreviewTextPage({
       <header
         data-bp-annotate-skip
         className={cn(
-          'flex items-center justify-between border-b pb-2 text-[11px] tracking-wider uppercase',
+          // One line, always: on a narrow page the title truncates instead
+          // of wrapping into the folio ("PAGETHE ARCHITECTURE OF / 2 …").
+          'flex items-center justify-between gap-3 border-b pb-2 text-[11px] tracking-wider whitespace-nowrap uppercase',
           theme.border,
           theme.muted,
         )}
       >
-        <span>
+        <span className={isLeftPage ? 'shrink-0' : 'min-w-0 truncate'}>
           {isLeftPage ? `Page ${page.pageNumber}` : (page.kicker ?? 'Folio')}
         </span>
-        <span>
+        <span
+          className={isLeftPage ? 'min-w-0 truncate text-right' : 'shrink-0'}
+        >
           {isLeftPage ? (page.title ?? 'Page') : `Page ${page.pageNumber}`}
         </span>
       </header>

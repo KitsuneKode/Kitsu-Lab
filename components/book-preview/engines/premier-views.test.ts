@@ -43,3 +43,19 @@ describe('premier spread stepping', () => {
     expect(spreadStep(0, -1, 1)).toBeNull()
   })
 })
+
+describe('premier spread pairing with a cover', () => {
+  test('the cover stands alone, then (2|3), (4|5)…', () => {
+    expect(spreadSlots(0, 10, true)).toEqual({ pair: 0, left: -1, right: 0 })
+    expect(spreadSlots(1, 10, true)).toEqual({ pair: 1, left: 1, right: 2 })
+    expect(spreadSlots(2, 10, true)).toEqual({ pair: 1, left: 1, right: 2 })
+    expect(spreadSlots(9, 10, true)).toEqual({ pair: 5, left: 9, right: -1 })
+  })
+
+  test('steps land on the first face of each pair', () => {
+    expect(spreadStep(0, 1, 10, true)).toBe(1)
+    expect(spreadStep(1, 1, 10, true)).toBe(3)
+    expect(spreadStep(1, -1, 10, true)).toBe(0)
+    expect(spreadStep(5, 1, 10, true)).toBeNull()
+  })
+})

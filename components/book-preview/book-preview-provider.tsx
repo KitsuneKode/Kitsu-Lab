@@ -1,5 +1,6 @@
 'use client'
 
+import type { BookPreviewSpreads } from './prefs'
 import {
   createContext,
   useContext,
@@ -42,6 +43,15 @@ export type BookPreviewPageStep = (
   from: number,
   direction: 1 | -1,
 ) => number | null
+
+/** Offered once when a document opens: after a silent resume ("picked up
+    where you left off — start over?") or when a shared link opened away
+    from the reader's own place ("you were on page M — go there?"). */
+export type BookPreviewResumeNotice = {
+  kind: 'resumed' | 'yours'
+  pageIndex: number
+  source: string
+}
 
 export type BookPreviewCompanionTab = 'notes' | 'ask'
 
@@ -96,6 +106,17 @@ export type BookPreviewContextValue = {
     toggle: () => void
     togglePinned: () => void
   }
+  /** How two-page views lay out: spreads by screen shape / never / always
+      (the reader's choice, remembered), and whether the first page stands
+      alone as a cover. */
+  pageLayout: { spreads: BookPreviewSpreads; cover: boolean }
+  setSpreads: (spreads: BookPreviewSpreads) => void
+  setCover: (cover: boolean) => void
+  resume: BookPreviewResumeNotice | null
+  dismissResume: () => void
+  /** Estimated minutes to the end at this reader's own pace; null until a
+      few page turns have taught it. */
+  minutesLeft: number | null
   /** The keyboard-shortcut sheet (`?`), with the engine shortcuts that
       exist at the moment it opened. */
   shortcutsOpen: boolean

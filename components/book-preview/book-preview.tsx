@@ -9,7 +9,11 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { BookPreviewToolbar } from './book-preview-toolbar'
 import { BookPreviewViewport } from './book-preview-viewport'
 import { BookPreviewNavigation } from './book-preview-navigation'
-import { readBookPreviewPrefs, writeBookPreviewPrefs } from './prefs'
+import {
+  readBookPreviewPrefs,
+  writeBookPreviewPrefs,
+  type BookPreviewSpreads,
+} from './prefs'
 import {
   parsePageParam,
   pickAllowed,
@@ -23,6 +27,8 @@ import { BookPreviewEngineBoundary } from './book-preview-engine-boundary'
 import { useImmersiveChrome } from './hooks/use-immersive-chrome'
 import { engineSupportNote } from './support'
 import { BookPreviewChromeHandle } from './book-preview-chrome-controls'
+import { BookPreviewSideArrows } from './book-preview-side-arrows'
+import { BookPreviewResume } from './book-preview-resume'
 import { useAnnotations } from './hooks/use-annotations'
 import { toggleBookmark } from './annotations'
 import { BookPreviewCompanion } from './book-preview-companion'
@@ -56,6 +62,7 @@ import {
   type BookPreviewDrawState,
   type BookPreviewEngineShortcuts,
   type BookPreviewPageStep,
+  type BookPreviewResumeNotice,
 } from './book-preview-provider'
 import {
   describeEngineLoadFailure,
@@ -432,6 +439,7 @@ function usePersistedPageIndex({
 
   const restoredKeyRef = useRef<string | null>(null)
   const persistKey = `book-preview:page:${storageKey}`
+  const [resume, setResume] = useState<BookPreviewResumeNotice | null>(null)
 
   // Restore the position once the source reports ready. A deep-linked
   // ?page=N wins over the remembered position — a shared link should land on
@@ -450,17 +458,29 @@ function usePersistedPageIndex({
       return
     restoredKeyRef.current = sourceKey
     try {
-      let target: number | null = pageParam
-        ? parsePageParam(readUrlParam(pageParam))
-        : null
-      if (target === null && persistPage) {
+      const linked = pageParam ? parsePageParam(readUrlParam(pageParam)) : null
+      let stored: number | null = null
+      if (persistPage) {
         const raw = window.localStorage.getItem(persistKey)
-        const stored = raw === null ? Number.NaN : Number.parseInt(raw, 10)
-        if (stored > 0) target = stored
+        const value = raw === null ? Number.NaN : Number.parseInt(raw, 10)
+        if (value > 0 && value < totalPages) stored = value
       }
-      if (target !== null && target < Math.max(totalPages, 1)) {
-        queueMicrotask(() => goToPage(target, 'instant'))
-      }
+      const target = linked ?? stored
+      // Say what just happened, and offer the other place: back to the
+      // start after a silent resume, or back to *your* page when a shared
+      // link opened somewhere else.
+      const notice: BookPreviewResumeNotice | null =
+        linked === null && stored !== null
+          ? { kind: 'resumed', pageIndex: stored, source: sourceKey }
+          : linked !== null && stored !== null && stored !== linked
+            ? { kind: 'yours', pageIndex: stored, source: sourceKey }
+            : null
+      queueMicrotask(() => {
+        if (target !== null && target < Math.max(totalPages, 1)) {
+          goToPage(target, 'instant')
+        }
+        if (notice) setResume(notice)
+      })
     } catch {
       // localStorage or location may be unavailable (private mode, sandbox).
     }
@@ -496,6 +516,68 @@ function usePersistedPageIndex({
     if (!pageParam || status !== 'ready' || totalPages === 0) return
     writeUrlParams({ [pageParam]: String(activePage + 1) })
   }, [pageParam, status, totalPages, activePage])
+
+  const dismissResume = useCallback(() => setResume(null), [])
+  return {
+    resume: resume?.source === sourceKey ? resume : null,
+    dismissResume,
+  }
+}
+
+/**
+ * How long this reader spends on a page, learned from their own turns — the
+ * median of recent forward dwells, ignoring skims (under 4s) and walk-aways
+ * (over 10 min). Feeds the pager's "min left", the e-reader number that
+ * makes finishing feel close.
+ */
+function useReadingPace(
+  activePage: number,
+  totalPages: number,
+  sourceKey: string,
+): number | null {
+  const [secondsPerPage, setSecondsPerPage] = useState<number | null>(null)
+  const paceRef = useRef({
+    source: sourceKey,
+    page: activePage,
+    at: 0,
+    samples: [] as number[],
+  })
+  useEffect(() => {
+    const pace = paceRef.current
+    const now = performance.now()
+    if (pace.source !== sourceKey) {
+      paceRef.current = {
+        source: sourceKey,
+        page: activePage,
+        at: now,
+        samples: [],
+      }
+      // A new document starts a new pace.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSecondsPerPage(null)
+      return
+    }
+    const turned = activePage - pace.page
+    if (pace.at > 0 && turned >= 1 && turned <= 2) {
+      const dwell = (now - pace.at) / 1000 / turned
+      if (dwell >= 4 && dwell <= 600) {
+        pace.samples.push(dwell)
+        if (pace.samples.length > 15) pace.samples.shift()
+        if (pace.samples.length >= 3) {
+          const sorted = [...pace.samples].sort((a, b) => a - b)
+          setSecondsPerPage(sorted[Math.floor(sorted.length / 2)])
+        }
+      }
+    }
+    pace.page = activePage
+    pace.at = now
+  }, [activePage, sourceKey])
+  if (secondsPerPage === null || totalPages === 0) return null
+  const remaining = Math.max(0, totalPages - 1 - activePage)
+  return Math.max(
+    remaining > 0 ? 1 : 0,
+    Math.round((remaining * secondsPerPage) / 60),
+  )
 }
 
 // Appearance and mode are "how I like my reader" settings — they belong to
@@ -894,6 +976,7 @@ export function BookPreview({
   prefetchModes,
   defaultTypography,
   onTypographyChange,
+  spreadCover = 'auto',
   annotate = true,
   share = true,
   annotations: annotationsProp,
@@ -1010,6 +1093,40 @@ export function BookPreview({
     enabled: fullscreen,
     rootRef,
   })
+  // Two-page layout: the spreads choice is a remembered reader preference;
+  // the cover defaults from the document and a reader's override lasts for
+  // that document only.
+  const [spreadsPref, setSpreadsPref] = useState<BookPreviewSpreads>('auto')
+  useEffect(() => {
+    if (!persistPreferences) return
+    const stored = readBookPreviewPrefs().spreads
+    // Stored preferences are read after mount so hydration stays clean.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (stored) setSpreadsPref(stored)
+  }, [persistPreferences])
+  const setSpreads = useCallback(
+    (next: BookPreviewSpreads) => {
+      setSpreadsPref(next)
+      if (persistPreferences) writeBookPreviewPrefs({ spreads: next })
+    },
+    [persistPreferences],
+  )
+  const autoCover =
+    spreadCover === 'auto' ? Boolean(normalized.pages[0]?.isCover) : spreadCover
+  const [coverOverride, setCoverOverride] = useState<{
+    source: string
+    cover: boolean
+  } | null>(null)
+  const cover =
+    coverOverride?.source === sourceKey ? coverOverride.cover : autoCover
+  const setCover = useCallback(
+    (next: boolean) => setCoverOverride({ source: sourceKey, cover: next }),
+    [sourceKey],
+  )
+  const pageLayout = useMemo(
+    () => ({ spreads: spreadsPref, cover }),
+    [cover, spreadsPref],
+  )
   const [shortcutsOpen, setShortcutsOpenState] = useState(false)
   const [engineShortcutsAvailable, setEngineShortcutsAvailable] = useState({
     search: false,
@@ -1110,7 +1227,8 @@ export function BookPreview({
   // Runs before useEngineLoader so a source change dispatches reset-source
   // first and the loader's status transition (loading/empty/unsupported)
   // lands last, matching the pre-extraction effect order.
-  usePersistedPageIndex({
+  const minutesLeft = useReadingPace(activePage, state.totalPages, sourceKey)
+  const { resume, dismissResume } = usePersistedPageIndex({
     sourceKey,
     storageKey,
     persistPage,
@@ -1560,6 +1678,12 @@ export function BookPreview({
       shortcutsOpen,
       setShortcutsOpen,
       engineShortcutsAvailable,
+      pageLayout,
+      setSpreads,
+      setCover,
+      resume,
+      dismissResume,
+      minutesLeft,
       chromeHost,
       setChromeHost,
       rootRef,
@@ -1609,6 +1733,12 @@ export function BookPreview({
       shortcutsOpen,
       setShortcutsOpen,
       engineShortcutsAvailable,
+      pageLayout,
+      setSpreads,
+      setCover,
+      resume,
+      dismissResume,
+      minutesLeft,
       goToPage,
       label,
       moreContrast,
@@ -1696,6 +1826,8 @@ export function BookPreview({
               onError={handleEngineError}
             />
             <BookPreviewBookmarkRibbon />
+            <BookPreviewSideArrows />
+            <BookPreviewResume />
           </BookPreviewViewport>
           <BookPreviewNavigation />
           <BookPreviewAnnotationLayer />

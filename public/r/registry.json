@@ -206,6 +206,14 @@
         {
           "path": "components/book-preview/book-preview-chrome-controls.tsx",
           "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-side-arrows.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-resume.tsx",
+          "type": "registry:component"
         }
       ]
     },

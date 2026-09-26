@@ -32,6 +32,7 @@ import {
   type TypographySpacing,
   type TypographyWidth,
 } from './typography'
+import type { BookPreviewSpreads } from './prefs'
 import type { BookPreviewAppearance } from './types'
 
 /** Paper swatches: the fill is the page, the dot is the ink. `system` shows
@@ -61,6 +62,20 @@ const FONTS: { value: TypographyFont; label: string; sample: string }[] = [
   { value: 'mono', label: 'Mono', sample: 'font-mono' },
 ]
 
+const SPREADS: { value: BookPreviewSpreads; label: string; hint: string }[] = [
+  {
+    value: 'auto',
+    label: 'Auto',
+    hint: 'Two pages when the screen is wide enough',
+  },
+  { value: 'single', label: 'One', hint: 'Always one page' },
+  {
+    value: 'double',
+    label: 'Two',
+    hint: 'Two pages whenever they stay readable',
+  },
+]
+
 const SPACINGS: { value: TypographySpacing; label: string }[] = [
   { value: 'compact', label: 'Compact' },
   { value: 'normal', label: 'Normal' },
@@ -79,8 +94,16 @@ const WIDTHS: { value: TypographyWidth; label: string }[] = [
  * live behind one quiet button instead of five always-on toggles.
  */
 export function BookPreviewReadingSettings() {
-  const { state, setAppearance, setSound, typography, setTypography } =
-    useBookPreview()
+  const {
+    state,
+    setAppearance,
+    setSound,
+    typography,
+    setTypography,
+    pageLayout,
+    setSpreads,
+    setCover,
+  } = useBookPreview()
   const patch = (next: Partial<BookPreviewTypography>) =>
     setTypography({ ...typography, ...next })
 
@@ -278,6 +301,55 @@ export function BookPreviewReadingSettings() {
             </Button>
           </div>
         </section>
+        {state.totalPages > 2 ? (
+          <>
+            <Separator />
+            <section className="flex flex-col gap-2" aria-label="Page layout">
+              <p className="text-muted-foreground text-xs font-medium">
+                Two-page spreads
+              </p>
+              <ToggleGroup
+                value={[pageLayout.spreads]}
+                onValueChange={(value) => {
+                  if (value[0]) setSpreads(value[0] as BookPreviewSpreads)
+                }}
+                variant="outline"
+                size="sm"
+                spacing={0}
+                aria-label="Two-page spreads"
+                className="w-full"
+              >
+                {SPREADS.map((item) => (
+                  <ToggleGroupItem
+                    key={item.value}
+                    value={item.value}
+                    aria-label={item.label}
+                    title={item.hint}
+                    className="flex-1"
+                  >
+                    {item.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-muted-foreground text-xs">
+                  First page on its own, like a book cover
+                </p>
+                <Button
+                  type="button"
+                  variant={pageLayout.cover ? 'secondary' : 'outline'}
+                  size="sm"
+                  aria-pressed={pageLayout.cover}
+                  aria-label="First page on its own"
+                  onClick={() => setCover(!pageLayout.cover)}
+                  data-book-preview-press
+                >
+                  {pageLayout.cover ? 'On' : 'Off'}
+                </Button>
+              </div>
+            </section>
+          </>
+        ) : null}
         {state.capabilities.sound ? (
           <>
             <Separator />

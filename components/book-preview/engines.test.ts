@@ -22,6 +22,7 @@ import {
   curlUseSpread,
   curlSpreadStart,
   curlStepTarget,
+  curlResolveSpread,
 } from './engines/curl-geometry'
 import { normalizeSource } from './normalize'
 import type { BookPreviewEngine } from './types'
@@ -458,5 +459,39 @@ describe('curl spread hysteresis', () => {
     while (curlUseSpread(900, height)) height += 10
     expect(curlUseSpread(900, height, CURL_PAGE_RATIO, false)).toBe(false)
     expect(curlUseSpread(900, height, CURL_PAGE_RATIO, true)).toBe(true)
+  })
+})
+
+describe('curl spreads with a cover', () => {
+  test('the cover sits alone on the right, then (2|3), (4|5)…', () => {
+    expect(curlSpreadStart(0, true)).toBe(-1)
+    expect(curlSpreadStart(1, true)).toBe(1)
+    expect(curlSpreadStart(2, true)).toBe(1)
+    expect(curlSpreadStart(3, true)).toBe(3)
+  })
+
+  test('turns land on the first real page of each spread', () => {
+    expect(curlStepTarget(0, 1, 10, true, true)).toBe(1)
+    expect(curlStepTarget(1, 1, 10, true, true)).toBe(3)
+    expect(curlStepTarget(2, -1, 10, true, true)).toBe(0)
+    expect(curlStepTarget(0, -1, 10, true, true)).toBeNull()
+    expect(curlStepTarget(9, 1, 10, true, true)).toBeNull()
+    expect(curlStepTarget(6, 1, 9, true, true)).toBe(7)
+    expect(curlStepTarget(7, 1, 9, true, true)).toBeNull()
+  })
+
+  test('a forced spread still gives way on a phone held upright', () => {
+    expect(
+      curlResolveSpread('double', 390, 700, CURL_PAGE_RATIO, 10, false),
+    ).toBe(false)
+    expect(
+      curlResolveSpread('double', 820, 1100, CURL_PAGE_RATIO, 10, false),
+    ).toBe(true)
+    expect(
+      curlResolveSpread('single', 1400, 800, CURL_PAGE_RATIO, 10, false),
+    ).toBe(false)
+    expect(
+      curlResolveSpread('auto', 1400, 800, CURL_PAGE_RATIO, 1, false),
+    ).toBe(false)
   })
 })

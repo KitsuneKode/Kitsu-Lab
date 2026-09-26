@@ -20,10 +20,12 @@
         "skeleton",
         "separator",
         "spinner",
-        "input"
+        "input",
+        "popover",
+        "tabs"
       ],
       "dependencies": ["@tabler/icons-react"],
-      "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require page-flip, pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, scalar Slider values, and array-valued ToggleGroup state. Do not treat qualitative capability labels as measured performance guarantees.",
+      "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, array-valued Slider and ToggleGroup state. Orientation styling keys off Base UI's data-orientation attribute. Do not treat qualitative capability labels as measured performance guarantees. The core also ships highlights, notes, bookmarks and freehand ink (pen, marker, eraser; page-relative strokes) (CSS Custom Highlight API; controlled via annotations/onAnnotationsChange or persisted with persistAnnotations), the Aa reading settings, shareable URL state (urlState), auto-hiding fullscreen chrome, and a provider-agnostic Ask panel (pass an `ai` adapter from ai.ts: on-device, OpenAI-compatible/Ollama, or your own route). Tabs and Popover rely on Base UI.",
       "files": [
         {
           "path": "components/book-preview/index.ts",
@@ -136,6 +138,74 @@
         {
           "path": "components/book-preview/engines/page-engine.tsx",
           "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/url-state.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/typography.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/annotations.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/annotation-dom.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/ai.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-immersive-chrome.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-url-param.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-annotations.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-reading-settings.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-annotation-layer.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-companion.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-bookmark-ribbon.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/ink.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-ink-layer.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/share.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/support.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-chrome-controls.tsx",
+          "type": "registry:component"
         }
       ]
     },
@@ -192,7 +262,7 @@
       "name": "book-preview-curl",
       "type": "registry:component",
       "title": "Book preview - Curl",
-      "description": "Tactile page-curl reader built on page-flip. Opens page data or a PDF.",
+      "description": "Tactile page-curl reader on its own dependency-free fold engine: finger-tracked curls, flick-to-turn, interruptible turns, hover corner peeks. Mounts only the leaves around the reading position, so documents of any length open. Opens page data or a PDF.",
       "files": [
         {
           "path": "components/book-preview/engines/curl-geometry.ts",
@@ -219,11 +289,10 @@
           "type": "registry:component"
         },
         {
-          "path": "components/book-preview/page-flip.d.ts",
+          "path": "components/book-preview/engines/curl-math.ts",
           "type": "registry:component"
         }
       ],
-      "dependencies": ["page-flip"],
       "registryDependencies": [
         "https://kitsulab.vercel.app/r/book-preview-pdf.json"
       ]
@@ -407,7 +476,7 @@
       "name": "email-domain-input",
       "type": "registry:component",
       "title": "Email Domain Input",
-      "description": "Email input restricted to approved domains \u2014 an inline domain picker keeps the local part and suffix in one field.",
+      "description": "Email input restricted to approved domains — an inline domain picker keeps the local part and suffix in one field.",
       "registryDependencies": ["input", "select"],
       "docs": "Requires Base UI primitives (a base-* shadcn project): the Select API relies on `items` and `alignItemWithTrigger`.",
       "files": [

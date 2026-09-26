@@ -1,15 +1,20 @@
 'use client'
 
-import { useRef } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+
+const noopSubscribe = () => () => {}
 import {
-  IconChevronDown,
+  IconCheck,
+  IconShare,
+  IconBookmark,
+  IconBookmarkFilled,
   IconDownload,
+  IconHighlight,
+  IconPencil,
   IconList,
   IconMaximize,
   IconMinimize,
   IconUpload,
-  IconVolume,
-  IconVolumeOff,
 } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,39 +24,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Separator } from '@/components/ui/separator'
 import { BookPreviewIconButton } from './book-preview-icon-button'
 import { BookPreviewModePicker } from './book-preview-mode-picker'
+import { BookPreviewReadingSettings } from './book-preview-reading-settings'
+import {
+  BookPreviewPinChrome,
+  BookPreviewShortcuts,
+} from './book-preview-chrome-controls'
 import { useBookPreview } from './book-preview-provider'
-import { useCoarsePointer, useNarrowLayout } from './media'
-import type { BookPreviewAppearance } from './types'
-
-const appearances: { value: BookPreviewAppearance; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'sepia', label: 'Sepia' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'oled', label: 'OLED' },
-]
+import { findBookmark, toggleBookmark } from './annotations'
+import { downloadTarget } from './share'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export function BookPreviewToolbar() {
   const {
     state,
     source,
-    setAppearance,
-    setSound,
     toggleFullscreen,
     fullscreen,
     goToPage,
     uploadPdf,
     setChromeHost,
   } = useBookPreview()
-  const narrow = useNarrowLayout()
-  const coarse = useCoarsePointer()
-  const appearanceLabel =
-    appearances.find((item) => item.value === state.appearance)?.label ??
-    'Paper'
   // A document-provided outline (PDF bookmarks) wins over titles synthesized
   // from page data — it is the author's own table of contents.
   const contents =
@@ -75,7 +74,7 @@ export function BookPreviewToolbar() {
   return (
     <div
       data-book-preview-surface
-      data-book-preview-chrome
+      data-book-preview-chrome="top"
       className="bg-card flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border p-2 sm:gap-3 sm:p-3"
     >
       <BookPreviewModePicker />
@@ -83,21 +82,15 @@ export function BookPreviewToolbar() {
           single chrome bar instead of a second row floating above the stage. */}
       <div ref={setChromeHost} className="contents" />
       <div className="flex flex-wrap items-center gap-2">
-        {state.capabilities.appearance ? (
-          <AppearanceControl
-            appearance={state.appearance}
-            appearanceLabel={appearanceLabel}
-            compact={narrow || coarse}
-            onSelect={setAppearance}
-          />
-        ) : null}
+        <BookPreviewReadingSettings />
+        <MarksControls />
         <Separator orientation="vertical" className="hidden h-6 sm:block" />
         {contents.length > 1 ? (
           <ContentsMenu contents={contents} goToPage={goToPage} />
         ) : null}
+        <BookPreviewShortcuts />
+        <BookPreviewPinChrome />
         <ToolbarActions
-          soundCapable={state.capabilities.sound}
-          sound={state.sound}
           fullscreenCapable={state.capabilities.fullscreen}
           fullscreen={fullscreen}
           downloadCapable={state.capabilities.download}
@@ -105,7 +98,6 @@ export function BookPreviewToolbar() {
           downloadFileName={source.downloadFileName}
           uploadCapable={source.allowPdfUpload}
           onUploadPdf={uploadPdf}
-          onSetSound={setSound}
           onToggleFullscreen={toggleFullscreen}
         />
       </div>
@@ -113,77 +105,64 @@ export function BookPreviewToolbar() {
   )
 }
 
-function AppearanceControl({
-  appearance,
-  appearanceLabel,
-  compact,
-  onSelect,
-}: {
-  appearance: BookPreviewAppearance
-  appearanceLabel: string
-  compact: boolean
-  onSelect: (value: BookPreviewAppearance) => void
-}) {
-  if (compact) {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label="Paper appearance"
-              data-book-preview-press
-            />
-          }
-        >
-          {appearanceLabel}
-          <IconChevronDown data-icon="inline-end" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuGroup>
-            {appearances.map((item) => (
-              <DropdownMenuItem
-                key={item.value}
-                onClick={() => onSelect(item.value)}
-              >
-                {item.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )
+/** Bookmark the page, and open the notebook — with a live count, so a reader
+    can see at a glance that their marks are there. */
+function MarksControls() {
+  const {
+    annotate,
+    annotations,
+    updateAnnotations,
+    openCompanion,
+    state,
+    draw,
+    setDraw,
+    inkAvailable,
+  } = useBookPreview()
+  if (!annotate || state.status !== 'ready' || state.totalPages === 0) {
+    return null
   }
-
+  const bookmarked = Boolean(findBookmark(annotations, state.pageIndex))
   return (
-    <ToggleGroup
-      value={[appearance]}
-      onValueChange={(value) => {
-        if (value[0]) onSelect(value[0] as BookPreviewAppearance)
-      }}
-      variant="outline"
-      size="sm"
-      spacing={0}
-      aria-label="Paper appearance"
-    >
-      {appearances.map((item) => (
-        <ToggleGroupItem
-          key={item.value}
-          value={item.value}
-          aria-label={item.label}
+    <>
+      <BookPreviewIconButton
+        label={bookmarked ? 'Remove bookmark (B)' : 'Bookmark this page (B)'}
+        pressed={bookmarked}
+        onClick={() =>
+          updateAnnotations((list) => toggleBookmark(list, state.pageIndex))
+        }
+      >
+        {bookmarked ? <IconBookmarkFilled /> : <IconBookmark />}
+      </BookPreviewIconButton>
+      {inkAvailable ? (
+        <BookPreviewIconButton
+          label={draw.active ? 'Put the pen down (D)' : 'Draw on the page (D)'}
+          pressed={draw.active}
+          onClick={() => setDraw({ active: !draw.active })}
         >
-          {item.label}
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
+          <IconPencil />
+        </BookPreviewIconButton>
+      ) : null}
+      <span className="relative inline-flex">
+        <BookPreviewIconButton
+          label="Notebook and Ask"
+          onClick={() => openCompanion('notes')}
+        >
+          <IconHighlight />
+        </BookPreviewIconButton>
+        {annotations.length > 0 ? (
+          <span
+            aria-hidden
+            className="bg-primary text-primary-foreground pointer-events-none absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-[10px] leading-none tabular-nums"
+          >
+            {annotations.length > 99 ? '99+' : annotations.length}
+          </span>
+        ) : null}
+      </span>
+    </>
   )
 }
 
 function ToolbarActions({
-  soundCapable,
-  sound,
   fullscreenCapable,
   fullscreen,
   downloadCapable,
@@ -191,11 +170,8 @@ function ToolbarActions({
   downloadFileName,
   uploadCapable,
   onUploadPdf,
-  onSetSound,
   onToggleFullscreen,
 }: {
-  soundCapable: boolean
-  sound: boolean
   fullscreenCapable: boolean
   fullscreen: boolean
   downloadCapable: boolean
@@ -203,7 +179,6 @@ function ToolbarActions({
   downloadFileName?: string
   uploadCapable: boolean
   onUploadPdf: (file: File) => void
-  onSetSound: (sound: boolean) => void
   onToggleFullscreen: () => void
 }) {
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
@@ -233,15 +208,6 @@ function ToolbarActions({
           </BookPreviewIconButton>
         </>
       ) : null}
-      {soundCapable ? (
-        <BookPreviewIconButton
-          label={sound ? 'Mute page sounds' : 'Enable page sounds'}
-          pressed={sound}
-          onClick={() => onSetSound(!sound)}
-        >
-          {sound ? <IconVolume /> : <IconVolumeOff />}
-        </BookPreviewIconButton>
-      ) : null}
       {fullscreenCapable ? (
         <BookPreviewIconButton
           label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
@@ -251,25 +217,96 @@ function ToolbarActions({
           {fullscreen ? <IconMinimize /> : <IconMaximize />}
         </BookPreviewIconButton>
       ) : null}
+      <ShareButton />
       {downloadCapable && downloadUrl ? (
-        <Button
-          render={
-            <a
-              href={downloadUrl}
-              download={downloadFileName}
-              aria-label="Download document"
-            />
-          }
-          nativeButton={false}
-          variant="ghost"
-          size="icon-sm"
-          data-book-preview-press
-        >
-          <IconDownload />
-          <span className="sr-only">Download document</span>
-        </Button>
+        <DownloadButton url={downloadUrl} fileName={downloadFileName} />
       ) : null}
     </>
+  )
+}
+
+/** Share the current view: the system sheet on phones and tablets, a copied
+    link elsewhere — with a quiet confirmation, since copying is invisible. */
+function ShareButton() {
+  const { share, sharePage, uploaded, state } = useBookPreview()
+  const [status, setStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const timerRef = useRef<number | null>(null)
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    },
+    [],
+  )
+  if (!share || state.status !== 'ready') return null
+  const label =
+    status === 'copied'
+      ? 'Link copied'
+      : status === 'failed'
+        ? 'Could not share'
+        : uploaded
+          ? 'Share this PDF'
+          : 'Share this page'
+  return (
+    <>
+      <BookPreviewIconButton
+        label={label}
+        onClick={() => {
+          void sharePage().then((outcome) => {
+            if (outcome !== 'copied' && outcome !== 'failed') return
+            setStatus(outcome)
+            if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+            timerRef.current = window.setTimeout(() => setStatus('idle'), 1800)
+          })
+        }}
+      >
+        {status === 'copied' ? <IconCheck /> : <IconShare />}
+      </BookPreviewIconButton>
+      <span className="sr-only" role="status" aria-live="polite">
+        {status === 'copied' ? 'Link copied to clipboard' : ''}
+      </span>
+    </>
+  )
+}
+
+/** A real download where the browser allows one; a new tab for files on
+    another origin, which would otherwise replace the reader with the PDF. */
+function DownloadButton({ url, fileName }: { url: string; fileName?: string }) {
+  // Read after hydration: the server has no origin to compare against.
+  const origin = useSyncExternalStore(
+    noopSubscribe,
+    () => window.location.origin,
+    () => null,
+  )
+  const target = origin
+    ? downloadTarget(url, origin)
+    : { download: true, newTab: false }
+  const label = target.download ? 'Download PDF' : 'Open PDF in a new tab'
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            render={
+              <a
+                href={url}
+                download={target.download ? (fileName ?? '') : undefined}
+                target={target.newTab ? '_blank' : undefined}
+                rel={target.newTab ? 'noopener noreferrer' : undefined}
+                aria-label={label}
+              />
+            }
+            nativeButton={false}
+            variant="ghost"
+            size="icon-sm"
+            data-book-preview-press
+            className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+          />
+        }
+      >
+        <IconDownload />
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   )
 }
 

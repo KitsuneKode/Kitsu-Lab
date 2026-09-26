@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  pdfjsNeedsLegacyBuild,
   resolvePdfOutline,
   resolvePdfPageLinks,
   sanitizePdfLinkUrl,
@@ -233,5 +234,27 @@ describe('resolvePdfPageLinks', () => {
       scale: 1,
     })
     expect(links).toEqual([])
+  })
+})
+
+describe('pdf.js build choice', () => {
+  const modern = {
+    Map: { prototype: { getOrInsertComputed() {} } },
+    WeakMap: { prototype: { getOrInsertComputed() {} } },
+    Promise: { try() {} },
+    Math: { sumPrecise() {} },
+    Uint8Array: { fromBase64() {} },
+  }
+
+  test('the newest engines get the lean modern build', () => {
+    expect(pdfjsNeedsLegacyBuild(modern)).toBe(false)
+  })
+
+  test('missing any one modern API falls back to the polyfilled build', () => {
+    expect(pdfjsNeedsLegacyBuild({ ...modern, Map: { prototype: {} } })).toBe(
+      true,
+    )
+    expect(pdfjsNeedsLegacyBuild({ ...modern, Math: {} })).toBe(true)
+    expect(pdfjsNeedsLegacyBuild({})).toBe(true)
   })
 })

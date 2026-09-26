@@ -12,6 +12,63 @@
   container-type: inline-size;
 }
 
+/* Reading typography ("Aa" settings). The shell writes these variables on
+   the root; defaults here keep engines correct when rendered standalone. */
+.book-preview {
+  --bp-type-scale: 1;
+  --bp-type-family:
+    ui-serif, 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --bp-type-leading: 1.7;
+  --bp-type-measure: 40rem;
+  --bp-type-align: start;
+  --bp-type-tracking: normal;
+}
+
+.book-preview [data-bp-prose] {
+  font-family: var(--bp-type-family);
+  letter-spacing: var(--bp-type-tracking);
+}
+
+.book-preview [data-bp-prose] p {
+  text-align: var(--bp-type-align);
+  hyphens: auto;
+  text-wrap: pretty;
+}
+
+/* Reflowable text (the premier Text view) takes size and leading too; fixed
+   leaves keep their own size so a page never overflows its paper. */
+.book-preview [data-bp-reflow] {
+  font-size: calc(1.0625rem * var(--bp-type-scale));
+  line-height: var(--bp-type-leading);
+}
+
+/* Paper for pure-type surfaces (the premier Text view). */
+.book-preview [data-bp-paper='light'] {
+  background: #fdfdfc;
+  color: #1c1917;
+}
+.book-preview [data-bp-paper='sepia'] {
+  background: #fbf0d9;
+  color: #2c2523;
+}
+.book-preview [data-bp-paper='dark'] {
+  background: #27272a;
+  color: #f4f4f5;
+}
+.book-preview [data-bp-paper='oled'] {
+  background: #000;
+  color: #e4e4e7;
+}
+.book-preview [data-bp-paper]:not([data-bp-paper='system']) [data-bp-reflow] {
+  color: inherit;
+}
+.book-preview
+  [data-bp-paper]:not([data-bp-paper='system'])
+  [data-bp-annotate-skip] {
+  color: inherit;
+  opacity: 0.55;
+}
+
 .book-preview [data-book-preview-press]:not(:disabled):active {
   transform: scale(var(--book-preview-press-scale));
 }
@@ -61,15 +118,7 @@
   }
 }
 
-.book-preview [data-book-preview-curl],
-.book-preview [data-book-preview-curl] .stf__parent,
-.book-preview [data-book-preview-curl] .stf__item {
-  overflow: visible;
-}
-
-.book-preview [data-book-preview-curl] .stf__parent,
-.book-preview [data-book-preview-curl] .stf__block,
-.book-preview [data-book-preview-curl] .stf__item {
+.book-preview [data-book-preview-curl-book] {
   /* pan-y, not none: vertical gestures scroll the page past the reader,
      horizontal ones stay ours for the fold. With none, a phone-sized stage
      traps the scroll entirely. */
@@ -78,23 +127,101 @@
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+  background-color: var(--background);
+  contain: layout paint;
 }
 
-.book-preview [data-book-preview-curl] .stf__block {
+/* A plain arrow for reading; the hand only where the paper can be taken —
+   a corner under the mouse — and while it is held. */
+.book-preview [data-book-preview-curl-book][data-curl-cursor='grab'] {
   cursor: grab;
 }
 
-.book-preview [data-book-preview-curl] .stf__block:active {
+.book-preview [data-book-preview-curl-book][data-curl-cursor='grabbing'] {
   cursor: grabbing;
 }
 
-.book-preview [data-book-preview-curl] .stf__item {
-  background-color: var(--background);
-  box-shadow:
-    0 8px 24px hsl(0 0% 0% / 0.12),
-    0 1px 0 hsl(0 0% 0% / 0.06);
+.book-preview [data-book-preview-curl-leaf],
+.book-preview [data-book-preview-curl-back] {
+  will-change: clip-path;
+  backface-visibility: hidden;
 }
 
+.book-preview [data-book-preview-curl-back] {
+  will-change: transform, clip-path;
+}
+
+/* The lifted paper throws a soft shadow on whatever it lies over. */
+.book-preview [data-book-preview-curl-backs] {
+  filter: drop-shadow(0 0 6px rgb(0 0 0 / 0.22));
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .book-preview [data-book-preview-curl-backs] {
+    filter: drop-shadow(0 0 0.5px rgb(0 0 0 / 0.5));
+  }
+}
+
+/* Paper bending away from the fold: a highlight on the crease, easing into
+   shade toward the lifted corner. */
+.book-preview [data-book-preview-curl-gloss] {
+  background: linear-gradient(
+    to right,
+    rgb(255 255 255 / 0.4) 0%,
+    rgb(255 255 255 / 0) 22%,
+    rgb(0 0 0 / 0.04) 60%,
+    rgb(0 0 0 / 0.14) 100%
+  );
+}
+
+/* Endpaper: blank, slightly shaded toward the binding like board-backed
+   paper. */
+.book-preview [data-book-preview-curl-endpaper] {
+  background-image: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0.08),
+    rgb(0 0 0 / 0) 18%
+  );
+}
+
+/* The gutter of an open spread: the pages dip into the binding. */
+.book-preview [data-book-preview-curl-spine] {
+  background: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0) 0%,
+    rgb(0 0 0 / 0.1) 42%,
+    rgb(0 0 0 / 0.22) 50%,
+    rgb(0 0 0 / 0.1) 58%,
+    rgb(0 0 0 / 0) 100%
+  );
+}
+
+/* The shadow the leaf casts on the page it uncovers. */
+.book-preview [data-book-preview-curl-shadow] {
+  background: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0.32) 0%,
+    rgb(0 0 0 / 0.12) 30%,
+    rgb(0 0 0 / 0) 100%
+  );
+}
+
+/* Fill layout: the reader takes its parent's height instead of the inline
+   breakpoint minimums, so app shells and reader routes get every pixel. */
+.book-preview[data-layout='fill'] {
+  height: 100%;
+  min-height: 0;
+}
+
+.book-preview[data-layout='fill'] [data-book-preview-viewport] {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* Immersive reading. The stage owns the whole screen; the toolbar and the
+   pager float over it and slip away after a short idle (see
+   use-immersive-chrome). Enter is ease-out 220ms, exit a touch quicker —
+   the system responding should never feel slower than the reader asking. */
 .book-preview[data-book-preview-immersive] {
   position: fixed;
   inset: 0;
@@ -105,16 +232,143 @@
   max-width: none;
   flex-direction: column;
   gap: 0;
-  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  padding: 0;
   overflow: hidden;
   border-radius: 0;
   background: var(--background);
 }
 
 .book-preview[data-book-preview-immersive] [data-book-preview-chrome] {
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
+  position: absolute;
+  left: max(0.5rem, env(safe-area-inset-left));
+  right: max(0.5rem, env(safe-area-inset-right));
+  z-index: 40;
+  width: auto;
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  border-radius: 0.875rem;
+  /* Near-solid: a see-through bar over a white page turns muddy grey. */
+  background: color-mix(in oklab, var(--card) 95%, transparent);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.28);
+  transition:
+    opacity 220ms var(--book-preview-ease-out),
+    transform 220ms var(--book-preview-ease-out);
+}
+
+.book-preview[data-book-preview-immersive] [data-book-preview-chrome='top'] {
+  top: max(0.5rem, env(safe-area-inset-top));
+  /* One slim row that scrolls sideways, never a three-row wall over the
+     page. Controls keep their tap size; the row simply scrolls. */
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.book-preview[data-book-preview-immersive]
+  [data-book-preview-chrome='top']::-webkit-scrollbar {
+  display: none;
+}
+
+/* Engines portal their controls through a display:contents slot, so their
+   row is a grandchild of the bar. */
+.book-preview[data-book-preview-immersive] [data-book-preview-chrome='top'] > *,
+.book-preview[data-book-preview-immersive]
+  [data-book-preview-chrome='top']
+  > [class~='contents']
+  > * {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+/* Carousel-style side arrows: present when the reader reaches for them
+   (pointer over the stage), out of the way while reading. */
+@media (hover: hover) and (pointer: fine) {
+  .book-preview [data-book-preview-stage-arrow] {
+    opacity: 0;
+    transition: opacity var(--book-preview-ui-ms) var(--book-preview-ease-out);
+  }
+
+  .book-preview
+    [data-book-preview-viewport]:hover
+    [data-book-preview-stage-arrow] {
+    opacity: 0.7;
+  }
+
+  .book-preview
+    [data-book-preview-viewport]
+    [data-book-preview-stage-arrow]:hover {
+    opacity: 1;
+  }
+}
+
+.book-preview[data-chrome-hidden] [data-book-preview-stage-arrow] {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+/* The fullscreen handle: one quiet pill in the corner while the controls are
+   away, gone while they are up (the bar carries its own pin and exit). */
+.book-preview [data-book-preview-chrome-handle] {
+  position: absolute;
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+  z-index: 45;
+  opacity: 0.55;
+  transition:
+    opacity var(--book-preview-ui-ms) var(--book-preview-ease-out),
+    scale var(--book-preview-ui-ms) var(--book-preview-ease-out);
+}
+
+.book-preview [data-book-preview-chrome-handle]:hover,
+.book-preview [data-book-preview-chrome-handle]:focus-visible {
+  opacity: 1;
+}
+
+.book-preview [data-book-preview-chrome-handle][data-hidden] {
+  opacity: 0;
+  scale: 0.9;
+  pointer-events: none;
+}
+
+/* Touch has no hover to reveal the label, and a tap in the middle already
+   works — keep the handle to its icon there. */
+@media (pointer: coarse) {
+  .book-preview [data-book-preview-chrome-handle] > :not(svg) {
+    display: none;
+  }
+}
+
+/* Reading, not configuring: the engine picker steps aside in fullscreen. */
+.book-preview[data-book-preview-immersive] [data-book-preview-mode-picker] {
+  display: none;
+}
+
+.book-preview[data-book-preview-immersive] [data-book-preview-chrome='bottom'] {
+  bottom: max(0.5rem, env(safe-area-inset-bottom));
+  padding: 0.375rem 0.75rem 0.625rem;
+}
+
+.book-preview[data-chrome-hidden] [data-book-preview-chrome] {
+  opacity: 0;
+  pointer-events: none;
+  transition-duration: 180ms;
+}
+
+.book-preview[data-chrome-hidden] [data-book-preview-chrome='top'] {
+  transform: translateY(calc(-100% - 0.5rem));
+}
+
+.book-preview[data-chrome-hidden] [data-book-preview-chrome='bottom'] {
+  transform: translateY(calc(100% + 0.5rem));
+}
+
+/* A still cursor leaves the page (set by use-immersive-chrome after an idle
+   spell); any movement brings it straight back. */
+.book-preview[data-cursor-idle] [data-book-preview-viewport] {
+  cursor: none;
 }
 
 .book-preview[data-book-preview-immersive] [data-book-preview-viewport] {
@@ -122,6 +376,71 @@
   flex: 1 1 auto;
   border: none;
   border-radius: 0;
+  background: var(--background);
+}
+
+/* Phones: one slim toolbar row that scrolls sideways (with a fade that says
+   there is more) instead of a three-row wall, and no frame-inside-a-frame
+   around the page — every pixel of width goes to reading. */
+@container (max-width: 40rem) {
+  .book-preview [data-book-preview-chrome='top'] {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .book-preview [data-book-preview-chrome='top'] > *,
+  .book-preview [data-book-preview-chrome='top'] > [class~='contents'] > * {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
+  .book-preview [data-book-preview-engine-frame] {
+    padding: 0.5rem;
+    gap: 0;
+  }
+
+  .book-preview [data-book-preview-engine-stage] {
+    border: none;
+    background: transparent;
+  }
+}
+
+/* A sideways-scrolling bar fades at its end, and keeps room after the last
+   control so the fade never sits on it once scrolled all the way. */
+.book-preview[data-book-preview-immersive] [data-book-preview-chrome='top'] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
+  padding-inline-end: 1.75rem;
+}
+
+@container (max-width: 40rem) {
+  .book-preview [data-book-preview-chrome='top'] {
+    mask-image: linear-gradient(
+      to right,
+      #000 calc(100% - 1.5rem),
+      transparent
+    );
+    padding-inline-end: 1.75rem;
+  }
+
+  .book-preview [data-book-preview-chrome='top']::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Engines frame their stage with padding and a card border inline; in
+   fullscreen that frame is wasted screen. */
+.book-preview[data-book-preview-immersive] [data-book-preview-engine-frame] {
+  padding: 0;
+  gap: 0;
+}
+
+.book-preview[data-book-preview-immersive] [data-book-preview-engine-stage] {
+  border: none;
+  border-radius: 0;
+  background: transparent;
 }
 
 .book-preview[data-book-preview-immersive] [data-book-preview-scroll] {
@@ -137,8 +456,15 @@
   [data-book-preview-slide]
   > div
   > div {
-  height: min(82svh, 48rem);
-  width: min(28rem, 46vw);
+  height: min(90svh, 60rem);
+  width: min(38rem, 46vw);
+}
+
+/* Popups portal to <body> and must stack above the immersive reader, which
+   itself sits above the host page. */
+html[data-book-preview-immersive] body > [data-base-ui-portal] {
+  position: relative;
+  z-index: 90;
 }
 
 .book-preview:fullscreen {
@@ -148,29 +474,44 @@
   background: var(--background);
 }
 
-/* Page-turn arrival: the incoming spread drifts in from the direction the
-   leaf was pushed toward, so button, keyboard, and gesture navigation all
-   land the same way.
+@media (prefers-reduced-motion: reduce) {
+  .book-preview[data-chrome-hidden] [data-book-preview-chrome='top'],
+  .book-preview[data-chrome-hidden] [data-book-preview-chrome='bottom'] {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .book-preview[data-book-preview-immersive] [data-book-preview-chrome] {
+    background: var(--card);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* Page-turn arrival: the incoming page drifts the last few pixels in from
+   the direction the leaf was pushed toward, so button, keyboard and gesture
+   turns all land the same way.
+
+   Position only — never opacity. Pages are paper-white on a dark stage:
+   any fade dips the page toward the stage colour and reads as a flash on
+   every turn. The entering pose is applied instantly (no transition out of
+   the settled state), then the settle transitions in.
 
    Paging is a high-frequency action. When turns arrive faster than this
    animation can finish -- a held arrow key, a dragged slider -- the engine
-   sets data-instant and the page simply appears. Replaying a 220ms entrance
-   ten times a second reads as flicker, not motion. */
+   sets data-instant and the page simply appears. */
 .book-preview [data-book-preview-page] {
-  opacity: 0;
-  transform: translateX(var(--book-preview-enter-x, 0.75rem));
-  transition:
-    opacity var(--book-preview-ui-ms) var(--book-preview-ease-out),
-    transform var(--book-preview-ui-ms) var(--book-preview-ease-out);
+  transform: translateX(var(--book-preview-enter-x, 0.5rem));
 }
 
 .book-preview [data-book-preview-page][data-enter-dir='prev'] {
-  --book-preview-enter-x: -0.75rem;
+  --book-preview-enter-x: -0.5rem;
 }
 
 .book-preview [data-book-preview-page][data-mounted] {
-  opacity: 1;
   transform: translateX(0);
+  transition: transform var(--book-preview-ui-ms) var(--book-preview-ease-out);
 }
 
 .book-preview [data-book-preview-page][data-instant] {
@@ -178,13 +519,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Keep the fade for comprehension, drop the travel. */
-  .book-preview [data-book-preview-page] {
-    transform: none;
-    transition: opacity 160ms linear;
-  }
+  .book-preview [data-book-preview-page],
   .book-preview [data-book-preview-page][data-mounted] {
     transform: none;
+    transition: none;
   }
 }
 
@@ -194,15 +532,14 @@
    Declared after the generic rules so equal-specificity overrides land. */
 .book-preview [data-book-preview-pdf-stage][data-book-preview-page] {
   transform: none;
-  translate: var(--book-preview-enter-x, 0.75rem) 0;
-  transition:
-    opacity var(--book-preview-ui-ms) var(--book-preview-ease-out),
-    translate var(--book-preview-ui-ms) var(--book-preview-ease-out);
+  translate: var(--book-preview-enter-x, 0.5rem) 0;
 }
 
 .book-preview
   [data-book-preview-pdf-stage][data-book-preview-page][data-mounted] {
+  transform: none;
   translate: 0 0;
+  transition: translate var(--book-preview-ui-ms) var(--book-preview-ease-out);
 }
 
 .book-preview [data-book-preview-pdf-stage][data-instant] {
@@ -212,12 +549,12 @@
 @media (prefers-reduced-motion: reduce) {
   .book-preview [data-book-preview-pdf-stage][data-book-preview-page] {
     translate: none;
-    transition: opacity 160ms linear;
+    transition: none;
   }
 }
 
-/* The resting curl book casts a soft shadow — page-flip draws shadows only
-   while a leaf is in the air, so without this the book floats flat. */
+/* The resting curl book casts a soft shadow; the fold draws its own only
+   while a leaf is in the air. */
 .book-preview [data-book-preview-curl-book] {
   box-shadow:
     0 22px 44px -18px rgb(0 0 0 / 0.3),
@@ -247,8 +584,7 @@
 }
 
 /* A rasterized PDF leaf fades up as its bitmap lands, instead of snapping
-   from skeleton to page. Driven by the src attribute so it works on the
-   clones the flip book makes, which React never re-renders. */
+   from skeleton to page. */
 .book-preview [data-book-preview-sheet-img] {
   opacity: 0;
   transition: opacity var(--book-preview-crossfade-ms)
@@ -298,6 +634,113 @@
 @media (prefers-reduced-motion: reduce) {
   .book-preview [data-book-preview-thumb] {
     animation: none;
+  }
+}
+
+/* Highlight inks (::highlight rules) are injected at runtime by
+   annotation-dom.ts — the build's CSS parser does not know the pseudo-element
+   yet and would warn on every build. */
+
+/* The selection card grows out of the passage it belongs to: anchored at
+   the passage's centre, origin on the side facing the text, 160ms ease-out
+   in. It is dismissed instantly — leaving should never make you wait. */
+.book-preview [data-book-preview-annotation-card] {
+  translate: -50% -100%;
+  transform-origin: bottom center;
+  transition:
+    opacity 160ms var(--book-preview-ease-out),
+    scale 160ms var(--book-preview-ease-out);
+}
+
+.book-preview [data-book-preview-annotation-card][data-placement='below'] {
+  translate: -50% 0;
+  transform-origin: top center;
+}
+
+@starting-style {
+  .book-preview [data-book-preview-annotation-card] {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-annotation-card] {
+    transition: opacity 120ms linear;
+  }
+  @starting-style {
+    .book-preview [data-book-preview-annotation-card] {
+      scale: 1;
+    }
+  }
+}
+
+/* Notebook entries settle in with a short stagger the first time the sheet
+   opens. The sheet portals out of the reader, so these are unscoped. */
+[data-book-preview-notebook-item] {
+  transition:
+    opacity 200ms cubic-bezier(0.23, 1, 0.32, 1) var(--bp-stagger, 0ms),
+    translate 200ms cubic-bezier(0.23, 1, 0.32, 1) var(--bp-stagger, 0ms);
+}
+
+@starting-style {
+  [data-book-preview-notebook-item] {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-book-preview-notebook-item] {
+    transition: opacity 120ms linear;
+    translate: none;
+  }
+}
+
+/* Drawing: a crosshair for the pen and marker, a cell for the eraser. The
+   ink toolbar settles up from the page it belongs to. */
+.book-preview [data-bp-ink-surface][data-tool='pen'],
+.book-preview [data-bp-ink-surface][data-tool='marker'] {
+  cursor: crosshair;
+}
+
+.book-preview [data-bp-ink-surface][data-tool='eraser'] {
+  cursor: cell;
+}
+
+.book-preview [data-book-preview-ink-toolbar] {
+  transition:
+    opacity 200ms var(--book-preview-ease-out),
+    translate 200ms var(--book-preview-ease-out);
+}
+
+@starting-style {
+  .book-preview [data-book-preview-ink-toolbar] {
+    opacity: 0;
+    translate: -50% 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-ink-toolbar] {
+    transition: opacity 120ms linear;
+  }
+}
+
+/* A bookmarked page wears a ribbon that drops in from the top edge. */
+.book-preview [data-book-preview-ribbon] {
+  transition: translate 220ms var(--book-preview-ease-out);
+}
+
+@starting-style {
+  .book-preview [data-book-preview-ribbon] {
+    translate: 0 -100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-ribbon] {
+    transition: none;
   }
 }
 

@@ -2,8 +2,16 @@
 
 import { spreadSlots, spreadStep } from './premier-math'
 import { usePageArrival } from '../hooks/use-page-arrival'
-import type { BookPreviewNavigationBehavior } from '../types'
+import { useBookPreview } from '../book-preview-provider'
+import type {
+  BookPreviewAppearance,
+  BookPreviewNavigationBehavior,
+} from '../types'
 import { useStableHandler } from '../hooks/use-stable-handler'
+import {
+  TAP_TURN_EDGE_FRACTION,
+  tapConsumedByChrome,
+} from '../hooks/use-immersive-chrome'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FALLBACK_ASPECT, type PremierFace } from './premier-faces'
 import {
@@ -169,15 +177,25 @@ function PdfFaceOverlay({
   )
 }
 
+/** The height that fits a box of `aspect` (width / height) inside the
+    nearest size container on both axes. */
+function fitHeight(aspect: number): string {
+  return `min(100cqh, calc(100cqw / ${Math.max(aspect, 0.05)}))`
+}
+
 /** A face sized by its own aspect — height-bounded so it never outgrows the
     stage, width-bounded so a tall page never overflows narrow screens. */
 function FaceBox({
   face,
+  index,
   className,
   arrival,
   children,
 }: {
   face: PremierFace
+  /** The face's page index — marks it as highlightable text for the
+      reader's annotation layer. */
+  index: number
   className?: string
   arrival?: Record<string, unknown>
   children?: ReactNode
@@ -185,8 +203,15 @@ function FaceBox({
   return (
     <div
       {...arrival}
+      data-bp-annotatable
+      data-bp-inkable
+      data-bp-ink-paper={face.pageNumber !== null ? 'light' : undefined}
+      data-page-index={index}
       className={
-        'bg-card relative h-full max-w-full shrink-0 overflow-hidden rounded-md border shadow-sm ' +
+        // A PDF face is white paper whatever the theme — while its bitmap
+        // decodes it must stay paper, not flash the dark card colour.
+        (face.pageNumber !== null ? 'bg-white ' : 'bg-card ') +
+        'relative h-full max-w-full shrink-0 overflow-hidden rounded-md border shadow-sm ' +
         (className ?? '')
       }
       style={{ aspectRatio: `${face.aspect ?? FALLBACK_ASPECT}` }}
@@ -426,11 +451,23 @@ function useSwipeTurn({
         suppressClick.current = false
         return
       }
+      // A drag that selected text ends in a click — that is highlighting,
+      // not asking for the next page.
+      const selection = window.getSelection()
+      if (selection && !selection.isCollapsed) return
       if ((event.target as HTMLElement).closest('a,button,input,[role=button]'))
         return
       const rect = host.getBoundingClientRect()
       const ratio = (event.clientX - rect.left) / Math.max(rect.width, 1)
-      const direction = ratio < 0.18 ? -1 : ratio > 0.82 ? 1 : null
+      // Same zones as the reader chrome: outer thirds turn, the middle band
+      // belongs to show/hide — and a tap the chrome spent never turns.
+      if (tapConsumedByChrome()) return
+      const direction =
+        ratio < TAP_TURN_EDGE_FRACTION
+          ? -1
+          : ratio > 1 - TAP_TURN_EDGE_FRACTION
+            ? 1
+            : null
       if (direction === null) return
       const target = stateRef.current.stepFor(direction)
       if (target !== null) report(target)
@@ -502,6 +539,7 @@ export function PremierSingleView({
   return (
     <div
       ref={hostRef}
+      data-bp-tap-surface
       className={
         zoom === 1
           ? 'h-full w-full touch-pan-y'
@@ -510,14 +548,28 @@ export function PremierSingleView({
     >
       {/* m-auto centers the face but top-aligns it the moment it overflows,
           so a zoomed page scrolls instead of clipping its head. */}
-      <div ref={scrollerRef} className="flex h-full overflow-auto p-4">
+      {/* A size container, so the face fits both axes: as tall as the stage
+          allows, unless the stage is too narrow for that page's aspect. */}
+      <div
+        ref={scrollerRef}
+        className="[container-type:size] flex h-full overflow-auto p-4"
+      >
         <div
           ref={faceRef}
-          style={{ zoom }}
-          className="m-auto h-[min(62svh,100%)]"
+          style={{
+            zoom,
+            height: fitHeight(face?.aspect ?? FALLBACK_ASPECT),
+          }}
+          className="m-auto"
         >
           {face ? (
-            <FaceBox face={face} arrival={arrival} key={face.key}>
+            <FaceBox
+              face={face}
+              index={Math.min(pageIndex, faces.length - 1)}
+              arrival={arrival}
+              // One slot, reused across turns — see the spread view.
+              key="single"
+            >
               {doc && face.pageNumber !== null ? (
                 <PdfFaceOverlay
                   doc={doc}
@@ -562,6 +614,16 @@ export function PremierSpreadView({
   const faceRef = useRef<HTMLDivElement | null>(null)
   const { pair, left, right } = spreadSlots(pageIndex, faces.length)
   const arrival = usePageArrival(pair)
+  const { setPageStep } = useBookPreview()
+  const faceCount = faces.length
+  // Arrows, Space and the pager turn a whole spread here — stepping one page
+  // would land on the facing page, already on screen, and look dead.
+  useEffect(() => {
+    setPageStep((from, direction) =>
+      spreadStep(Math.floor(Math.max(0, from) / 2), direction, faceCount),
+    )
+    return () => setPageStep(null)
+  }, [faceCount, setPageStep])
   useSwipeTurn({
     hostRef,
     faceRef,
@@ -583,20 +645,39 @@ export function PremierSpreadView({
   return (
     <div
       ref={hostRef}
+      data-bp-tap-surface
       className={
         zoom === 1
           ? 'h-full w-full touch-pan-y'
           : 'h-full w-full touch-pan-x touch-pan-y'
       }
     >
-      <div ref={scrollerRef} className="flex h-full overflow-auto p-4">
+      <div
+        ref={scrollerRef}
+        className="[container-type:size] flex h-full overflow-auto p-4"
+      >
         <div
           ref={faceRef}
-          style={{ zoom }}
-          className="m-auto flex h-[min(56svh,100%)] items-stretch gap-0.5"
+          style={{
+            zoom,
+            // Sized as a pair even when a face stands alone (the cover, a
+            // lone last page), so pages keep their size as the reader turns.
+            // A lone face sits centred rather than beside an empty slot.
+            height: fitHeight(2 * (leftFace?.aspect ?? FALLBACK_ASPECT)),
+          }}
+          className="m-auto flex items-stretch gap-0.5"
         >
           {leftFace ? (
-            <FaceBox face={leftFace} arrival={arrival} key={leftFace.key}>
+            <FaceBox
+              face={leftFace}
+              index={left}
+              arrival={arrival}
+              // Keyed by slot, not page: the same element — and the same
+              // <img> — carries the next page, and the browser keeps the
+              // old bitmap up until the new one decodes. A per-page key
+              // remounted both faces and blanked them for a few frames.
+              key="left"
+            >
               {doc && leftFace.pageNumber !== null ? (
                 <PdfFaceOverlay
                   doc={doc}
@@ -609,7 +690,12 @@ export function PremierSpreadView({
             </FaceBox>
           ) : null}
           {rightFace ? (
-            <FaceBox face={rightFace} arrival={arrival} key={rightFace.key}>
+            <FaceBox
+              face={rightFace}
+              index={right}
+              arrival={arrival}
+              key="right"
+            >
               {doc && rightFace.pageNumber !== null ? (
                 <PdfFaceOverlay
                   doc={doc}
@@ -620,14 +706,6 @@ export function PremierSpreadView({
                 />
               ) : null}
             </FaceBox>
-          ) : leftFace ? (
-            <div
-              aria-hidden
-              className="bg-muted/30 h-full shrink-0 rounded-md"
-              style={{
-                aspectRatio: `${leftFace.aspect ?? FALLBACK_ASPECT}`,
-              }}
-            />
           ) : null}
         </div>
       </div>
@@ -661,6 +739,10 @@ function useScrollPageSync({
   const faceEls = useRef(new Map<number, HTMLElement>())
   const ratios = useRef(new Map<number, number>())
   const dominantRef = useRef(pageIndex)
+  // While a programmatic scroll is travelling to a page, the faces it passes
+  // are not "where the reader is" — reporting them would pull the reader back
+  // (a ?page=12 link or a contents jump landing on page 3 instead).
+  const travelRef = useRef<{ target: number; until: number } | null>(null)
   const report = useStableHandler(onPageChange)
 
   useEffect(() => {
@@ -685,6 +767,14 @@ function useScrollPageSync({
             bestRatio = ratio
           }
         }
+        const travel = travelRef.current
+        if (travel) {
+          if (best === travel.target || performance.now() > travel.until) {
+            travelRef.current = null
+          } else {
+            return
+          }
+        }
         if (best >= 0 && best < count && best !== dominantRef.current) {
           dominantRef.current = best
           report(best, 'instant')
@@ -701,6 +791,7 @@ function useScrollPageSync({
     const el = faceEls.current.get(pageIndex)
     if (!el) return
     dominantRef.current = pageIndex
+    travelRef.current = { target: pageIndex, until: performance.now() + 1200 }
     el.scrollIntoView({
       block: 'start',
       behavior: reducedMotion ? 'auto' : 'smooth',
@@ -765,6 +856,10 @@ export function PremierScrollView({
           <div
             key={face.key}
             data-face-index={index}
+            data-bp-annotatable
+            data-bp-inkable
+            data-bp-ink-paper={face.pageNumber !== null ? 'light' : undefined}
+            data-page-index={index}
             ref={registerFace(index)}
             className="bg-card relative w-full overflow-hidden rounded-md border shadow-sm"
             style={{ aspectRatio: `${face.aspect ?? FALLBACK_ASPECT}` }}
@@ -795,10 +890,14 @@ export function PremierTextView({
   pageIndex,
   zoom,
   reducedMotion,
+  appearance,
   onZoom,
   onPageChange,
 }: {
   faces: PremierFace[]
+  /** The reader's paper — text view is pure type, so it wears the paper
+      directly (sepia, night) the way an e-reader does. */
+  appearance: BookPreviewAppearance
   pageIndex: number
   zoom: number
   reducedMotion: boolean
@@ -828,26 +927,36 @@ export function PremierTextView({
   return (
     <div
       ref={scrollerRef}
+      data-bp-paper={appearance}
       className="h-full w-full overflow-auto overscroll-contain"
     >
       <div
         ref={columnRef}
-        className="mx-auto flex w-[88%] max-w-[40rem] flex-col gap-8 py-8"
+        data-bp-prose
+        className="mx-auto flex w-[88%] max-w-(--bp-type-measure) flex-col gap-10 py-10"
         style={{ zoom }}
       >
         {faces.map((face, index) => (
           <section
             key={face.key}
             data-face-index={index}
+            data-bp-annotatable
+            data-page-index={index}
             ref={registerFace(index)}
             aria-label={`Page ${index + 1}`}
             className="scroll-mt-4"
           >
-            <p className="text-muted-foreground mb-2 font-mono text-[11px] tracking-widest uppercase">
+            <p
+              data-bp-annotate-skip
+              className="text-muted-foreground mb-2 font-mono text-[11px] tracking-widest uppercase"
+            >
               Page {index + 1}
             </p>
             {face.text ? (
-              <p className="text-foreground/90 text-[15px] leading-7 whitespace-pre-wrap">
+              <p
+                data-bp-reflow
+                className="text-foreground/90 whitespace-pre-wrap"
+              >
                 {face.text}
               </p>
             ) : (

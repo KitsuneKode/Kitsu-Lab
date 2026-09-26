@@ -148,7 +148,10 @@ export default function ScrollEngine({
         if (lockScrollRef.current) return
         const visible = entries
           .filter((entry) => entry.isIntersecting)
-          .toSorted((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+          // filter() already made a fresh array — sort() in place instead of
+          // toSorted(), which iOS/Safari 15 lacks (the reader would throw).
+          // oxlint-disable-next-line unicorn/no-array-sort
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
         if (!visible) return
         const index = Number(visible.target.getAttribute('data-page-index'))
         if (!Number.isFinite(index) || index === pageIndexRef.current) return

@@ -8,6 +8,16 @@ import { DEMO_ARCHIVAL_PAGES } from './sample-archival-pages'
 import { BookPreviewComparison } from './book-preview-comparison'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { optionalBookPreviewEngines } from '@/components/book-preview/optional-engines'
+import { useUrlParam } from '@/components/book-preview/hooks/use-url-param'
+import {
+  chainAiAdapters,
+  createBuiltInAiAdapter,
+  createOpenAICompatibleAdapter,
+} from '@/components/book-preview/ai'
+import {
+  pickAllowed,
+  writeUrlParams,
+} from '@/components/book-preview/url-state'
 import type {
   BookPreviewMode,
   BookPreviewSource,
@@ -43,6 +53,8 @@ const PDF_SPECIMENS = [
   },
 ] as const
 
+type SpecimenUrl = (typeof PDF_SPECIMENS)[number]['url']
+
 const DEMO_DOCUMENTS = [
   { value: 'bird', label: 'Bird book' },
   { value: 'celestial', label: 'Celestial' },
@@ -51,16 +63,36 @@ const DEMO_DOCUMENTS = [
 
 type DemoDocument = (typeof DEMO_DOCUMENTS)[number]['value']
 
+// Ask runs on the reader's own machine: the browser's built-in model when it
+// has one, otherwise a local Ollama server (`OLLAMA_ORIGINS=* ollama serve`).
+// Nothing is sent to a hosted API from this demo.
+const DEMO_AI = chainAiAdapters(
+  createBuiltInAiAdapter(),
+  createOpenAICompatibleAdapter({
+    baseUrl: 'http://localhost:11434/v1',
+    model: 'llama3.2',
+    label: 'Ollama · llama3.2 (local)',
+  }),
+)
+
 const engineLabel = (id: BookPreviewMode) =>
   optionalBookPreviewEngines.find((engine) => engine.id === id)?.label ?? id
 
 export function BookPreviewDemo() {
   const [mode, setMode] = useState<BookPreviewMode>('page')
   const [fallbackNote, setFallbackNote] = useState<string | null>(null)
-  const [pdfUrl, setPdfUrl] = useState<(typeof PDF_SPECIMENS)[number]['url']>(
-    '/specimens/attention-is-all-you-need.pdf',
+  // The document itself is part of a shareable link: ?doc=pdf&file=… picks
+  // it, and the reader adds ?mode, ?view, ?theme and ?page on top. A choice
+  // made on the page wins over what the link asked for.
+  const urlDoc = pickAllowed(
+    useUrlParam('doc'),
+    DEMO_DOCUMENTS.map((item) => item.value),
   )
-  const [docKind, setDocKind] = useState<DemoDocument>('bird')
+  const urlFileName = useUrlParam('file')
+  const urlFile = PDF_SPECIMENS.find((item) => item.name === urlFileName)?.url
+  const [docChoice, setDocChoice] = useState<DemoDocument | null>(null)
+  const [pdfChoice, setPdfChoice] = useState<SpecimenUrl | null>(null)
+  const docKind = docChoice ?? urlDoc ?? 'bird'
   // The large specimens are local-only (gitignored), so a deployed build may
   // not have them — probe once and offer only what actually resolves. If the
   // selected specimen is gone, fall back to one that is.
@@ -75,18 +107,36 @@ export function BookPreviewDemo() {
       ),
     ).then((entries) => {
       if (cancelled) return
-      const ok = new Set(entries.filter(([, fine]) => fine).map(([url]) => url))
-      setReachable(ok)
-      setPdfUrl((current) =>
-        ok.has(current)
-          ? current
-          : (PDF_SPECIMENS.find((item) => ok.has(item.url))?.url ?? current),
+      setReachable(
+        new Set(entries.filter(([, fine]) => fine).map(([url]) => url)),
       )
     })
     return () => {
       cancelled = true
     }
   }, [])
+  const requestedPdf: SpecimenUrl =
+    pdfChoice ?? urlFile ?? '/specimens/attention-is-all-you-need.pdf'
+  const pdfUrl =
+    reachable && !reachable.has(requestedPdf)
+      ? (PDF_SPECIMENS.find((item) => reachable.has(item.url))?.url ??
+        requestedPdf)
+      : requestedPdf
+  const chooseDocument = (
+    next: DemoDocument,
+    nextUrl: SpecimenUrl = pdfUrl,
+  ) => {
+    setDocChoice(next)
+    setPdfChoice(nextUrl)
+    const file = PDF_SPECIMENS.find((item) => item.url === nextUrl)
+    // A different document starts at its own first page — a stale ?page from
+    // the last one would otherwise be restored into the new source.
+    writeUrlParams({
+      doc: next,
+      file: next === 'pdf' ? (file?.name ?? null) : null,
+      page: null,
+    })
+  }
   const specimens = reachable
     ? PDF_SPECIMENS.filter((item) => reachable.has(item.url))
     : PDF_SPECIMENS
@@ -137,7 +187,8 @@ export function BookPreviewDemo() {
           select them. Drop a PDF anywhere on the reader to open it, search the
           whole document, browse its outline or thumbnails, swipe or drag to
           turn and pan, and pick up where you left off &mdash; even across
-          visits.
+          visits. Select any passage to highlight it, add a note, or ask about
+          it; the link in your address bar reopens exactly this view.
         </p>
       </div>
       <ToggleGroup
@@ -145,7 +196,7 @@ export function BookPreviewDemo() {
         onValueChange={(value) => {
           const next = value[0]
           if (DEMO_DOCUMENTS.some((item) => item.value === next)) {
-            setDocKind(next as DemoDocument)
+            chooseDocument(next as DemoDocument)
           }
         }}
         variant="outline"
@@ -170,7 +221,7 @@ export function BookPreviewDemo() {
           onValueChange={(value) => {
             const next = value[0]
             if (specimens.some((item) => item.url === next)) {
-              setPdfUrl(next as (typeof PDF_SPECIMENS)[number]['url'])
+              chooseDocument('pdf', next as SpecimenUrl)
             }
           }}
           variant="outline"
@@ -207,7 +258,9 @@ export function BookPreviewDemo() {
         }
         persistPage
         persistPreferences
-        pageParam="page"
+        persistAnnotations
+        ai={DEMO_AI}
+        urlState
         prefetchModes={['scroll', 'spread', 'curl']}
         defaultAppearance="system"
         defaultSound={false}

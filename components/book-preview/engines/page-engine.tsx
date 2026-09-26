@@ -74,14 +74,22 @@ export default function PageEngine({
         style={{ touchAction: 'pan-y' }}
       >
         <div key={pageIndex} {...arrival} className="flex">
-          <div className="h-[min(22rem,68svh)] w-[min(14rem,86cqw)] sm:h-[min(32rem,72svh)] sm:w-[20rem] sm:border-r lg:h-[min(40rem,76svh)] lg:w-[25rem] xl:h-[min(46rem,80svh)] xl:w-[28rem]">
+          <div
+            data-bp-annotatable
+            data-page-index={pageIndex}
+            className="h-[min(22rem,68svh)] w-[min(14rem,86cqw)] sm:h-[min(32rem,72svh)] sm:w-[20rem] sm:border-r lg:h-[min(40rem,76svh)] lg:w-[25rem] xl:h-[min(46rem,80svh)] xl:w-[28rem]"
+          >
             <BookPreviewPageView
               page={currentPage}
               appearance={appearance}
               isLeftPage
             />
           </div>
-          <div className="hidden h-[22rem] w-[14rem] sm:block sm:h-[min(32rem,72svh)] sm:w-[20rem] lg:h-[min(40rem,76svh)] lg:w-[25rem] xl:h-[min(46rem,80svh)] xl:w-[28rem]">
+          <div
+            data-bp-annotatable
+            data-page-index={pageIndex + 1}
+            className="hidden h-[22rem] w-[14rem] sm:block sm:h-[min(32rem,72svh)] sm:w-[20rem] lg:h-[min(40rem,76svh)] lg:w-[25rem] xl:h-[min(46rem,80svh)] xl:w-[28rem]"
+          >
             {facingPage ? (
               <BookPreviewPageView page={facingPage} appearance={appearance} />
             ) : (

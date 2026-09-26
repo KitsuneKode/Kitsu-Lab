@@ -13,14 +13,15 @@ import {
   CURL_PAGE_RATIO,
   CURL_SIZE_QUANTUM,
   curlClickIntent,
-  curlDragOrigin,
+  curlReleaseVelocity,
+  curlShouldCommit,
+  CURL_COMMIT_PROGRESS,
+  CURL_COMMIT_VELOCITY,
   curlPageSizeForStage,
   quantizeCurlPageSize,
-  curlPageLabel,
-  curlSameSpread,
-  curlSpreadFitsStage,
-  CURL_SPREAD_MIN_PAGE_WIDTH,
-  CURL_SPREAD_ENABLED,
+  curlUseSpread,
+  curlSpreadStart,
+  curlStepTarget,
 } from './engines/curl-geometry'
 import { normalizeSource } from './normalize'
 import type { BookPreviewEngine } from './types'
@@ -347,26 +348,48 @@ describe('curl click intent', () => {
     expect(curlClickIntent(20, 200, false, true)).toBe('next')
   })
 
-  test('still turns back when forward is impossible', () => {
-    expect(curlClickIntent(180, 200, true, false)).toBe('prev')
+  test('the last page never turns backward from a "next" tap', () => {
+    expect(curlClickIntent(180, 200, true, false)).toBeNull()
   })
 
   test('does nothing when the book cannot move', () => {
     expect(curlClickIntent(180, 200, false, false)).toBeNull()
   })
+
+  test('the whole page is a turn target — the chrome claims the middle itself', () => {
+    expect(curlClickIntent(99, 200, true, true)).toBe('prev')
+    expect(curlClickIntent(101, 200, true, true)).toBe('next')
+  })
 })
 
-describe('curl drag origin', () => {
-  test('starts a forward peel on the right edge', () => {
-    const origin = curlDragOrigin({ x: 100, y: 80 }, { x: 40, y: 90 }, 200)
-    expect(origin.x).toBeGreaterThanOrEqual(176)
-    expect(origin.y).toBe(80)
+describe('curl release', () => {
+  test('commits past the threshold, cancels short of it', () => {
+    expect(curlShouldCommit(CURL_COMMIT_PROGRESS, 0)).toBe(true)
+    expect(curlShouldCommit(CURL_COMMIT_PROGRESS - 1, 0)).toBe(false)
   })
 
-  test('starts a backward peel on the left edge', () => {
-    const origin = curlDragOrigin({ x: 100, y: 80 }, { x: 140, y: 90 }, 200)
-    expect(origin.x).toBeLessThanOrEqual(24)
-    expect(origin.y).toBe(80)
+  test('a flick decides regardless of distance', () => {
+    expect(curlShouldCommit(5, CURL_COMMIT_VELOCITY)).toBe(true)
+    expect(curlShouldCommit(90, -CURL_COMMIT_VELOCITY)).toBe(false)
+  })
+
+  test('release velocity reads only the last moments', () => {
+    expect(curlReleaseVelocity([])).toBe(0)
+    expect(
+      curlReleaseVelocity([
+        { x: 0, t: 0 },
+        { x: 50, t: 100 },
+        { x: 50, t: 400 },
+        { x: 50, t: 420 },
+      ]),
+    ).toBe(0)
+    expect(
+      curlReleaseVelocity([
+        { x: 200, t: 0 },
+        { x: 160, t: 40 },
+        { x: 120, t: 80 },
+      ]),
+    ).toBe(-1)
   })
 })
 
@@ -399,48 +422,41 @@ describe('curl sheet ratio', () => {
   })
 })
 
-describe('curl two-page spread', () => {
-  test('a phone-width stage stays on a single page', () => {
-    expect(curlSpreadFitsStage(390)).toBe(false)
+describe('curl spreads', () => {
+  test('a landscape laptop stage shows two pages', () => {
+    expect(curlUseSpread(1400, 800)).toBe(true)
   })
 
-  test('keeps the known-unsafe desktop spread behind its safety gate', () => {
-    // Gated off while the page-flip landscape freeze is unresolved.
-    expect(curlSpreadFitsStage(1200)).toBe(CURL_SPREAD_ENABLED)
+  test('a portrait phone or tablet stays on one page', () => {
+    expect(curlUseSpread(390, 700)).toBe(false)
+    expect(curlUseSpread(820, 1100)).toBe(false)
   })
 
-  test('the threshold is exactly two readable leaves', () => {
-    const exact = CURL_SPREAD_MIN_PAGE_WIDTH * 2 + 24
-    expect(curlSpreadFitsStage(exact)).toBe(CURL_SPREAD_ENABLED)
-    expect(curlSpreadFitsStage(exact - 1)).toBe(false)
+  test('spreads pair (1|2), (3|4)… from the first page', () => {
+    expect(curlSpreadStart(0)).toBe(0)
+    expect(curlSpreadStart(1)).toBe(0)
+    expect(curlSpreadStart(5)).toBe(4)
   })
 
-  test('each leaf takes half the stage in a spread', () => {
-    const single = curlPageSizeForStage(1200, 900, CURL_PAGE_RATIO, false)
-    const paired = curlPageSizeForStage(1200, 900, CURL_PAGE_RATIO, true)
-    expect(paired.width).toBeLessThan(single.width)
-    // Two leaves plus padding must still fit the stage.
-    expect(paired.width * 2).toBeLessThanOrEqual(1200)
+  test('a turn moves a page, or a whole spread', () => {
+    expect(curlStepTarget(3, 1, 10, false)).toBe(4)
+    expect(curlStepTarget(3, 1, 10, true)).toBe(4)
+    expect(curlStepTarget(2, 1, 10, true)).toBe(4)
+    expect(curlStepTarget(3, -1, 10, true)).toBe(0)
+    expect(curlStepTarget(1, -1, 10, true)).toBeNull()
+    // A lone last page is still a spread to land on.
+    expect(curlStepTarget(7, 1, 9, true)).toBe(8)
+    expect(curlStepTarget(8, 1, 9, true)).toBeNull()
   })
+})
 
-  test('facing pages are the same spread', () => {
-    expect(curlSameSpread(14, 15, true)).toBe(true)
-    expect(curlSameSpread(15, 16, true)).toBe(false)
-  })
-
-  test('without a spread only the identical page counts', () => {
-    expect(curlSameSpread(14, 15, false)).toBe(false)
-    expect(curlSameSpread(14, 14, false)).toBe(true)
-  })
-
-  test('the counter names both open leaves', () => {
-    expect(curlPageLabel(14, 40, true)).toBe('15\u201316')
-    expect(curlPageLabel(15, 40, true)).toBe('15\u201316')
-    expect(curlPageLabel(14, 40, false)).toBe('15')
-  })
-
-  test('a lone final leaf is not labelled as a pair', () => {
-    expect(curlPageLabel(5, 6, true)).toBe('5\u20136')
-    expect(curlPageLabel(6, 7, true)).toBe('7')
+describe('curl spread hysteresis', () => {
+  test('an open spread survives a small squeeze that would not open one', () => {
+    // Find a stage height right under the entry threshold.
+    let height = 600
+    expect(curlUseSpread(900, height)).toBe(true)
+    while (curlUseSpread(900, height)) height += 10
+    expect(curlUseSpread(900, height, CURL_PAGE_RATIO, false)).toBe(false)
+    expect(curlUseSpread(900, height, CURL_PAGE_RATIO, true)).toBe(true)
   })
 })

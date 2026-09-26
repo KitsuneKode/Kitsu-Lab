@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { readFile } from 'node:fs/promises'
-import { isAuthorized, parseItemName, readKeys } from '@/lib/pro-registry'
+import { isProKey } from '@/lib/pro-license'
+import { bearerToken, parseItemName } from '@/lib/pro-registry'
 
 /**
  * The `@kitsu-pro` shadcn registry. Buyers add it to components.json:
@@ -10,8 +11,8 @@ import { isAuthorized, parseItemName, readKeys } from '@/lib/pro-registry'
  *   "headers": { "Authorization": "Bearer ${KITSU_PRO_KEY}" }
  * }
  *
- * Keys live in the `KITSU_PRO_KEYS` environment variable (comma separated).
- * Without it the registry is closed.
+ * A key is a Dodo Payments license key from a purchase or an active
+ * subscription, or one listed in `KITSU_PRO_KEYS` (comma separated).
  */
 export async function GET(
   request: Request,
@@ -20,13 +21,11 @@ export async function GET(
   const name = parseItemName((await ctx.params).name)
   if (!name) return error(404, 'No such item.')
 
-  const keys = readKeys(process.env.KITSU_PRO_KEYS)
-  if (keys.length === 0)
-    return error(503, 'The pro registry is not configured yet.')
-  if (!isAuthorized(request.headers.get('authorization'), keys))
+  const key = bearerToken(request.headers.get('authorization'))
+  if (!key || !(await isProKey(key)))
     return error(
       401,
-      'Add your key to components.json: "headers": { "Authorization": "Bearer ${KITSU_PRO_KEY}" }.',
+      'This needs an active Kitsu Pro license. Add it to components.json: "headers": { "Authorization": "Bearer ${KITSU_PRO_KEY}" }, and get one at /pro.',
       { 'www-authenticate': 'Bearer realm="kitsu-pro"' },
     )
 

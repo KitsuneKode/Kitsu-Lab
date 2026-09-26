@@ -198,7 +198,12 @@ export function CurlStage({
     const measure = () => {
       const wantsSpread =
         pageCount > 1 &&
-        curlUseSpread(node.clientWidth, node.clientHeight, pageRatio)
+        curlUseSpread(
+          node.clientWidth,
+          node.clientHeight,
+          pageRatio,
+          Boolean(layoutRef.current?.spread),
+        )
       const size = quantizeCurlPageSize(
         curlPageSizeForStage(
           node.clientWidth,

@@ -137,12 +137,16 @@ export function curlUseSpread(
   clientWidth: number,
   clientHeight: number,
   ratio: number = CURL_PAGE_RATIO,
+  /** The layout on screen now. Leaving it takes a clear margin, so a phone's
+      address bar collapsing mid-scroll never flips the book back and forth. */
+  current = false,
 ): boolean {
   const single = curlPageSizeForStage(clientWidth, clientHeight, ratio, false)
   const paired = curlPageSizeForStage(clientWidth, clientHeight, ratio, true)
+  const slack = current ? 0.92 : 1
   return (
-    paired.width >= CURL_SPREAD_MIN_PAGE_WIDTH &&
-    paired.height >= single.height * CURL_SPREAD_MIN_HEIGHT_SHARE
+    paired.width >= CURL_SPREAD_MIN_PAGE_WIDTH * slack &&
+    paired.height >= single.height * CURL_SPREAD_MIN_HEIGHT_SHARE * slack
   )
 }
 

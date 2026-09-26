@@ -449,3 +449,14 @@ describe('curl spreads', () => {
     expect(curlStepTarget(8, 1, 9, true)).toBeNull()
   })
 })
+
+describe('curl spread hysteresis', () => {
+  test('an open spread survives a small squeeze that would not open one', () => {
+    // Find a stage height right under the entry threshold.
+    let height = 600
+    expect(curlUseSpread(900, height)).toBe(true)
+    while (curlUseSpread(900, height)) height += 10
+    expect(curlUseSpread(900, height, CURL_PAGE_RATIO, false)).toBe(false)
+    expect(curlUseSpread(900, height, CURL_PAGE_RATIO, true)).toBe(true)
+  })
+})

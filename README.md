@@ -43,8 +43,10 @@ key in `.env.local`:
 npx shadcn@latest add @kitsu-pro/promotions-pro
 ```
 
-The route serves `registry-pro/r/` to keys listed in the `KITSU_PRO_KEYS`
-environment variable (comma separated); without it the pro registry is closed.
+Get a license at [`/pro`](https://kitsu-lab.vercel.app/pro) (monthly or
+lifetime, paid through Dodo Payments). The route serves `registry-pro/r/` to
+any active license key, or to keys listed in `KITSU_PRO_KEYS`. Environment
+variables for running your own copy are in `.env.example`.
 
 ## Items
 

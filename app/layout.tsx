@@ -3,6 +3,7 @@ import { Orbitron, Space_Grotesk, JetBrains_Mono } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
 import { Provider } from '@/components/provider'
 import { Analytics } from '@vercel/analytics/next'
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/site'
 
 const orbitron = Orbitron({
   subsets: ['latin'],
@@ -23,17 +24,40 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://kitsu-lab.vercel.app'),
-  title: 'Kitsu Lab',
-  description:
-    'The destination for all your component. This website shows all the trial components by kitsunekode',
-
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} — shadcn components you install and own`,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    'shadcn',
+    'shadcn registry',
+    'react components',
+    'next.js components',
+    'announcement bar',
+    'promotion popup',
+    'discount banner',
+    'pdf reader',
+    'book reader',
+    'tailwind',
+  ],
+  authors: [{ name: 'kitsunekode', url: 'https://x.com/kitsunekode' }],
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    url: SITE_URL,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+  },
   twitter: {
     card: 'summary_large_image',
-    title: 'Kitsu Lab',
-    description:
-      'The destination for all your component. This website shows all the trial components by kitsunekode',
     site: '@kitsunekode',
+    creator: '@kitsunekode',
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
   },
 }
 

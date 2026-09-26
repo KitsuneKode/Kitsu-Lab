@@ -1,41 +1,28 @@
+import type { Metadata } from 'next'
 import { registry } from '@/app/utils/registry'
-import type { Metadata, ResolvingMetadata } from 'next'
 
 type Props = {
   params: Promise<{ exhibit: string }>
-  // searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-export async function generateMetadata(
-  { params }: Props,
-  parent: ResolvingMetadata,
-): Promise<Metadata> {
+/**
+ * Each exhibit's title, description and canonical URL. The social image
+ * comes from the sibling opengraph-image, so it is never empty.
+ */
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { exhibit } = await params
-
-  // fetch datan
-  const componentDetails = registry.list.find(
-    (component) => component.path === exhibit,
-  )
-  const component = componentDetails?.name || 'Your goto component exhibition'
-  // optionally access and extend (rather than replace) parent metadata
-  const previousImages = (await parent).openGraph?.images || []
-
-  const image =
-    registry.list.find((component) => component.path === exhibit)?.image ||
-    '/opengraph-image.png'
-
+  const entry = registry.list.find((item) => item.path === exhibit)
+  if (!entry) return { title: 'Not found', robots: { index: false } }
+  const title = `${entry.name} for shadcn`
   return {
-    title: `Kitsu-Lab -- ${component}`,
-    openGraph: {
-      images: [image, ...previousImages],
-    },
+    title,
+    description: entry.description,
+    alternates: { canonical: `/exhibition/${entry.path}` },
+    openGraph: { title, description: entry.description, type: 'article' },
     twitter: {
-      title: `Kitsu-Lab -- ${component}`,
       card: 'summary_large_image',
-      description:
-        componentDetails?.description ||
-        'Component exhibition library of Kitsunekode',
-      images: [image, ...previousImages],
+      title,
+      description: entry.description,
     },
   }
 }

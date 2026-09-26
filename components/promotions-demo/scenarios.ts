@@ -88,7 +88,22 @@ export const SCENARIOS = {
       { value: 'https://example.com/keynote', label: 'Keynote (external)' },
     ],
     seed: (base) => [
-      ...productLaunchKit({ startsAt: base }).promotions,
+      ...productLaunchKit({
+        startsAt: base,
+        overrides: {
+          // An A/B test: the event log shows which arm this visitor got.
+          offer: {
+            variants: [
+              { id: 'control' },
+              {
+                id: 'urgency',
+                title: 'Annual plans: 20% off, ends Sunday',
+                ctaLabel: 'Lock in 20%',
+              },
+            ],
+          },
+        },
+      }).promotions,
       // Opens only when the visitor clicks Upgrade: an offer for that moment.
       {
         id: 'launch-upgrade',

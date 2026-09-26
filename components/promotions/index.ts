@@ -8,8 +8,11 @@ export * from './promotion-stores'
 export * from './promotion-plugins'
 export * from './promotion-labels'
 export {
+  PROMOTION_CONVERT_EVENT,
   PROMOTION_TRIGGER_EVENT,
   PromotionProvider,
+  convertPromotion,
+  usePromotionApply,
   defaultPromotionLabels,
   moveFocusPast,
   triggerPromotion,

@@ -69,6 +69,26 @@ export type PromotionCopy = {
   ctaLabel?: string
 }
 
+/**
+ * Who a promotion is for, by segment name. The host passes the visitor's
+ * segments (`member`, `plan:pro`, `cart:50+`); the provider adds `new` or
+ * `returning`. Exclusions win.
+ */
+export type PromotionAudience = {
+  /** At least one must match. Empty or absent means everyone. */
+  include?: string[]
+  exclude?: string[]
+}
+
+/**
+ * One arm of an experiment. `control` keeps the record's own copy; other
+ * arms replace the fields they set. Weights are relative (default 1).
+ */
+export type PromotionVariant = PromotionCopy & {
+  id: string
+  weight?: number
+}
+
 export type PromotionMedia = {
   src: string
   alt: string
@@ -128,6 +148,17 @@ export type PromotionContent = {
    * belong to a moment, such as clicking Upgrade or reaching a plan limit.
    */
   triggers?: string[]
+  audience?: PromotionAudience
+  /**
+   * 2–4 copy variants, assigned per visitor and kept for them. Events carry
+   * the variant id. Arms other than `control` do not use `translations`.
+   */
+  variants?: PromotionVariant[]
+  /**
+   * Percent of visitors (1–50) who never see this record, so its lift can be
+   * measured against them. They get one `holdout` event per page instead.
+   */
+  holdout?: number
   /**
    * Toast and dialog: at most once every `hours` per visitor, even across
    * tabs and without a dismissal. Defaults to DEFAULT_FREQUENCY_HOURS.
@@ -140,6 +171,8 @@ export type PromotionContent = {
 }
 
 export type Promotion = PromotionContent & {
+  /** Set by the provider to the assigned variant. Never stored. */
+  variant?: string
   id: string
   state: PromotionState
   /** Bump to show a changed promotion to visitors who dismissed it. */
@@ -350,6 +383,87 @@ export function triggeredBy(
   )
 }
 
+/** Segment names: short, lowercase, `:` `_` `-` `+` allowed (`cart:50+`). */
+export const SEGMENT_PATTERN = /^[a-z0-9][a-z0-9:_+-]{0,47}$/
+export const SEGMENTS_MAX = 8
+export const VARIANTS_MAX = 4
+export const HOLDOUT_MAX = 50
+
+/** Whether a visitor with these segments is in the record's audience. */
+export function audienceAllows(
+  promotion: Pick<PromotionContent, 'audience'>,
+  segments: ReadonlySet<string>,
+): boolean {
+  const audience = promotion.audience
+  if (!audience) return true
+  if (audience.exclude?.some((segment) => segments.has(segment))) return false
+  if (!audience.include?.length) return true
+  return audience.include.some((segment) => segments.has(segment))
+}
+
+/** FNV-1a to [0, 1): the same visitor and record always land in one bucket. */
+function unitHash(text: string): number {
+  let hash = 2166136261
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0) / 4294967296
+}
+
+/**
+ * Places a visitor (by their stable `seed`) in a record's holdout or one of
+ * its variants. Deterministic, so the visitor sees the same arm on every
+ * page and in every tab.
+ */
+export function assignVariant<T extends Promotion>(
+  promotion: T,
+  seed: number,
+): { held: boolean; promotion: T } {
+  if (
+    promotion.holdout &&
+    unitHash(`${seed}:${promotion.id}:holdout`) < promotion.holdout / 100
+  )
+    return { held: true, promotion }
+  const variants = promotion.variants
+  if (!variants?.length) return { held: false, promotion }
+  const total = variants.reduce((sum, v) => sum + (v.weight ?? 1), 0)
+  let point = unitHash(`${seed}:${promotion.id}:variant`) * total
+  const chosen =
+    variants.find((v) => (point -= v.weight ?? 1) < 0) ??
+    variants[variants.length - 1]!
+  if (chosen.id === 'control')
+    return { held: false, promotion: { ...promotion, variant: 'control' } }
+  // Translations belong to the control copy; an arm speaks its own words.
+  const { translations: _translations, ...rest } = promotion
+  return {
+    held: false,
+    promotion: {
+      ...(rest as T),
+      variant: chosen.id,
+      ...(chosen.eyebrow ? { eyebrow: chosen.eyebrow } : {}),
+      ...(chosen.title ? { title: chosen.title } : {}),
+      ...(chosen.body ? { body: chosen.body } : {}),
+      ...(chosen.ctaLabel && promotion.cta
+        ? { cta: { ...promotion.cta, label: chosen.ctaLabel } }
+        : {}),
+    },
+  }
+}
+
+/**
+ * Storage keys recording that the visitor converted: one for the record and,
+ * when it has one, one for its campaign, so every record in it stops.
+ */
+export function conversionKeys(
+  promotion: Pick<Promotion, 'id' | 'campaign'>,
+): string[] {
+  return [
+    `promo:converted:id:${promotion.id}`,
+    ...(promotion.campaign ? [`promo:converted:${promotion.campaign}`] : []),
+  ]
+}
+
 /** Two records belong to one campaign only when both name it. */
 export function sharesCampaign(
   a: Pick<Promotion, 'campaign'> | null | undefined,
@@ -459,6 +573,9 @@ export type PromotionParseResult =
 
 export type PromotionField =
   | 'form'
+  | 'audience'
+  | 'variants'
+  | 'holdout'
   | 'triggers'
   | 'placement'
   | 'slot'
@@ -568,6 +685,56 @@ function parseDismiss(value: unknown): PromotionDismiss | null {
 }
 
 const LOCALE_TAG = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/
+
+/** Validates an audience; undefined when absent or empty, null when malformed. */
+function parseAudience(value: unknown): PromotionAudience | undefined | null {
+  if (value === undefined || value === null) return undefined
+  if (!isRecord(value)) return null
+  const list = (raw: unknown): string[] | undefined | null => {
+    if (raw === undefined) return undefined
+    if (!Array.isArray(raw) || raw.length > SEGMENTS_MAX) return null
+    const names = new Set<string>()
+    for (const item of raw) {
+      if (typeof item !== 'string' || !SEGMENT_PATTERN.test(item)) return null
+      names.add(item)
+    }
+    return names.size ? [...names] : undefined
+  }
+  const include = list(value.include)
+  const exclude = list(value.exclude)
+  if (include === null || exclude === null) return null
+  if (!include && !exclude) return undefined
+  return { ...(include ? { include } : {}), ...(exclude ? { exclude } : {}) }
+}
+
+/** Validates 2–4 variants with unique ids; null when malformed. */
+function parseVariants(value: unknown): PromotionVariant[] | undefined | null {
+  if (value === undefined || value === null) return undefined
+  if (!Array.isArray(value) || value.length < 2 || value.length > VARIANTS_MAX)
+    return null
+  const ids = new Set<string>()
+  const out: PromotionVariant[] = []
+  for (const raw of value) {
+    if (!isRecord(raw) || typeof raw.id !== 'string') return null
+    if (!TRIGGER_PATTERN.test(raw.id) || ids.has(raw.id)) return null
+    if (raw.weight !== undefined && !isInt(raw.weight, 1, 100)) return null
+    const eyebrow = plainText(raw.eyebrow, EYEBROW_MAX, false)
+    const title = plainText(raw.title, TITLE_MAX, false)
+    const body = plainText(raw.body, BODY_MAX, false)
+    const ctaLabel = plainText(raw.ctaLabel, CTA_LABEL_MAX, false)
+    if (!eyebrow.ok || !title.ok || !body.ok || !ctaLabel.ok) return null
+    ids.add(raw.id)
+    out.push({
+      id: raw.id,
+      ...(raw.weight !== undefined ? { weight: raw.weight as number } : {}),
+      ...(eyebrow.value ? { eyebrow: eyebrow.value } : {}),
+      ...(title.value ? { title: title.value } : {}),
+      ...(body.value ? { body: body.value } : {}),
+      ...(ctaLabel.value ? { ctaLabel: ctaLabel.value } : {}),
+    })
+  }
+  return out
+}
 
 /** Validates event names; undefined when absent or empty, null when malformed. */
 function parseTriggers(value: unknown): string[] | undefined | null {
@@ -747,6 +914,19 @@ export function parsePromotion(
   )
     errors.triggers = 'Only toasts, dialogs and sheets can open on an event.'
 
+  const audience = parseAudience(input.audience)
+  if (audience === null)
+    errors.audience = `Use up to ${SEGMENTS_MAX} segment names like member or cart:50+ in each list.`
+  const variants = parseVariants(input.variants)
+  if (variants === null)
+    errors.variants = `Use 2 to ${VARIANTS_MAX} variants with unique ids, weights from 1 to 100 and plain-text copy.`
+  if (
+    input.holdout !== undefined &&
+    input.holdout !== 0 &&
+    !isInt(input.holdout, 1, HOLDOUT_MAX)
+  )
+    errors.holdout = `Hold out between 1% and ${HOLDOUT_MAX}% of visitors.`
+
   const translations = parseTranslations(input.translations)
   if (translations === null)
     errors.translations =
@@ -799,6 +979,11 @@ export function parsePromotion(
         ? { frequency: { hours: rawFrequency } }
         : {}),
       ...(triggers?.length ? { triggers } : {}),
+      ...(audience ? { audience } : {}),
+      ...(variants ? { variants } : {}),
+      ...(isInt(input.holdout, 1, HOLDOUT_MAX)
+        ? { holdout: input.holdout }
+        : {}),
       ...(translations ? { translations } : {}),
       ...(typeof input.campaign === 'string' && input.campaign.trim()
         ? { campaign: input.campaign.trim().slice(0, 64) }
@@ -846,6 +1031,9 @@ export function isPromotion(value: unknown): value is Promotion {
     (value.presentation === undefined ||
       DIALOG_PRESENTATIONS.some((p) => p === value.presentation)) &&
     (value.triggers === undefined || parseTriggers(value.triggers) !== null) &&
+    (value.audience === undefined || parseAudience(value.audience) !== null) &&
+    (value.variants === undefined || parseVariants(value.variants) !== null) &&
+    (value.holdout === undefined || isInt(value.holdout, 0, HOLDOUT_MAX)) &&
     PROMOTION_TONES.some((tone) => tone === value.tone) &&
     isStringArray(value.include) &&
     isStringArray(value.exclude) &&

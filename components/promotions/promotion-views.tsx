@@ -22,6 +22,7 @@ import {
   type PromotionTone,
 } from './promotion'
 import {
+  usePromotionApply,
   usePromotionLabels,
   type PromotionLabels,
   type PromotionLinkProps,
@@ -183,8 +184,12 @@ export function PromoCode({
   className?: string
 }) {
   const labels = usePromotionLabels()
+  const applyCode = usePromotionApply()
   const reduce = useReducedMotion()
   const [copied, setCopied] = React.useState(false)
+  const [applying, setApplying] = React.useState<'idle' | 'busy' | 'done'>(
+    'idle',
+  )
   const [revealed, setRevealed] = React.useState(!reveal)
   const revealRef = React.useRef<HTMLButtonElement>(null)
   React.useEffect(() => {
@@ -267,8 +272,26 @@ export function PromoCode({
           </motion.span>
         </AnimatePresence>
       </button>
+      {applyCode ? (
+        // The fastest path to using an offer: no copy, no paste, no hunting
+        // for the code field at checkout.
+        <button
+          type="button"
+          disabled={applying !== 'idle'}
+          onClick={async () => {
+            setApplying('busy')
+            setApplying((await applyCode(code)) ? 'done' : 'idle')
+          }}
+          className="ms-0.5 inline-flex h-7 items-center gap-1 rounded-md bg-current/10 px-2 text-xs font-medium transition-[background-color,transform,opacity] duration-150 ease-out outline-none hover:bg-current/15 focus-visible:ring-3 focus-visible:ring-current/30 active:scale-[0.96] disabled:opacity-70"
+        >
+          {applying === 'done' ? (
+            <IconCheck aria-hidden className="size-3.5" />
+          ) : null}
+          {applying === 'done' ? labels.applied : labels.apply}
+        </button>
+      ) : null}
       <span role="status" className="sr-only">
-        {copied ? labels.copied : ''}
+        {applying === 'done' ? labels.applied : copied ? labels.copied : ''}
       </span>
     </span>
   )

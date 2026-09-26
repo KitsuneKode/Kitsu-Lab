@@ -9,6 +9,10 @@ import {
   frequencyAllows,
   inboxPromotions,
   localizePromotion,
+  assignVariant,
+  audienceAllows,
+  conversionKeys,
+  deliveryState,
   opensOnItsOwn,
   sharesCampaign,
   triggeredBy,
@@ -37,10 +41,25 @@ export type PromotionSource =
   | { load: (signal: AbortSignal) => Promise<readonly unknown[]> }
 
 export type PromotionEvent = {
-  type: 'impression' | 'click' | 'dismiss' | 'copy' | 'reveal'
+  /**
+   * `convert` comes from the host (a purchase, a sign-up); `apply` from a
+   * code applied in one tap; `holdout` once per page for a visitor kept out
+   * of a record, so its lift can be measured.
+   */
+  type:
+    | 'impression'
+    | 'click'
+    | 'dismiss'
+    | 'copy'
+    | 'reveal'
+    | 'apply'
+    | 'convert'
+    | 'holdout'
   id: string
   placement: PromotionPlacement
   campaign?: string
+  /** The experiment arm this visitor was assigned, when the record has variants. */
+  variant?: string
   /** The route the visitor was on, so conversions can be attributed per page. */
   pathname: string
 }
@@ -64,6 +83,9 @@ export type PromotionLabels = {
   endsIn: (left: { unit: 'day' | 'hour' | 'minute'; value: number }) => string
   copyCode: (code: string) => string
   copied: string
+  /** One-tap apply, shown when the host passes `onApplyCode`. */
+  apply: string
+  applied: string
   minimize: string
   restore: (title: string) => string
   reveal: string
@@ -87,6 +109,8 @@ export const defaultPromotionLabels: PromotionLabels = {
     `Ends in ${value} ${unit}${value === 1 ? '' : 's'}`,
   copyCode: (code) => `Copy code ${code}`,
   copied: 'Copied',
+  apply: 'Apply',
+  applied: 'Applied',
   minimize: 'Minimise',
   restore: (title) => `Show offer: ${title}`,
   reveal: 'Reveal code',
@@ -191,11 +215,21 @@ type PromotionContextValue = {
    * not dismissed and its frequency allows. True when something opened.
    */
   trigger: (event: string) => boolean
+  /**
+   * Records a conversion for a campaign (or a record id): every record in it
+   * stops showing for `conversionDays`. Call it from your purchase or
+   * sign-up success. True when it matched something.
+   */
+  convert: (target: string) => boolean
+  /** Applies a code through the host's `onApplyCode`; null when not wired. */
+  applyCode: ((code: string) => Promise<boolean>) | null
+  /** The visitor's segments, including the provider's `new` or `returning`. */
+  segments: ReadonlySet<string>
   /** Called by floating surfaces once they are on screen. */
   markShown: (promotion: Promotion) => void
   report: (
     type: PromotionEvent['type'],
-    promotion: Pick<Promotion, 'id' | 'placement' | 'campaign'>,
+    promotion: Pick<Promotion, 'id' | 'placement' | 'campaign' | 'variant'>,
   ) => void
   Link: React.ComponentType<PromotionLinkProps>
   labels: PromotionLabels
@@ -270,6 +304,21 @@ export type PromotionProviderProps = {
   labels?: Partial<PromotionLabels>
   /** Shown next to schedule text in countdowns and editors. */
   timeZone?: string
+  /**
+   * The visitor's segments for `audience` targeting, e.g. `['member',
+   * 'plan:pro']`. The provider adds `new` or `returning` itself.
+   */
+  segments?: readonly string[]
+  /**
+   * Applies a code to the cart in one tap. Return false when it could not be
+   * applied. Without it, codes are copy-only.
+   */
+  onApplyCode?: (
+    code: string,
+    promotion: Promotion,
+  ) => boolean | void | Promise<boolean | void>
+  /** How long a conversion hides its campaign. Defaults to 30 days. */
+  conversionDays?: number
   children: React.ReactNode
 }
 
@@ -496,6 +545,29 @@ const DEFAULT_TOAST_ENGAGEMENT: PromotionEngagement = {
 }
 const NO_LABELS: Partial<PromotionLabels> = {}
 const NO_PLUGINS: readonly PromotionPlugin[] = []
+const NO_SEGMENTS: readonly string[] = []
+const VISITOR_KEY = 'promo:visitor'
+const VISITS_KEY = 'promo:visits'
+const VISIT_MARK = 'promo:visit'
+
+/**
+ * The DOM event `convertPromotion` sends, so a checkout page or payment
+ * callback outside React can record a conversion.
+ */
+export const PROMOTION_CONVERT_EVENT = 'promo:convert'
+
+/** Records a conversion from anywhere; see `usePromotions().convert`. */
+export function convertPromotion(target: string) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(
+    new CustomEvent<string>(PROMOTION_CONVERT_EVENT, { detail: target }),
+  )
+}
+
+/** The host's one-tap apply, or null outside a provider or when not wired. */
+export function usePromotionApply() {
+  return React.useContext(PromotionContext)?.applyCode ?? null
+}
 
 /**
  * The DOM event `triggerPromotion` sends, so code outside React (analytics,
@@ -538,6 +610,9 @@ export function PromotionProvider({
   allowBarWithFloating = true,
   locale,
   timeZone,
+  segments: hostSegments = NO_SEGMENTS,
+  onApplyCode,
+  conversionDays = 30,
   children,
 }: PromotionProviderProps) {
   const loaded = useLoadedRecords(source, sourceKey)
@@ -640,6 +715,7 @@ export function PromotionProvider({
         id: promotion.id,
         placement: promotion.placement,
         campaign: promotion.campaign,
+        ...(promotion.variant ? { variant: promotion.variant } : {}),
         pathname,
       }
       onEventRef.current?.(event)
@@ -682,15 +758,66 @@ export function PromotionProvider({
   )
 
   const suppressed = suppressOn.some((pattern) => matchRoute(pattern, pathname))
+  // A stable random number per visitor, so experiments keep each visitor in
+  // one arm. Records with variants or a holdout wait for it, so nobody sees
+  // one arm flash before another.
+  const seed = now === null ? null : read(VISITOR_KEY, 'browser')
+  React.useEffect(() => {
+    if (now !== null && seed === null)
+      // oxlint-disable-next-line react/set-state-in-effect -- persists a new visitor seed to the dismissal store (external) once
+      write(
+        VISITOR_KEY,
+        'browser',
+        1 + Math.floor(Math.random() * 2_147_483_646),
+      )
+  }, [now, seed, write])
+  const experiment = React.useMemo(() => {
+    const live: Promotion[] = []
+    const held: Promotion[] = []
+    for (const record of records) {
+      if (!record.variants?.length && !record.holdout) live.push(record)
+      else if (seed !== null) {
+        const assigned = assignVariant(record, seed)
+        if (assigned.held) held.push(record)
+        else live.push(assigned.promotion)
+      }
+    }
+    return { live, held }
+  }, [records, seed])
+
+  // One visit per tab session: `new` on the first, `returning` after.
+  const countedVisit = React.useRef(false)
+  React.useEffect(() => {
+    if (now === null || countedVisit.current) return
+    countedVisit.current = true
+    if (read(VISIT_MARK, 'tab') !== null) return
+    // oxlint-disable-next-line react/set-state-in-effect -- counts this visit in the dismissal store (external) once per tab
+    write(VISIT_MARK, 'tab')
+    write(VISITS_KEY, 'browser', (read(VISITS_KEY, 'browser') ?? 0) + 1)
+  }, [now, read, write])
+  const visits = read(VISITS_KEY, 'browser') ?? 0
+  const segments = React.useMemo(
+    () => new Set([...hostSegments, visits > 1 ? 'returning' : 'new']),
+    [hostSegments, visits],
+  )
+
   const selection = React.useMemo<PromotionSelection>(
     () =>
       now === null
         ? { live: [], cards: {} }
-        : selectPromotions(records, { pathname, now }),
-    [now, pathname, records],
+        : selectPromotions(experiment.live, { pathname, now }),
+    [now, pathname, experiment],
   )
+  const converted = (promotion: Promotion) =>
+    now !== null &&
+    conversionKeys(promotion).some((key) => {
+      const at = read(key, 'browser')
+      return at !== null && now - at < conversionDays * 86_400_000
+    })
   const allowed = (promotion: Promotion) =>
     now !== null &&
+    audienceAllows(promotion, segments) &&
+    !converted(promotion) &&
     plugins.every(
       (plugin) => plugin.allow?.(promotion, { pathname, now }) ?? true,
     )
@@ -871,6 +998,77 @@ export function PromotionProvider({
     return () => window.removeEventListener(PROMOTION_TRIGGER_EVENT, onTrigger)
   }, [])
 
+  const convert = (target: string) => {
+    const matches = records.filter(
+      (record) => record.id === target || record.campaign === target,
+    )
+    const first = matches[0]
+    if (!first) return false
+    const byCampaign = matches.some((record) => record.campaign === target)
+    write(
+      byCampaign ? `promo:converted:${target}` : `promo:converted:id:${target}`,
+      'browser',
+    )
+    setForced((id) => (matches.some((m) => m.id === id) ? null : id))
+    report('convert', first)
+    return true
+  }
+  const convertRef = React.useRef(convert)
+  React.useEffect(() => {
+    convertRef.current = convert
+  })
+  React.useEffect(() => {
+    const onConvert = (event: Event) => {
+      const target = (event as CustomEvent<unknown>).detail
+      if (typeof target === 'string') convertRef.current(target)
+    }
+    window.addEventListener(PROMOTION_CONVERT_EVENT, onConvert)
+    return () => window.removeEventListener(PROMOTION_CONVERT_EVENT, onConvert)
+  }, [])
+
+  const onApplyRef = React.useRef(onApplyCode)
+  React.useEffect(() => {
+    onApplyRef.current = onApplyCode
+  })
+  const applyCode = onApplyCode
+    ? async (code: string) => {
+        const promotion = selection.live.find((record) => record.code === code)
+        if (!promotion) return false
+        let ok = false
+        try {
+          ok = (await onApplyRef.current?.(code, promotion)) !== false
+        } catch {
+          ok = false
+        }
+        if (ok) report('apply', promotion)
+        return ok
+      }
+    : null
+
+  // A held-out visitor is still counted, once per page, so the lift of a
+  // record can be read against them.
+  const heldHere =
+    now === null || suppressed
+      ? ''
+      : experiment.held
+          .filter(
+            (record) =>
+              deliveryState(record, now) === 'live' &&
+              targetsRoute(record, pathname),
+          )
+          .map((record) => record.id)
+          .join(' ')
+  const reportedHeld = React.useRef(new Set<string>())
+  React.useEffect(() => {
+    for (const id of heldHere.split(' ')) {
+      const key = `${pathname}|${id}`
+      if (!id || reportedHeld.current.has(key)) continue
+      reportedHeld.current.add(key)
+      const record = experiment.held.find((held) => held.id === id)
+      if (record) report('holdout', record)
+    }
+  }, [heldHere, pathname, experiment, report])
+
   const value: PromotionContextValue = {
     now,
     pathname,
@@ -945,6 +1143,9 @@ export function PromotionProvider({
     },
     openPromotion: setForced,
     trigger,
+    convert,
+    applyCode,
+    segments,
     markShown: (promotion) => {
       if (stillOpen(promotion)) return
       const at = write(shownKey(promotion), 'browser')

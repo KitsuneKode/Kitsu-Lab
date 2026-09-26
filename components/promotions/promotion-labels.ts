@@ -10,6 +10,8 @@ type Words = {
   ends: (relative: string) => string
   copyCode: (code: string) => string
   copied: string
+  apply: string
+  applied: string
   minimize: string
   restore: (title: string) => string
   reveal: string
@@ -55,6 +57,8 @@ export const promotionLabels = {
     ends: (relative) => `Ends ${relative}`,
     copyCode: (code) => `Copy code ${code}`,
     copied: 'Copied',
+    apply: 'Apply',
+    applied: 'Applied',
     minimize: 'Minimise',
     restore: (title) => `Show offer: ${title}`,
     reveal: 'Reveal code',
@@ -76,6 +80,8 @@ export const promotionLabels = {
     ends: (relative) => `Se termine ${relative}`,
     copyCode: (code) => `Copier le code ${code}`,
     copied: 'Copié',
+    apply: 'Appliquer',
+    applied: 'Appliqué',
     minimize: 'Réduire',
     restore: (title) => `Voir l’offre : ${title}`,
     reveal: 'Afficher le code',
@@ -97,6 +103,8 @@ export const promotionLabels = {
     ends: (relative) => `Endet ${relative}`,
     copyCode: (code) => `Code ${code} kopieren`,
     copied: 'Kopiert',
+    apply: 'Anwenden',
+    applied: 'Angewendet',
     minimize: 'Minimieren',
     restore: (title) => `Angebot zeigen: ${title}`,
     reveal: 'Code anzeigen',
@@ -118,6 +126,8 @@ export const promotionLabels = {
     ends: (relative) => `${relative}に終了`,
     copyCode: (code) => `コード ${code} をコピー`,
     copied: 'コピーしました',
+    apply: '適用',
+    applied: '適用済み',
     minimize: '最小化',
     restore: (title) => `オファーを表示: ${title}`,
     reveal: 'コードを表示',
@@ -139,6 +149,8 @@ export const promotionLabels = {
     ends: (relative) => `${relative} समाप्त`,
     copyCode: (code) => `कोड ${code} कॉपी करें`,
     copied: 'कॉपी हो गया',
+    apply: 'लागू करें',
+    applied: 'लागू हो गया',
     minimize: 'छोटा करें',
     restore: (title) => `ऑफ़र देखें: ${title}`,
     reveal: 'कोड दिखाएँ',
@@ -160,6 +172,8 @@ export const promotionLabels = {
     ends: (relative) => `ينتهي ${relative}`,
     copyCode: (code) => `نسخ الرمز ${code}`,
     copied: 'تم النسخ',
+    apply: 'تطبيق',
+    applied: 'تم التطبيق',
     minimize: 'تصغير',
     restore: (title) => `عرض العرض: ${title}`,
     reveal: 'إظهار الرمز',

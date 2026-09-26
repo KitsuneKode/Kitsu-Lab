@@ -249,6 +249,8 @@ export function storeSaleKit({
           endsAt: startsAt + 60 * DAY,
           priority: 40,
           dismiss: { mode: 'days', days: 30 },
+          // An invitation to join is noise for someone who already has.
+          audience: { exclude: ['member'] },
           campaign: 'members',
           translations: tr({
             fr: {

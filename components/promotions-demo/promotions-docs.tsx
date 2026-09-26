@@ -320,6 +320,83 @@ triggerPromotion('plan:limit-reached')`,
   },
   {
     item: 'promotion-provider',
+    name: 'Conversions',
+    tier: 'Core',
+    summary:
+      'Tell the provider when someone buys or signs up, and that campaign stops following them.',
+    code: `// after checkout succeeds
+const { convert } = usePromotions()
+convert('spring-sale')        // a campaign id, or a record id
+
+// from outside React (a payment webhook result, a server action callback)
+import { convertPromotion } from '@/components/promotions'
+convertPromotion('spring-sale')
+
+<PromotionProvider conversionDays={30} … />`,
+    notes: [
+      'Every record in the campaign hides everywhere, the inbox included: no discount after the purchase.',
+      'Reported as a convert event, with the variant when the record has one.',
+    ],
+  },
+  {
+    item: 'promotion-provider',
+    name: 'Audiences',
+    tier: 'Core',
+    summary:
+      'Show a record only to some visitors: members, a plan, a cart size. New or returning comes built in.',
+    code: `// record
+{ placement: 'side', title: 'Join free…', audience: { exclude: ['member'] } }
+{ placement: 'toast', title: 'Welcome back', audience: { include: ['returning'] } }
+
+// the host says who the visitor is
+<PromotionProvider segments={user ? ['member', \`plan:\${user.plan}\`] : []} … />`,
+    notes: [
+      'Exclusions win. A record without an audience is for everyone.',
+      'Segments are names only; nothing about the visitor is stored.',
+    ],
+  },
+  {
+    item: 'promotion-provider',
+    name: 'Experiments',
+    tier: 'Core',
+    summary:
+      'A/B copy variants and a holdout group, so you can see what converts and whether the offer helps at all.',
+    code: `{
+  placement: 'toast',
+  title: '20% off annual plans',
+  variants: [
+    { id: 'control', weight: 1 },
+    { id: 'urgency', weight: 1, title: '20% off, ends Sunday', ctaLabel: 'Lock in 20%' },
+  ],
+  holdout: 10,   // 10% never see it; they get one holdout event per page
+}
+
+onEvent={(e) => analytics.track(\`promo_\${e.type}\`, { id: e.id, variant: e.variant })}`,
+    notes: [
+      'Each visitor keeps one arm on every page. Nothing shows until the arm is known, so no flash.',
+      'Compare convert events per variant, and against holdout, to measure real lift.',
+    ],
+  },
+  {
+    item: 'promotion-provider',
+    name: 'Apply in one tap',
+    tier: 'Core',
+    summary:
+      'Every code gets an Apply button that puts it on the cart for the visitor. No copying, no pasting.',
+    code: `<PromotionProvider
+  onApplyCode={async (code) => {
+    const ok = await cart.applyDiscount(code)
+    return ok   // false keeps the button, so the visitor can retry
+  }}
+  …
+/>`,
+    notes: [
+      'Without onApplyCode, codes stay copy-only.',
+      'Reported as an apply event, which is a stronger signal than copy.',
+    ],
+  },
+  {
+    item: 'promotion-provider',
     name: 'Plugins',
     tier: 'Add-on',
     summary: 'Extra triggers and rules without growing the provider.',

@@ -163,6 +163,8 @@ const EXIT_INTENT: readonly PromotionPlugin[] = [
   exitIntent({ placement: 'dialog', minDwellMs: 1500 }),
 ]
 const NO_PLUGINS: readonly PromotionPlugin[] = []
+const MEMBER: readonly string[] = ['member']
+const GUEST: readonly string[] = []
 
 /** Keeps the demo on one page: internal CTAs switch the mock route. */
 function useDemoLink(navigate: (href: string) => void) {
@@ -246,6 +248,8 @@ function MockSite({
   scroller,
   frame,
   navigate,
+  appliedCode,
+  onOrder,
 }: {
   scenario: Scenario
   pathname: string
@@ -253,13 +257,15 @@ function MockSite({
   scroller: HTMLElement | null
   frame: HTMLElement | null
   navigate: (href: string) => void
+  appliedCode: string | null
+  onOrder: () => void
 }) {
   const page =
     scenario.pages.find((p) => p.value === pathname) ?? scenario.pages[0]!
   const pricing = React.useRef<HTMLDivElement>(null)
   const content = React.useRef<HTMLElement>(null)
   const share = React.useRef<HTMLButtonElement>(null)
-  const { selection, openPromotion, trigger } = usePromotions()
+  const { selection, openPromotion, trigger, convert } = usePromotions()
   const story = selection.live.find((p) => p.presentation === 'story')
   const upgradeOffer = selection.live.some((p) =>
     p.triggers?.includes('upgrade-intent'),
@@ -382,7 +388,28 @@ function MockSite({
               reward="free shipping"
               format={(n) => money.format(n)}
             />
+            {appliedCode ? (
+              <p className="text-sm">
+                <span className="font-mono font-medium">{appliedCode}</span>{' '}
+                applied at checkout.
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                // A purchase converts the campaigns this visitor used, so
+                // their offers stop following them around the site.
+                onClick={() => {
+                  const used = selection.live.find(
+                    (p) => p.code && p.code === appliedCode,
+                  )
+                  if (used?.campaign) convert(used.campaign)
+                  convert('store-sale-sale')
+                  onOrder()
+                }}
+              >
+                Place order
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -453,6 +480,8 @@ export function PromotionsDemo() {
   const [lang, setLang] = React.useState<PromotionLabelLocale>('en')
   const [budget, setBudget] = React.useState(true)
   const [exit, setExit] = React.useState(false)
+  const [member, setMember] = React.useState(false)
+  const [appliedCode, setAppliedCode] = React.useState<string | null>(null)
   const [events, setEvents] = React.useState<
     (PromotionEvent & { seq: number })[]
   >([])
@@ -511,6 +540,7 @@ export function PromotionsDemo() {
   const DemoLink = useDemoLink(navigate)
 
   const resetVisitor = () => {
+    setAppliedCode(null)
     setStore(memoryDismissalStore())
     setEvents([])
     setResetKey((k) => k + 1)
@@ -727,6 +757,11 @@ export function PromotionsDemo() {
           locale={lang}
           onEvent={onEvent}
           linkComponent={DemoLink}
+          segments={member ? MEMBER : GUEST}
+          onApplyCode={(code) => {
+            setAppliedCode(code)
+            return true
+          }}
         >
           <div className="border-border/60 grid gap-4 rounded-xl border p-4 md:grid-cols-[1.3fr_1fr]">
             <div className="flex flex-col gap-2">
@@ -771,6 +806,14 @@ export function PromotionsDemo() {
                   onClick={() => setExit((e) => !e)}
                 >
                   Exit intent {exit ? 'on' : 'off'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={member ? 'secondary' : 'ghost'}
+                  aria-pressed={member}
+                  onClick={() => setMember((m) => !m)}
+                >
+                  {member ? 'Signed in: member' : 'Guest'}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={resetVisitor}>
                   Reset visitor
@@ -980,6 +1023,8 @@ export function PromotionsDemo() {
                     scroller={scroller}
                     frame={frame}
                     navigate={navigate}
+                    appliedCode={appliedCode}
+                    onOrder={() => setAppliedCode(null)}
                   />
                 </div>
                 <PromoToast />
@@ -1027,7 +1072,9 @@ export function PromotionsDemo() {
                 <ul className="grid gap-1 font-mono text-xs">
                   {events.map((event) => (
                     <li key={event.seq} className="truncate">
-                      {event.type} · {event.id} · {event.pathname}
+                      {event.type} · {event.id}
+                      {event.variant ? ` (${event.variant})` : ''} ·{' '}
+                      {event.pathname}
                     </li>
                   ))}
                 </ul>

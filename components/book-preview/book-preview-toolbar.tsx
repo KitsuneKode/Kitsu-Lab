@@ -32,7 +32,7 @@ import {
   BookPreviewPinChrome,
   BookPreviewShortcuts,
 } from './book-preview-chrome-controls'
-import { useBookPreview } from './book-preview-provider'
+import { useBookPreview, useBookPreviewSelector } from './book-preview-provider'
 import { findBookmark, toggleBookmark } from './annotations'
 import { downloadTarget } from './share'
 import {
@@ -43,14 +43,25 @@ import {
 
 export function BookPreviewToolbar() {
   const {
-    state,
+    contents: stateContents,
+    capabilities,
     source,
     toggleFullscreen,
     fullscreen,
     goToPage,
     uploadPdf,
     setChromeHost,
-  } = useBookPreview()
+  } = useBookPreviewSelector((v) => ({
+    contents: v.state.contents,
+    capabilities: v.state.capabilities,
+    source: v.source,
+    toggleFullscreen: v.toggleFullscreen,
+    fullscreen: v.fullscreen,
+    goToPage: v.goToPage,
+    uploadPdf: v.uploadPdf,
+    setChromeHost: v.setChromeHost,
+  }))
+  const state = { contents: stateContents, capabilities }
   // A document-provided outline (PDF bookmarks) wins over titles synthesized
   // from page data — it is the author's own table of contents.
   const contents =

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useNarrowLayout } from './media'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { useBookPreview } from './book-preview-provider'
+import { useBookPreview, useBookPreviewSelector } from './book-preview-provider'
 import { HIGHLIGHT_SWATCHES } from './book-preview-annotation-layer'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -75,7 +75,15 @@ type Filter =
  * reader reaches for *about* the book, kept out of the way of the book.
  */
 export function BookPreviewCompanion() {
-  const { companion, setCompanionOpen, setCompanionTab, ai } = useBookPreview()
+  // Always mounted: picks only what the sheet needs, so it stays put while
+  // the reader turns pages (the panels inside mount only while open).
+  const { companion, setCompanionOpen, setCompanionTab, ai } =
+    useBookPreviewSelector((v) => ({
+      companion: v.companion,
+      setCompanionOpen: v.setCompanionOpen,
+      setCompanionTab: v.setCompanionTab,
+      ai: v.ai,
+    }))
   const narrow = useNarrowLayout()
 
   return (

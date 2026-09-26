@@ -461,6 +461,44 @@
   }
 }
 
+/* Short screens (a phone held sideways) get the same single toolbar row:
+   two rows there would leave the page a sliver. */
+@media (max-height: 30rem) {
+  .book-preview [data-book-preview-chrome='top'] {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    padding-inline-end: 1.75rem;
+    mask-image: linear-gradient(
+      to right,
+      #000 calc(100% - 1.5rem),
+      transparent
+    );
+  }
+
+  .book-preview [data-book-preview-chrome='top'] > *,
+  .book-preview [data-book-preview-chrome='top'] > [class~='contents'] > * {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
+  .book-preview [data-book-preview-chrome='top']::-webkit-scrollbar {
+    display: none;
+  }
+
+  .book-preview [data-book-preview-engine-frame] {
+    padding: 0.5rem;
+    gap: 0;
+  }
+
+  .book-preview [data-book-preview-engine-stage] {
+    border: none;
+    background: transparent;
+  }
+}
+
 /* A sideways-scrolling bar fades at its end, and keeps room after the last
    control so the fade never sits on it once scrolled all the way. */
 .book-preview[data-book-preview-immersive] [data-book-preview-chrome='top'] {

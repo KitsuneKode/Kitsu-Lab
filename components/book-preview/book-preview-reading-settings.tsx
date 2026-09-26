@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { useBookPreview } from './book-preview-provider'
+import { useBookPreviewSelector } from './book-preview-provider'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   IconAlignJustified,
@@ -94,8 +94,13 @@ const WIDTHS: { value: TypographyWidth; label: string }[] = [
  * live behind one quiet button instead of five always-on toggles.
  */
 export function BookPreviewReadingSettings() {
+  // Picks primitives, not the whole state: the panel stays put while the
+  // reader turns pages.
   const {
-    state,
+    appearance,
+    sound,
+    totalPages,
+    capabilities,
     setAppearance,
     setSound,
     typography,
@@ -103,7 +108,20 @@ export function BookPreviewReadingSettings() {
     pageLayout,
     setSpreads,
     setCover,
-  } = useBookPreview()
+  } = useBookPreviewSelector((v) => ({
+    appearance: v.state.appearance,
+    sound: v.state.sound,
+    totalPages: v.state.totalPages,
+    capabilities: v.state.capabilities,
+    setAppearance: v.setAppearance,
+    setSound: v.setSound,
+    typography: v.typography,
+    setTypography: v.setTypography,
+    pageLayout: v.pageLayout,
+    setSpreads: v.setSpreads,
+    setCover: v.setCover,
+  }))
+  const state = { appearance, sound, totalPages, capabilities }
   const patch = (next: Partial<BookPreviewTypography>) =>
     setTypography({ ...typography, ...next })
 

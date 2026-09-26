@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils'
 import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
-import { useBookPreview } from './book-preview-provider'
+import { useBookPreviewSelector } from './book-preview-provider'
 import { useStableHandler } from './hooks/use-stable-handler'
 import {
   IconArrowBackUp,
@@ -77,7 +77,15 @@ export function BookPreviewInkLayer() {
     draw,
     setDraw,
     setInkAvailable,
-  } = useBookPreview()
+  } = useBookPreviewSelector((v) => ({
+    annotate: v.annotate,
+    annotations: v.annotations,
+    updateAnnotations: v.updateAnnotations,
+    rootRef: v.rootRef,
+    draw: v.draw,
+    setDraw: v.setDraw,
+    setInkAvailable: v.setInkAvailable,
+  }))
   const [surfaces, setSurfaces] = useState<Surface[]>([])
   const createdRef = useRef<string[]>([])
   // Mirrors createdRef's length for the undo button — refs are not read
@@ -428,7 +436,10 @@ function InkToolbar({
   canUndo: boolean
   onUndo: () => void
 }) {
-  const { draw, setDraw } = useBookPreview()
+  const { draw, setDraw } = useBookPreviewSelector((v) => ({
+    draw: v.draw,
+    setDraw: v.setDraw,
+  }))
   return (
     <div
       role="toolbar"

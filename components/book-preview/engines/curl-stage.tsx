@@ -917,6 +917,11 @@ export function CurlStage({
                 else frontsRef.current.delete(index)
               }}
               data-book-preview-curl-leaf={index}
+              // Highlights made in the other views paint here too. Making
+              // new ones stays with the flat views: in the flip book a drag
+              // turns the page.
+              data-bp-annotatable
+              data-page-index={index}
               inert={!isInView(index)}
               aria-hidden={!isInView(index) || undefined}
               className="absolute top-0 overflow-hidden"

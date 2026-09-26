@@ -534,10 +534,15 @@ function useReadingPace(
   activePage: number,
   totalPages: number,
   sourceKey: string,
+  /** Per-document storage key; null keeps the pace to this visit. */
+  storageKey: string | null,
 ): number | null {
   const [secondsPerPage, setSecondsPerPage] = useState<number | null>(null)
+  const paceKey = storageKey ? `book-preview:pace:${storageKey}` : null
   const paceRef = useRef({
-    source: sourceKey,
+    // Empty until the first effect, so it also takes the "new document"
+    // branch and loads a remembered pace.
+    source: '',
     page: activePage,
     at: 0,
     samples: [] as number[],
@@ -552,9 +557,22 @@ function useReadingPace(
         at: now,
         samples: [],
       }
-      // A new document starts a new pace.
+      // A new document starts from this reader's remembered pace for it,
+      // so time left shows at once; otherwise it is learned afresh. Read
+      // after mount, so hydration stays clean.
+      let remembered: number | null = null
+      if (paceKey) {
+        try {
+          const value = Number.parseFloat(
+            window.localStorage.getItem(paceKey) ?? '',
+          )
+          if (value > 0 && value <= 600) remembered = value
+        } catch {
+          // localStorage may be unavailable.
+        }
+      }
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSecondsPerPage(null)
+      setSecondsPerPage(remembered)
       return
     }
     const turned = activePage - pace.page
@@ -565,13 +583,21 @@ function useReadingPace(
         if (pace.samples.length > 15) pace.samples.shift()
         if (pace.samples.length >= 3) {
           const sorted = [...pace.samples].sort((a, b) => a - b)
-          setSecondsPerPage(sorted[Math.floor(sorted.length / 2)])
+          const median = sorted[Math.floor(sorted.length / 2)]
+          setSecondsPerPage(median)
+          if (paceKey) {
+            try {
+              window.localStorage.setItem(paceKey, median.toFixed(1))
+            } catch {
+              // localStorage may be unavailable.
+            }
+          }
         }
       }
     }
     pace.page = activePage
     pace.at = now
-  }, [activePage, sourceKey])
+  }, [activePage, paceKey, sourceKey])
   if (secondsPerPage === null || totalPages === 0) return null
   const remaining = Math.max(0, totalPages - 1 - activePage)
   return Math.max(
@@ -1227,7 +1253,12 @@ export function BookPreview({
   // Runs before useEngineLoader so a source change dispatches reset-source
   // first and the loader's status transition (loading/empty/unsupported)
   // lands last, matching the pre-extraction effect order.
-  const minutesLeft = useReadingPace(activePage, state.totalPages, sourceKey)
+  const minutesLeft = useReadingPace(
+    activePage,
+    state.totalPages,
+    sourceKey,
+    persistPage ? storageKey : null,
+  )
   const { resume, dismissResume } = usePersistedPageIndex({
     sourceKey,
     storageKey,

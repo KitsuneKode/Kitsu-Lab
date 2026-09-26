@@ -214,6 +214,10 @@
         {
           "path": "components/book-preview/book-preview-resume.tsx",
           "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/book-preview-fit-page.tsx",
+          "type": "registry:component"
         }
       ]
     },

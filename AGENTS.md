@@ -65,7 +65,8 @@ registries. CI runs the same and fails if the built registry drifts.
 - Payments go through Dodo Payments (merchant of record, pays out to India). `lib/dodo.ts` talks to it over `fetch`: checkout sessions, public license validation, and Standard Webhooks signature checks.
 - `/pro/r/[name]` serves `registry-pro/r/*.json` to a bearer key that is either listed in `KITSU_PRO_KEYS` or valid according to Dodo (subscription keys stop validating when the subscription lapses). Answers are cached briefly.
 - Plans are defined in `lib/pro-plans.ts`; each maps to a Dodo product id from the environment. Keep the displayed price in step with the Dodo product.
-- Environment variables are listed in `.env.example`. Never commit real values.
+- Environment variables are listed in `.env.example`, with the Dodo product settings the plans rely on (license keys on, 12-month expiry for lifetime keys). Never commit real values. `/pro` is static, so a new product id needs a redeploy.
+- Unknown keys cost a Dodo lookup, capped at 60 a minute per instance; past that the registry answers 429. Team seats are not enforced.
 - The repository is public, so pro source is readable on GitHub until it moves to a private repo. Do not claim otherwise in copy.
 
 ## Pull requests

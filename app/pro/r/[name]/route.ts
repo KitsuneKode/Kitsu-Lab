@@ -22,7 +22,16 @@ export async function GET(
   if (!name) return error(404, 'No such item.')
 
   const key = bearerToken(request.headers.get('authorization'))
-  if (!key || !(await isProKey(key)))
+  const allowed = key ? await isProKey(key) : false
+  if (allowed === 'busy')
+    return error(
+      429,
+      'Too many license checks right now. Try again in a minute.',
+      {
+        'retry-after': '60',
+      },
+    )
+  if (!allowed)
     return error(
       401,
       'This needs an active Kitsu Pro license. Add it to components.json: "headers": { "Authorization": "Bearer ${KITSU_PRO_KEY}" }, and get one at /pro.',

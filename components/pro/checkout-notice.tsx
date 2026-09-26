@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation'
 
 const MESSAGES: Record<string, string> = {
   unavailable:
-    'Checkout is not open yet. Leave your email on X (@kitsunekode) and you will hear first.',
+    'Checkout opens soon. Follow @kitsunekode on X to hear the moment it does.',
   error:
     'The checkout could not start. Nothing was charged; please try again in a moment.',
 }

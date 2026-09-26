@@ -1,4 +1,9 @@
-import { createLicenseCache, dodoEnvironment, validateLicense } from './dodo'
+import {
+  createLicenseCache,
+  createRateLimit,
+  dodoEnvironment,
+  validateLicense,
+} from './dodo'
 import { isAuthorized, readKeys } from './pro-registry'
 
 /**
@@ -8,14 +13,20 @@ import { isAuthorized, readKeys } from './pro-registry'
  * subscription it belongs to.
  */
 const cache = createLicenseCache()
+// Fresh lookups only; cached answers never count against it.
+const lookups = createRateLimit({ limit: 60, windowMs: 60_000 })
 
-export async function isProKey(key: string): Promise<boolean> {
+/** `busy` when too many unknown keys were checked in the last minute. */
+export async function isProKey(key: string): Promise<boolean | 'busy'> {
   if (isAuthorized(`Bearer ${key}`, readKeys(process.env.KITSU_PRO_KEYS)))
     return true
   const environment = dodoEnvironment(process.env.DODO_PAYMENTS_ENVIRONMENT)
-  return cache.check(key, Date.now(), () =>
-    validateLicense(key, { environment }),
-  )
+  const now = Date.now()
+  const known = cache.peek(key, now)
+  if (known !== undefined) return known
+  // A busy answer is never cached, so a real buyer is not refused later.
+  if (!lookups.take(now)) return 'busy'
+  return cache.check(key, now, () => validateLicense(key, { environment }))
 }
 
 /** After a cancellation or refund, forget cached answers straight away. */

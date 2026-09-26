@@ -37,7 +37,9 @@ export default function Home() {
       <script
         type="application/ld+json"
         // Structured data for search engines; content is our own constants.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structured) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structured).replace(/</g, '\\u003c'),
+        }}
       />
       <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-6 sm:px-8">
         <header className="border-border flex items-baseline justify-between border-b py-6">

@@ -97,9 +97,35 @@ export function createLicenseCache({
       pending.set(key, run)
       return run
     },
+    /** A fresh cached answer, or undefined when a lookup is needed. */
+    peek(key: string, now: number): boolean | undefined {
+      const hit = entries.get(key)
+      return hit && hit.until > now ? hit.valid : undefined
+    },
     /** Drop everything, e.g. after a subscription is cancelled. */
     clear: () => entries.clear(),
     size: () => entries.size,
+  }
+}
+
+/**
+ * A sliding-window limit on outgoing validations, so a script spraying
+ * random keys cannot get this server rate-limited by Dodo and lock out
+ * real buyers. `take(now)` is false once `limit` calls happened within
+ * `windowMs`.
+ */
+export function createRateLimit({
+  limit = 60,
+  windowMs = 60_000,
+}: { limit?: number; windowMs?: number } = {}) {
+  const stamps: number[] = []
+  return {
+    take(now: number): boolean {
+      while (stamps.length && stamps[0]! <= now - windowMs) stamps.shift()
+      if (stamps.length >= limit) return false
+      stamps.push(now)
+      return true
+    },
   }
 }
 

@@ -4,6 +4,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   createCheckout,
   createLicenseCache,
+  createRateLimit,
   dodoEnvironment,
   validateLicense,
   verifyWebhook,
@@ -194,5 +195,25 @@ describe('verifyWebhook', () => {
     expect(verifyWebhook({ ...base, nowSeconds: 1000 + 301 })).toBe(false)
     expect(verifyWebhook({ ...base, id: null })).toBe(false)
     expect(verifyWebhook({ ...base, secret: '' })).toBe(false)
+  })
+})
+
+describe('createRateLimit', () => {
+  test('allows the limit within the window, then frees up as it slides', () => {
+    const limit = createRateLimit({ limit: 2, windowMs: 1000 })
+    expect(limit.take(0)).toBe(true)
+    expect(limit.take(10)).toBe(true)
+    expect(limit.take(20)).toBe(false)
+    expect(limit.take(1001)).toBe(true)
+  })
+})
+
+describe('license cache peek', () => {
+  test('answers only while an entry is fresh', async () => {
+    const cache = createLicenseCache({ validFor: 100 })
+    expect(cache.peek(KEY, 0)).toBeUndefined()
+    await cache.check(KEY, 0, async () => true)
+    expect(cache.peek(KEY, 50)).toBe(true)
+    expect(cache.peek(KEY, 150)).toBeUndefined()
   })
 })

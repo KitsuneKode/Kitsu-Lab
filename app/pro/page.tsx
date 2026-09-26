@@ -78,7 +78,9 @@ export default function ProPage() {
       <script
         type="application/ld+json"
         // Structured data for search engines; content is our own constants.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(offers) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(offers).replace(/</g, '\\u003c'),
+        }}
       />
       <header className="border-border flex items-baseline justify-between border-b py-6">
         <Link
@@ -188,8 +190,14 @@ export default function ProPage() {
           <div className="border-border divide-border divide-y border-y">
             {FAQ.map(([question, answer]) => (
               <details key={question} className="group py-3">
-                <summary className="cursor-pointer text-sm font-medium marker:content-none">
+                <summary className="flex cursor-pointer items-center justify-between gap-4 text-sm font-medium marker:content-none">
                   {question}
+                  <span
+                    aria-hidden
+                    className="text-muted-foreground transition-transform duration-200 ease-out group-open:rotate-45 motion-reduce:transition-none"
+                  >
+                    +
+                  </span>
                 </summary>
                 <p className="text-muted-foreground mt-2 text-sm text-pretty">
                   {answer}

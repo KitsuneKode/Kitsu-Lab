@@ -582,3 +582,27 @@ describe('clips', () => {
     ).toEqual(['p1'])
   })
 })
+
+describe('clips, stored as null', () => {
+  test('a CMS row with video: null is kept, as parsePromotion reads it', () => {
+    const row = promo({
+      media: {
+        src: '/a.webp',
+        alt: 'A',
+        width: 16,
+        height: 10,
+        video: null as never,
+      },
+    })
+    expect(sanitizePromotions([row]).map((p) => p.id)).toEqual(['p1'])
+    expect(
+      parsePromotion({
+        placement: 'card',
+        title: 'Hi',
+        startsAt: T0,
+        endsAt: T0 + DAY,
+        media: { src: '/a.webp', alt: 'A', width: 16, height: 10, video: null },
+      }).ok,
+    ).toBe(true)
+  })
+})

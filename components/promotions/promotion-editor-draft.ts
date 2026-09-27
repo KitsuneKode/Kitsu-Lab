@@ -6,6 +6,8 @@ import {
   type PromotionContent,
   type PromotionPlacement,
   type PromotionTone,
+  type PromotionVideo,
+  type PromotionVideoType,
 } from './promotion'
 
 /**
@@ -31,6 +33,8 @@ export type Draft = {
   mediaAlt: string
   mediaWidth: number
   mediaHeight: number
+  /** Clip URLs, comma separated (WebM first, MP4 fallback). */
+  mediaVideo: string
   include: string[]
   exclude: string[]
   startsAt: string
@@ -88,6 +92,9 @@ export function initialDraft(
     mediaAlt: initial.media?.alt ?? '',
     mediaWidth: initial.media?.width ?? 1600,
     mediaHeight: initial.media?.height ?? 900,
+    mediaVideo:
+      initial.media?.video?.sources.map((source) => source.src).join(', ') ??
+      '',
     include: initial.include ?? [],
     exclude: initial.exclude ?? [],
     startsAt: toZonedInput(startsAt, timeZone),
@@ -139,6 +146,30 @@ export const HAS_FREQUENCY: ReadonlySet<PromotionPlacement> = new Set([
 ])
 
 /**
+ * Clip sources from the comma-separated field, typed by extension. An
+ * unknown extension keeps an empty type so the parser explains the problem
+ * instead of the clip silently vanishing.
+ */
+export function clipFrom(value: string): PromotionVideo | undefined {
+  const urls = value
+    .split(',')
+    .map((url) => url.trim())
+    .filter(Boolean)
+  if (urls.length === 0) return undefined
+  return {
+    sources: urls.map((src) => {
+      const path = src.split(/[?#]/)[0]?.toLowerCase() ?? ''
+      const type = path.endsWith('.webm')
+        ? 'video/webm'
+        : path.endsWith('.mp4')
+          ? 'video/mp4'
+          : ('' as PromotionVideoType)
+      return { src, type }
+    }),
+  }
+}
+
+/**
  * Fields the form does not show are carried over from `initial`, so saving
  * an existing promotion never silently drops its gallery or translations.
  */
@@ -168,6 +199,7 @@ export function toInput(
           alt: draft.mediaAlt,
           width: draft.mediaWidth,
           height: draft.mediaHeight,
+          video: clipFrom(draft.mediaVideo),
         }
       : undefined,
     include: draft.include,

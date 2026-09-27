@@ -97,6 +97,9 @@ export type PromotionLabels = {
   whatsOn: string
   previous: string
   next: string
+  /** Pause and play for anything that moves by itself (clips, stories). */
+  pause: string
+  play: string
 }
 
 export const defaultPromotionLabels: PromotionLabels = {
@@ -122,6 +125,8 @@ export const defaultPromotionLabels: PromotionLabels = {
   whatsOn: 'What’s on',
   previous: 'Previous',
   next: 'Next',
+  pause: 'Pause',
+  play: 'Play',
 }
 
 /* -------------------------------------------------------------------------- */

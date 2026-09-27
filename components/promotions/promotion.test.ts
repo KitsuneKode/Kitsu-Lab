@@ -483,3 +483,102 @@ describe('floating-overlap warning', () => {
     expect(codes).not.toContain('floating-overlap')
   })
 })
+
+describe('clips', () => {
+  const still = {
+    src: '/img/launch.webp',
+    alt: 'The new queue',
+    width: 16,
+    height: 10,
+  }
+  const clip = {
+    sources: [
+      { src: '/clips/launch.webm', type: 'video/webm' },
+      { src: '/clips/launch.mp4', type: 'video/mp4' },
+    ],
+  }
+  const base = {
+    placement: 'card',
+    title: 'Launch week',
+    startsAt: T0,
+    endsAt: T0 + DAY,
+  }
+
+  test('a clip rides on the still, which stays the poster', () => {
+    const result = parsePromotion({ ...base, media: { ...still, video: clip } })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.media?.src).toBe('/img/launch.webp')
+    expect(result.value.media?.video?.sources).toHaveLength(2)
+  })
+
+  test('images without a clip are unchanged', () => {
+    const result = parsePromotion({ ...base, media: still })
+    expect(result.ok && result.value.media).toEqual(still)
+  })
+
+  test('refuses unknown containers, unsafe sources and empty or long lists', () => {
+    const bad = [
+      { sources: [{ src: '/clips/a.mov', type: 'video/quicktime' }] },
+      { sources: [{ src: 'javascript:alert(1)', type: 'video/mp4' }] },
+      { sources: [{ src: '//evil.com/a.mp4', type: 'video/mp4' }] },
+      { sources: [] },
+      { sources: [...clip.sources, clip.sources[0]] },
+      'launch.mp4',
+    ]
+    for (const video of bad) {
+      const result = parsePromotion({ ...base, media: { ...still, video } })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.errors.media).toContain('Clips')
+    }
+  })
+
+  test('hosts narrow clip sources with the media rule, not the link rule', () => {
+    const options = {
+      isAllowedHref: (href: string) => href === '/pricing',
+      isAllowedMediaSrc: (src: string) =>
+        src.startsWith('/clips/') || src.startsWith('/img/'),
+    }
+    expect(
+      parsePromotion({ ...base, media: { ...still, video: clip } }, options).ok,
+    ).toBe(true)
+    const outside = {
+      sources: [{ src: 'https://cdn.example.com/a.mp4', type: 'video/mp4' }],
+    }
+    expect(
+      parsePromotion({ ...base, media: { ...still, video: outside } }, options)
+        .ok,
+    ).toBe(false)
+  })
+
+  test('gallery slides may carry clips too', () => {
+    const result = parsePromotion({
+      ...base,
+      gallery: [{ ...still, video: clip }, still],
+    })
+    expect(result.ok && result.value.gallery?.[0]?.video).toBeTruthy()
+  })
+
+  test('stored rows with a malformed clip are dropped, well-formed ones kept', () => {
+    const good = promo({ media: { ...still, video: clip as never } })
+    const unsafe = promo({
+      id: 'unsafe',
+      media: {
+        ...still,
+        video: { sources: [{ src: 'javascript:x', type: 'video/mp4' }] },
+      },
+    })
+    const unknown = promo({
+      id: 'unknown',
+      gallery: [
+        {
+          ...still,
+          video: { sources: [{ src: '/a.ogv', type: 'video/ogg' }] },
+        } as never,
+      ],
+    })
+    expect(
+      sanitizePromotions([good, unsafe, unknown]).map((p) => p.id),
+    ).toEqual(['p1'])
+  })
+})

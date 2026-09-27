@@ -196,7 +196,7 @@ export function PromoDialog({
               eager
               aspect="4 / 5"
               label={shown.title}
-              className="h-full [&_img]:h-full"
+              className="h-full [&_[data-slot=promo-media]]:h-full"
             />
             <div className="flex flex-col justify-center p-7">
               {content(DialogTitle, DialogDescription, true)}

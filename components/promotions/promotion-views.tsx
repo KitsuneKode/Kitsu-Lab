@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
 import { PromoGallery } from './promo-gallery'
+import { PromoMedia } from './promo-media'
 import {
   countdownVisible,
   timeLeft,
@@ -398,8 +399,12 @@ export function PromoBarView({
   )
 }
 
-/** The promotion image, with intrinsic size to avoid layout shift; lazy unless `eager`. */
-function Media({
+/**
+ * The still alone, for compact surfaces: a clip in a thumbnail at the edge
+ * of the screen is motion in peripheral vision, which nags. Intrinsic size
+ * avoids layout shift; lazy unless `eager`.
+ */
+function Still({
   media,
   className,
   eager,
@@ -450,7 +455,7 @@ export function PromoCardView({
           <PromoGallery images={gallery} label={promotion.title} />
         ) : null}
         {media ? (
-          <Media
+          <PromoMedia
             media={media}
             className="aspect-[16/9] w-full @md:aspect-auto @md:w-2/5"
           />
@@ -538,7 +543,7 @@ export function PromoToastView({
         />
       ) : null}
       {media ? (
-        <Media
+        <Still
           media={media}
           eager
           className="size-16 shrink-0 rounded-lg sm:size-20"

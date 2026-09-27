@@ -572,9 +572,13 @@
         {
           "path": "components/promotions/promo-gallery.tsx",
           "type": "registry:component"
+        },
+        {
+          "path": "components/promotions/promo-media.tsx",
+          "type": "registry:component"
         }
       ],
-      "docs": "Pass your router's pathname and, for client-side navigation, your Link as `linkComponent`. A `{ load }` source runs once per mount; change `sourceKey` to reload. Add behaviour with `plugins={[exitIntent()]}` (keep the array stable). Route dismissals with `storage={composeStores({ cookie: cookieDismissalStore(), account })}`. Set `locale` to pick record translations and pass a `labels` pack. Theme the highlight tone with `--promo-highlight` and `--promo-highlight-foreground`."
+      "docs": "Pass your router's pathname and, for client-side navigation, your Link as `linkComponent`. A `{ load }` source runs once per mount; change `sourceKey` to reload. Add behaviour with `plugins={[exitIntent()]}` (keep the array stable). Route dismissals with `storage={composeStores({ cookie: cookieDismissalStore(), account })}`. Set `locale` to pick record translations and pass a `labels` pack. Theme the highlight tone with `--promo-highlight` and `--promo-highlight-foreground`. Media may carry a silent clip (`media.video.sources`, WebM then MP4): `src` stays the still and poster, the clip plays only on screen in a visible tab, and reduced motion or Save-Data keep the still."
     },
     {
       "name": "promo-bar",

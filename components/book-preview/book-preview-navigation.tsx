@@ -27,7 +27,10 @@ export function BookPreviewNavigation() {
   if (state.capabilities.pagination === false) return null
 
   return (
-    <div className="flex w-full flex-col gap-3" data-book-preview-chrome>
+    <div
+      className="flex w-full flex-col gap-3"
+      data-book-preview-chrome="bottom"
+    >
       <div className="flex items-center justify-between gap-3">
         <Button
           type="button"
@@ -98,11 +101,14 @@ export function BookPreviewNavigation() {
       </div>
       {state.totalPages > 1 ? (
         <Slider
-          value={shown}
+          // An array: a bare number makes the shadcn slider render a thumb
+          // per entry of [min, max] — two stacked thumbs, two tab stops.
+          value={[shown]}
           min={0}
           max={total - 1}
           step={1}
           aria-label="Page position"
+          className="[&_[data-slot=slider-track]]:bg-foreground/15 [&_[data-slot=slider-range]]:bg-foreground/60"
           onValueChange={(value) =>
             setScrub(Array.isArray(value) ? value[0] : value)
           }

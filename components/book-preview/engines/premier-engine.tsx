@@ -2,11 +2,10 @@
 
 import { createPortal } from 'react-dom'
 import { CurlStage } from './curl-stage'
-import { FlipSheet } from './flip-sheet'
+import { curlLeaves } from './flip-sheet'
 import { useNarrowLayout } from '../media'
 import { pageSearchText } from '../normalize'
 import { Input } from '@/components/ui/input'
-import { CurlPdfSheet } from './curl-pdf-sheet'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { resolvePdfOutline } from '../pdf-runtime'
@@ -15,23 +14,21 @@ import { SpeakingBars } from '../speaking-bars'
 import { PdfPasswordGate } from './pdf-password-gate'
 import { PdfPreparingBadge } from './pdf-preparing-badge'
 import { useBookPreview } from '../book-preview-provider'
-import { BookPreviewPageView } from '../book-preview-page'
 import { PdfThumbRail, PdfThumbSheet } from './pdf-thumb-rail'
 import { useStableHandler } from '../hooks/use-stable-handler'
-import { usePdfSheets, type PdfSheet } from '../hooks/use-pdf-sheets'
+import { usePdfSheets } from '../hooks/use-pdf-sheets'
 import { DEFAULT_CAPABILITIES, hasSpeechSupport } from '../capabilities'
+import { SUPPORT_NOTES } from '../support'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from './curl-geometry'
 import {
-  CURL_MAX_PAGES,
-  CURL_PAGE_RATIO,
-  CURL_RASTER_WIDTH,
-} from './curl-geometry'
-import {
+  PREMIER_VIEWS,
   readBookPreviewPrefs,
   writeBookPreviewPrefs,
   type PremierView,
 } from '../prefs'
+import { pickAllowed, readUrlParam, writeUrlParams } from '../url-state'
 import {
   PremierScrollView,
   PremierSingleView,
@@ -40,9 +37,9 @@ import {
 } from './premier-views'
 import type {
   BookPreviewCapabilities,
+  BookPreviewContentsEntry,
   BookPreviewEngineProps,
   BookPreviewError,
-  BookPreviewPage,
   NormalizedBookSource,
 } from '../types'
 import {
@@ -73,14 +70,16 @@ const SPEECH_WATCHDOG_SLACK_MS = 8000
 function premierCapabilities(
   source: NormalizedBookSource,
   usePdf: boolean,
+  view: PremierView,
 ): BookPreviewCapabilities {
   return {
     ...DEFAULT_CAPABILITIES,
     curl: true,
     search: true,
     speech: hasSpeechSupport(),
-    // The document brings its own paper; ours would fight the scan.
-    appearance: !usePdf,
+    // A scan brings its own paper and ours would fight it — except in the
+    // text view, which is pure type and wears the reader's paper.
+    appearance: !usePdf || view === 'text',
     thumbnails: usePdf,
     download: Boolean(source.downloadUrl || source.pdfUrl),
     upload: !usePdf ? false : source.allowPdfUpload,
@@ -214,41 +213,13 @@ function useReadAloud({
 
 type PageMatch = { index: number; label: string }
 
-function PremierSheets({
-  usePdf,
-  sheets,
-  pages,
-  appearance,
-}: {
-  usePdf: boolean
-  sheets: PdfSheet[] | null
-  pages: BookPreviewPage[]
-  appearance: BookPreviewEngineProps['appearance']
-}) {
-  if (usePdf && sheets) {
-    return sheets.map((sheet) => (
-      <FlipSheet key={sheet.id}>
-        <CurlPdfSheet src={sheet.src} />
-      </FlipSheet>
-    ))
-  }
-  return pages.map((page, index) => (
-    <FlipSheet key={page.id}>
-      <BookPreviewPageView
-        page={page}
-        appearance={appearance}
-        isLeftPage={index % 2 === 1}
-      />
-    </FlipSheet>
-  ))
-}
-
 export default function PremierEngine({
   source,
   pageIndex,
   appearance,
   soundEnabled,
   reducedMotion,
+  viewParam,
   onPageChange,
   onReady,
   onError,
@@ -270,9 +241,17 @@ export default function PremierEngine({
 
   // The layout is the reader's setting — a remembered choice wins, then a
   // one-page view on narrow screens, and the flip book everywhere else.
+  // A shared link's ?view= is the most specific intent, so it wins over the
+  // remembered layout.
   const [view, setView] = useState<PremierView>(
-    () => readBookPreviewPrefs().premierView ?? (narrow ? 'single' : 'book'),
+    () =>
+      pickAllowed(readUrlParam(viewParam), PREMIER_VIEWS) ??
+      readBookPreviewPrefs().premierView ??
+      (narrow ? 'single' : 'book'),
   )
+  useEffect(() => {
+    if (viewParam) writeUrlParams({ [viewParam]: view })
+  }, [view, viewParam])
   const [zoom, setZoom] = useState(1)
   const zoomIn = useCallback(
     () => setZoom((z) => Math.min(2.4, Math.round((z + 0.2) * 10) / 10)),
@@ -319,17 +298,12 @@ export default function PremierEngine({
     sizing: bookView ? 'uniform' : 'per-page',
     // Search and read-aloud both need page text; extraction rides the raster.
     extractText: true,
-    // The flip book owns every leaf at once, so it keeps the page cap. The
-    // flat views only hold pages near the reading position — a 700-page
-    // document stays cheap there.
-    windowRadius: bookView ? undefined : 5,
-    maxPages: bookView ? CURL_MAX_PAGES : undefined,
-    maxPagesMessage: `This document is longer than ${CURL_MAX_PAGES} pages — the flip book can't hold it, but the other premier views can.`,
+    // Every view, the flip book included, holds only the pages near the
+    // reading position — a 700-page document stays cheap.
+    windowRadius: 5,
     onError: reportSheetsError,
     errorMessage: 'This PDF could not be opened for the premier reader.',
   })
-
-  const bookDisabled = usePdf && doc !== null && doc.numPages > CURL_MAX_PAGES
 
   const faces = useMemo(
     () => buildPremierFaces({ usePdf, sheets, pages, appearance }),
@@ -394,6 +368,7 @@ export default function PremierEngine({
   useEffect(() => {
     const ref = engineShortcutsRef
     ref.current = {
+      pageText: textFor,
       search: openSearch,
       zoomIn,
       zoomOut,
@@ -418,18 +393,39 @@ export default function PremierEngine({
     engineShortcutsRef,
     openSearch,
     searchOpen,
+    textFor,
     thumbsOpen,
     zoomIn,
     zoomOut,
     zoomReset,
   ])
 
+  // The author's outline becomes the table of contents. It resolves after
+  // the first page (a slow bookmark walk never delays reading) and rides
+  // every later ready report, so a view change never drops it.
+  const [outline, setOutline] = useState<{
+    doc: NonNullable<typeof doc>
+    contents: BookPreviewContentsEntry[]
+  } | null>(null)
+  useEffect(() => {
+    if (!doc) return
+    let cancelled = false
+    void resolvePdfOutline(doc).then((contents) => {
+      if (!cancelled && contents.length > 0) setOutline({ doc, contents })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [doc])
+  const contents = outline && outline.doc === doc ? outline.contents : undefined
+
   useEffect(() => {
     if (usePdf) {
       if (!sheets) return
       reportReady({
         totalPages: sheets.length,
-        capabilities: premierCapabilities(source, true),
+        capabilities: premierCapabilities(source, true, view),
+        contents,
       })
       return
     }
@@ -457,9 +453,18 @@ export default function PremierEngine({
     }
     reportReady({
       totalPages: pages.length,
-      capabilities: premierCapabilities(source, false),
+      capabilities: premierCapabilities(source, false, view),
     })
-  }, [pages.length, reportError, reportReady, sheets, source, usePdf])
+  }, [
+    contents,
+    pages.length,
+    reportError,
+    reportReady,
+    sheets,
+    source,
+    usePdf,
+    view,
+  ])
 
   // A password prompt still counts as "open": reporting a zero-page ready
   // unblocks the viewport so the gate is visible, and pagination stays off
@@ -477,24 +482,6 @@ export default function PremierEngine({
       },
     })
   }, [passwordRequest, reportReady])
-
-  // The author's outline becomes the table of contents — a second ready call
-  // so a slow bookmark walk never delays the first page.
-  useEffect(() => {
-    if (!doc) return
-    let cancelled = false
-    void resolvePdfOutline(doc).then((contents) => {
-      if (cancelled || contents.length === 0) return
-      reportReady({
-        totalPages: doc.numPages,
-        capabilities: premierCapabilities(source, true),
-        contents,
-      })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [doc, reportReady, source])
 
   // A new document stops its narration — a side effect belongs in an effect,
   // not in the render-adjust below.
@@ -519,7 +506,7 @@ export default function PremierEngine({
 
   const controls = (
     <div className="flex flex-wrap items-center justify-center gap-2">
-      <p className="text-muted-foreground max-w-[10rem] truncate text-xs sm:max-w-none">
+      <p className="text-muted-foreground hidden max-w-[10rem] truncate text-xs sm:block sm:max-w-none">
         {source.pdfFileName ?? source.title ?? 'Document'}
       </p>
       <ToggleGroup
@@ -535,12 +522,7 @@ export default function PremierEngine({
         <ToggleGroupItem
           value="book"
           aria-label="Flip book view"
-          disabled={bookDisabled}
-          title={
-            bookDisabled
-              ? `The flip book holds up to ${CURL_MAX_PAGES} pages — this document is longer`
-              : 'Flip book'
-          }
+          title="Flip book"
         >
           <IconBook2 />
         </ToggleGroupItem>
@@ -639,42 +621,61 @@ export default function PremierEngine({
           <IconSearch />
         </Button>
       )}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Zoom out"
-        aria-keyshortcuts="-"
-        onClick={zoomOut}
-        disabled={zoom <= 0.6}
-        data-book-preview-press
-        className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
-      >
-        <IconZoomOut />
-      </Button>
-      <button
-        type="button"
-        aria-label="Reset zoom"
-        aria-keyshortcuts="0"
-        onClick={zoomReset}
-        data-book-preview-press
-        className="text-muted-foreground hover:text-foreground min-w-[5ch] text-center font-mono text-xs transition-colors"
-      >
-        {Math.round(zoom * 100)}%
-      </button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Zoom in"
-        aria-keyshortcuts="+"
-        onClick={zoomIn}
-        disabled={zoom >= 2.4}
-        data-book-preview-press
-        className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
-      >
-        <IconZoomIn />
-      </Button>
+      {/* Phones pinch to zoom, so the buttons would only crowd the bar —
+          the percentage stays as a one-tap reset once the page is zoomed. */}
+      {narrow ? (
+        zoom !== 1 ? (
+          <button
+            type="button"
+            aria-label="Reset zoom"
+            aria-keyshortcuts="0"
+            onClick={zoomReset}
+            data-book-preview-press
+            className="text-muted-foreground hover:text-foreground min-w-[5ch] text-center font-mono text-xs transition-colors"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+        ) : null
+      ) : (
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Zoom out"
+            aria-keyshortcuts="-"
+            onClick={zoomOut}
+            disabled={zoom <= 0.6}
+            data-book-preview-press
+            className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+          >
+            <IconZoomOut />
+          </Button>
+          <button
+            type="button"
+            aria-label="Reset zoom"
+            aria-keyshortcuts="0"
+            onClick={zoomReset}
+            data-book-preview-press
+            className="text-muted-foreground hover:text-foreground min-w-[5ch] text-center font-mono text-xs transition-colors"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Zoom in"
+            aria-keyshortcuts="+"
+            onClick={zoomIn}
+            disabled={zoom >= 2.4}
+            data-book-preview-press
+            className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7"
+          >
+            <IconZoomIn />
+          </Button>
+        </>
+      )}
       <Button
         type="button"
         variant={speaking ? 'secondary' : 'ghost'}
@@ -683,9 +684,11 @@ export default function PremierEngine({
         aria-pressed={speaking}
         disabled={speechDisabled}
         title={
-          speaking
-            ? 'Stop reading aloud'
-            : 'Read aloud — turns the pages itself'
+          !hasSpeechSupport()
+            ? `${SUPPORT_NOTES.speech.reason} ${SUPPORT_NOTES.speech.suggestion}`
+            : speaking
+              ? 'Stop reading aloud'
+              : 'Read aloud — turns the pages itself'
         }
         onClick={toggleSpeech}
         data-book-preview-press
@@ -714,9 +717,15 @@ export default function PremierEngine({
   )
 
   return (
-    <div className="flex h-full w-full flex-col gap-3 p-4">
+    <div
+      data-book-preview-engine-frame
+      className="flex h-full w-full flex-col gap-3 p-4"
+    >
       {chromeHost ? createPortal(controls, chromeHost) : controls}
-      <div className="bg-muted/30 flex min-h-0 flex-1 overflow-hidden rounded-lg border">
+      <div
+        data-book-preview-engine-stage
+        className="bg-muted/30 flex min-h-0 flex-1 overflow-hidden rounded-lg border"
+      >
         {usePdf && doc ? (
           narrow ? (
             <PdfThumbSheet
@@ -796,30 +805,14 @@ export default function PremierEngine({
             <div className="h-full w-full" style={{ zoom }}>
               <CurlStage
                 pageIndex={pageIndex}
+                {...curlLeaves({ usePdf, sheets, pages, appearance })}
                 pageRatio={
                   usePdf ? (ratio ?? CURL_PAGE_RATIO) : CURL_PAGE_RATIO
                 }
-                canGoPrev={pageIndex > 0}
-                canGoNext={pageIndex < Math.max(totalPages, 1) - 1}
                 reducedMotion={reducedMotion}
                 soundEnabled={soundEnabled}
-                contentKey={
-                  usePdf
-                    ? `pdf:${sheets?.length ?? 0}`
-                    : `${appearance}:${pages.map((page) => page.id).join(',')}`
-                }
                 onPageChange={reportPageChange}
-                onEngineError={(message) =>
-                  reportError({ kind: 'engine-load', message })
-                }
-              >
-                <PremierSheets
-                  usePdf={usePdf}
-                  sheets={sheets}
-                  pages={pages}
-                  appearance={appearance}
-                />
-              </CurlStage>
+              />
             </div>
           ) : view === 'spread' ? (
             <PremierSpreadView
@@ -847,6 +840,7 @@ export default function PremierEngine({
               pageIndex={pageIndex}
               zoom={zoom}
               reducedMotion={reducedMotion}
+              appearance={appearance}
               onZoom={setZoom}
               onPageChange={reportPageChange}
             />

@@ -676,6 +676,51 @@
       ]
     },
     {
+      "name": "promotion-analytics",
+      "type": "registry:lib",
+      "title": "Promotion analytics sinks",
+      "description": "onEvent sinks for PostHog, GA4, Segment, Vercel Analytics and a GTM data layer, taking the client you already load. Flat, GA4-safe properties; one failing vendor never breaks the page or the others.",
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-analytics.ts",
+          "type": "registry:lib"
+        }
+      ],
+      "docs": "<PromotionProvider onEvent={combineSinks(posthogSink(posthog), ga4Sink(gtag))}>. Pass a sink only after consent. Use { include: ['click', 'convert'] } to skip high-volume impressions."
+    },
+    {
+      "name": "promotion-themes",
+      "type": "registry:lib",
+      "title": "Promotion themes",
+      "description": "Three finished looks for every promotion surface (editorial, mono, bold), made only of the --promo-* tokens the surfaces already read.",
+      "files": [
+        {
+          "path": "components/promotions/promotion-themes.ts",
+          "type": "registry:lib"
+        }
+      ],
+      "docs": "Surfaces portal into <body>, so set a preset there: <body style={promotionThemeStyle('editorial')}>. Spread one to override a single token."
+    },
+    {
+      "name": "promotion-schema",
+      "type": "registry:lib",
+      "title": "Promotion JSON Schema",
+      "description": "A JSON Schema for what parsePromotion accepts, built from the parser's own constants, so an assistant or a CMS can write a valid campaign on the first try.",
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-schema.ts",
+          "type": "registry:lib"
+        }
+      ],
+      "docs": "Paste JSON.stringify(promotionJsonSchema) into a prompt, or serve it for your CMS. parsePromotion stays the judge for what a schema cannot say (allowed links, route patterns, a window that ends after it starts). Published at https://kitsulab.kitsunekode.in/schema/promotion.json."
+    },
+    {
       "name": "promotions",
       "type": "registry:block",
       "title": "Promotions",
@@ -688,7 +733,10 @@
         "https://kitsulab.kitsunekode.in/r/promo-card.json",
         "https://kitsulab.kitsunekode.in/r/promo-toast.json",
         "https://kitsulab.kitsunekode.in/r/promo-badge.json",
-        "https://kitsulab.kitsunekode.in/r/promo-dialog.json"
+        "https://kitsulab.kitsunekode.in/r/promo-dialog.json",
+        "https://kitsulab.kitsunekode.in/r/promotion-analytics.json",
+        "https://kitsulab.kitsunekode.in/r/promotion-themes.json",
+        "https://kitsulab.kitsunekode.in/r/promotion-schema.json"
       ],
       "files": [
         {

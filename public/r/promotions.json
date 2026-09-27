@@ -11,12 +11,15 @@
     "https://kitsulab.kitsunekode.in/r/promo-card.json",
     "https://kitsulab.kitsunekode.in/r/promo-toast.json",
     "https://kitsulab.kitsunekode.in/r/promo-badge.json",
-    "https://kitsulab.kitsunekode.in/r/promo-dialog.json"
+    "https://kitsulab.kitsunekode.in/r/promo-dialog.json",
+    "https://kitsulab.kitsunekode.in/r/promotion-analytics.json",
+    "https://kitsulab.kitsunekode.in/r/promotion-themes.json",
+    "https://kitsulab.kitsunekode.in/r/promotion-schema.json"
   ],
   "files": [
     {
       "path": "components/promotions/index.ts",
-      "content": "/**\n * The free core (`@kitsu/promotions`): rules, provider, stores, plugins,\n * label packs and the bar, card, badge, toast and dialog surfaces.\n * Pro add-ons live in `./pro` and install from `@kitsu-pro`.\n */\nexport * from './promotion'\nexport * from './promotion-stores'\nexport * from './promotion-plugins'\nexport * from './promotion-labels'\nexport {\n  PROMOTION_CONVERT_EVENT,\n  PROMOTION_TRIGGER_EVENT,\n  PromotionProvider,\n  convertPromotion,\n  usePromotionApply,\n  defaultPromotionLabels,\n  moveFocusPast,\n  triggerPromotion,\n  useImpression,\n  usePromotionLabels,\n  usePromotions,\n  visitorIsBusy,\n  type PromotionEngagement,\n  type PromotionEvent,\n  type PromotionLabels,\n  type PromotionLinkProps,\n  type PromotionProviderProps,\n  type PromotionSource,\n} from './promotion-provider'\nexport {\n  PromoBarView,\n  PromoCardView,\n  PromoCode,\n  PromoDialogContentView,\n  PromoToastView,\n  countdownLabel,\n  promotionToneClasses,\n  type PromoBarVariant,\n} from './promotion-views'\nexport { PromoBadge } from './promo-badge'\nexport { PromoBar } from './promo-bar'\nexport { PromoCard } from './promo-card'\nexport { PromoDialog } from './promo-dialog'\nexport { PromoToast } from './promo-toast'\nexport { PromoGallery } from './promo-gallery'\nexport { PromoMedia } from './promo-media'\n",
+      "content": "/**\n * The free core (`@kitsu/promotions`): rules, provider, stores, plugins,\n * label packs and the bar, card, badge, toast and dialog surfaces.\n * Pro add-ons live in `./pro` and install from `@kitsu-pro`.\n */\nexport * from './promotion'\nexport * from './promotion-stores'\nexport * from './promotion-plugins'\nexport * from './promotion-labels'\nexport * from './promotion-analytics'\nexport * from './promotion-themes'\nexport * from './promotion-schema'\nexport {\n  PROMOTION_CONVERT_EVENT,\n  PROMOTION_TRIGGER_EVENT,\n  PromotionProvider,\n  convertPromotion,\n  usePromotionApply,\n  defaultPromotionLabels,\n  moveFocusPast,\n  triggerPromotion,\n  useImpression,\n  usePromotionLabels,\n  usePromotions,\n  visitorIsBusy,\n  type PromotionEngagement,\n  type PromotionEvent,\n  type PromotionLabels,\n  type PromotionLinkProps,\n  type PromotionProviderProps,\n  type PromotionSource,\n} from './promotion-provider'\nexport {\n  PromoBarView,\n  PromoCardView,\n  PromoCode,\n  PromoDialogContentView,\n  PromoToastView,\n  countdownLabel,\n  promotionToneClasses,\n  type PromoBarVariant,\n} from './promotion-views'\nexport { PromoBadge } from './promo-badge'\nexport { PromoBar } from './promo-bar'\nexport { PromoCard } from './promo-card'\nexport { PromoDialog } from './promo-dialog'\nexport { PromoToast } from './promo-toast'\nexport { PromoGallery } from './promo-gallery'\nexport { PromoMedia } from './promo-media'\n",
       "type": "registry:component"
     }
   ],

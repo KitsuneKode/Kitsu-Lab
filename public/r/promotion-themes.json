@@ -1,0 +1,15 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "promotion-themes",
+  "title": "Promotion themes",
+  "description": "Three finished looks for every promotion surface (editorial, mono, bold), made only of the --promo-* tokens the surfaces already read.",
+  "files": [
+    {
+      "path": "components/promotions/promotion-themes.ts",
+      "content": "import type * as React from 'react'\n\n/**\n * Finished looks for every promotion surface, made only of the `--promo-*`\n * tokens the surfaces already read, so a preset never forks a component.\n *\n * Surfaces portal into `<body>`, so set a preset where they inherit it:\n *\n * ```tsx\n * <body style={promotionThemes.editorial}>\n * ```\n *\n * Or spread one and override a token: `{ ...promotionThemes.bold,\n * '--promo-highlight': 'oklch(0.7 0.15 30)' }`.\n */\nexport const promotionThemes = {\n  /** Quiet and bookish: small corners, a serif for titles, soft highlights. */\n  editorial: {\n    '--promo-radius': '0.25rem',\n    '--promo-display':\n      'ui-serif, \"Iowan Old Style\", \"Palatino Linotype\", Georgia, serif',\n    '--promo-highlight':\n      'color-mix(in oklch, var(--foreground) 6%, var(--background))',\n    '--promo-highlight-foreground': 'var(--foreground)',\n  },\n  /** Technical: square corners, monospaced titles, an inverted highlight. */\n  mono: {\n    '--promo-radius': '0rem',\n    '--promo-display':\n      'ui-monospace, \"SFMono-Regular\", \"JetBrains Mono\", Menlo, monospace',\n    '--promo-highlight': 'var(--foreground)',\n    '--promo-highlight-foreground': 'var(--background)',\n  },\n  /** Loud on purpose: generous corners and the brand colour as highlight. */\n  bold: {\n    '--promo-radius': '1.25rem',\n    '--promo-display': 'inherit',\n    '--promo-highlight': 'var(--primary)',\n    '--promo-highlight-foreground': 'var(--primary-foreground)',\n  },\n} as const satisfies Record<string, Record<`--promo-${string}`, string>>\n\nexport type PromotionThemeName = keyof typeof promotionThemes\n\n/** A preset as a `style` value (CSS custom properties are not in CSSProperties). */\nexport function promotionThemeStyle(\n  name: PromotionThemeName,\n): React.CSSProperties {\n  return promotionThemes[name] as React.CSSProperties\n}\n",
+      "type": "registry:lib"
+    }
+  ],
+  "docs": "Surfaces portal into <body>, so set a preset there: <body style={promotionThemeStyle('editorial')}>. Spread one to override a single token.",
+  "type": "registry:lib"
+}

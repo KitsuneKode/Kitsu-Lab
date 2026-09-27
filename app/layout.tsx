@@ -24,9 +24,6 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 })
 
-const DESCRIPTION =
-  'A registry of animated, accessible components and a book reader engine for shadcn/ui — by kitsunekode.'
-
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {

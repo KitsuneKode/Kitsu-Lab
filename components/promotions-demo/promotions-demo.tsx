@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   PromoBadge,
@@ -197,15 +198,6 @@ function useDemoLink(navigate: (href: string) => void) {
   )
 }
 
-/** Small caption above a demo control. */
-function Label({ children, id }: { children: React.ReactNode; id?: string }) {
-  return (
-    <span id={id} className="text-muted-foreground text-xs font-medium">
-      {children}
-    </span>
-  )
-}
-
 /** Manual triggers: the same `openPromotion` a host would wire to a button. */
 function Triggers({ compact = false }: { compact?: boolean }) {
   const { selection, openPromotion } = usePromotions()
@@ -240,6 +232,68 @@ function Triggers({ compact = false }: { compact?: boolean }) {
       ))}
     </div>
   )
+}
+
+/** A labelled group of controls in the demo panel. */
+function PanelGroup({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  const id = React.useId()
+  return (
+    <div role="group" aria-labelledby={id} className="flex flex-col gap-3">
+      <h3 id={id} className="text-sm font-medium">
+        {title}
+      </h3>
+      {children}
+    </div>
+  )
+}
+
+/** A switch with a fixed label; its state lives in the switch, not the words. */
+function SwitchRow({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string
+  hint: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  const id = React.useId()
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <label htmlFor={id} className="text-sm leading-snug">
+          {label}
+        </label>
+        <span id={`${id}-hint`} className="text-muted-foreground text-xs">
+          {hint}
+        </span>
+      </div>
+      <Switch
+        id={id}
+        checked={checked}
+        onCheckedChange={onChange}
+        aria-describedby={`${id}-hint`}
+        className="mt-0.5"
+      />
+    </div>
+  )
+}
+
+/** "now", "in 2 days", "18 hours ago" for the demo clock's offset. */
+function relativeOffset(hours: number, locale: string) {
+  const format = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+  if (hours === 0) return format.format(0, 'second')
+  return Math.abs(hours) < 24
+    ? format.format(hours, 'hour')
+    : format.format(Math.round(hours / 24), 'day')
 }
 
 /** The fictional site inside the preview frame, with every surface placed where a real site would put it. */
@@ -566,6 +620,7 @@ export function PromotionsDemo() {
     month: 'short',
     hour: 'numeric',
   }).format(now())
+  const relativeClock = relativeOffset(offsetHours, lang)
   const spec = DEVICES[device]
   const phone = device === 'phone' || narrow
   const rtl = isRightToLeft(lang)
@@ -770,62 +825,80 @@ export function PromotionsDemo() {
             return true
           }}
         >
-          <div className="border-border/60 grid gap-4 rounded-xl border p-4 md:grid-cols-[1.3fr_1fr]">
-            <div className="flex flex-col gap-2">
-              <Label>Page</Label>
+          <div className="border-border/60 grid gap-x-8 gap-y-6 rounded-xl border p-4 sm:p-5 lg:grid-cols-[1.35fr_1fr_1fr]">
+            <PanelGroup title="View">
               {pageToggle(true)}
-              <Triggers />
-            </div>
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-2">
-                <Label id="promo-demo-clock">Clock · {clock}</Label>
-                <Slider
-                  aria-labelledby="promo-demo-clock"
-                  min={-48}
-                  max={24 * 12}
-                  step={6}
-                  value={[offsetHours]}
-                  onValueChange={(value) =>
-                    setOffsetHours(
-                      Array.isArray(value) ? (value[0] ?? 0) : value,
-                    )
-                  }
-                  className="mt-1 w-full"
-                />
-              </div>
               <div className="flex flex-wrap items-center gap-2">
                 {deviceToggle}
                 {languageToggle}
               </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Button
-                  size="sm"
-                  variant={budget ? 'secondary' : 'ghost'}
-                  aria-pressed={budget}
-                  onClick={() => setBudget((b) => !b)}
-                >
-                  Daily budget {budget ? 'on' : 'off'}
-                </Button>
-                <Button
-                  size="sm"
-                  variant={exit ? 'secondary' : 'ghost'}
-                  aria-pressed={exit}
-                  onClick={() => setExit((e) => !e)}
-                >
-                  Exit intent {exit ? 'on' : 'off'}
-                </Button>
-                <Button
-                  size="sm"
-                  variant={member ? 'secondary' : 'ghost'}
-                  aria-pressed={member}
-                  onClick={() => setMember((m) => !m)}
-                >
-                  {member ? 'Signed in: member' : 'Guest'}
-                </Button>
-                <Button size="sm" variant="ghost" onClick={resetVisitor}>
-                  Reset visitor
-                </Button>
+            </PanelGroup>
+            <PanelGroup title="Visitor">
+              <SwitchRow
+                label="Signed in as a member"
+                hint="Member offers show; guest offers step aside."
+                checked={member}
+                onChange={setMember}
+              />
+              <Triggers />
+              <Button
+                size="sm"
+                variant="outline"
+                className="self-start"
+                onClick={resetVisitor}
+              >
+                <IconRefresh aria-hidden />
+                Reset visitor
+              </Button>
+            </PanelGroup>
+            <PanelGroup title="Rules">
+              <SwitchRow
+                label="Daily budget"
+                hint="At most one toast, sheet or dialog a day."
+                checked={budget}
+                onChange={setBudget}
+              />
+              <SwitchRow
+                label="Exit intent"
+                hint="The dialog may open as the pointer leaves."
+                checked={exit}
+                onChange={setExit}
+              />
+            </PanelGroup>
+            <div className="flex flex-col gap-2 lg:col-span-3">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span id="promo-demo-clock" className="text-sm font-medium">
+                  Clock
+                </span>
+                <span className="text-muted-foreground text-sm tabular-nums">
+                  {clock}
+                </span>
+                <span className="text-muted-foreground text-xs tabular-nums">
+                  {relativeClock}
+                </span>
+                {offsetHours !== 0 ? (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    className="ms-auto"
+                    onClick={() => setOffsetHours(0)}
+                  >
+                    Back to now
+                  </Button>
+                ) : null}
               </div>
+              <Slider
+                aria-labelledby="promo-demo-clock"
+                aria-valuetext={`${clock}, ${relativeClock}`}
+                min={-48}
+                max={24 * 12}
+                step={6}
+                value={[offsetHours]}
+                onValueChange={(value) =>
+                  setOffsetHours(Array.isArray(value) ? (value[0] ?? 0) : value)
+                }
+                className="w-full"
+              />
             </div>
           </div>
 

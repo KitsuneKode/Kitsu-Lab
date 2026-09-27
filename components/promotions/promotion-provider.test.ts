@@ -14,6 +14,7 @@ import {
   PromotionProvider,
   usePromotions,
   useImpression,
+  visitorIsBusy,
   type PromotionProviderProps,
   type PromotionEvent,
 } from './promotion-provider'
@@ -215,4 +216,15 @@ test('impressions require continuous half visibility in a visible tab', async ()
       Object.defineProperty(document, 'visibilityState', visibility)
     else Reflect.deleteProperty(document, 'visibilityState')
   }
+})
+
+test('a modal hosting the site does not count as another modal', () => {
+  const modal = document.createElement('div')
+  modal.setAttribute('role', 'dialog')
+  modal.setAttribute('aria-modal', 'true')
+  document.body.append(modal)
+  expect(visitorIsBusy()).toBe(true)
+  modal.setAttribute('data-promo-host', '')
+  expect(visitorIsBusy()).toBe(false)
+  modal.remove()
 })

@@ -473,6 +473,9 @@ function isTextEntry(element: HTMLElement): boolean {
 /**
  * True while the visitor is mid-task: typing in a field, inside another
  * modal, or selecting text. Nothing floating should open over that.
+ *
+ * A modal that hosts the site itself (a full-window preview, an app shell
+ * rendered as a dialog) is not "another modal": mark it `data-promo-host`.
  */
 export function visitorIsBusy(): boolean {
   if (typeof document === 'undefined') return false
@@ -480,7 +483,7 @@ export function visitorIsBusy(): boolean {
   if (active instanceof HTMLElement && isTextEntry(active)) return true
   if (
     document.querySelector(
-      'dialog[open], [role="dialog"][aria-modal="true"]:not([data-slot^="promo-"]), [role="alertdialog"]',
+      'dialog[open], [role="dialog"][aria-modal="true"]:not([data-slot^="promo-"]):not([data-promo-host]), [role="alertdialog"]',
     )
   )
     return true
@@ -638,6 +641,17 @@ export function PromotionProvider({
   const [storageVersion, setStorageVersion] = React.useState(0)
   const [forced, setForced] = React.useState<string | null>(null)
   const [bottomInset, setBottomInset] = React.useState(0)
+  // Mirrored as a CSS variable so the host page can keep its end clear of a
+  // bottom-docked bar: `padding-bottom: var(--promo-bottom-inset, 0px)`.
+  React.useEffect(() => {
+    const root = document.documentElement
+    if (bottomInset > 0)
+      root.style.setProperty('--promo-bottom-inset', `${bottomInset}px`)
+    else root.style.removeProperty('--promo-bottom-inset')
+    return () => {
+      root.style.removeProperty('--promo-bottom-inset')
+    }
+  }, [bottomInset])
   const [sideInset, setSideInset] = React.useState(0)
   const [inboxOpen, setInboxOpen] = React.useState(false)
   // Spotlight anchors present on the page right now (registered on mount).

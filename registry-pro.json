@@ -83,6 +83,23 @@
       ]
     },
     {
+      "name": "promo-showcase",
+      "type": "registry:component",
+      "title": "Promo showcase",
+      "description": "A feature showcase: one large frame and a row of chapters, each a clip that explains one thing. The bar fills while the clip plays and its end moves to the next chapter; hover, focus, a hidden tab or reduced motion hold it, and a failed or refused clip is timed like a still.",
+      "dependencies": ["@tabler/icons-react", "motion"],
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-showcase.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Fill it from a card slot with <PromoShowcase slot=\"showcase\" /> (each live card with media becomes a chapter; its eyebrow is the tab label), or pass chapters directly to <Showcase />. Media may carry silent clips (media.video)."
+    },
+    {
       "name": "promo-inbox",
       "type": "registry:component",
       "title": "Promo inbox",
@@ -242,7 +259,7 @@
       "name": "promotions-pro",
       "type": "registry:block",
       "title": "Promotions Pro",
-      "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, inbox, spotlight, side card, story, kits, editor and the account store.",
+      "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, showcase, inbox, spotlight, side card, story, campaign timeline, kits, editor and the account store.",
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/promotions.json",
         "@kitsu-pro/promo-pill",
@@ -256,7 +273,9 @@
         "@kitsu-pro/promo-side-card",
         "@kitsu-pro/promotion-editor",
         "@kitsu-pro/promo-story",
-        "@kitsu-pro/promotion-account-store"
+        "@kitsu-pro/promotion-account-store",
+        "@kitsu-pro/promo-showcase",
+        "@kitsu-pro/campaign-timeline"
       ],
       "files": [
         {

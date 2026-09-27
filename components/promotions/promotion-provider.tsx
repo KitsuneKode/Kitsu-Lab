@@ -625,9 +625,10 @@ export function PromotionProvider({
   )
   const now = useClock(readNow, tickMs, records)
   // Local writes, so a dismissal applies at once even if storage throws.
-  const [written, setWritten] = React.useState<ReadonlyMap<string, number>>(
-    () => new Map(),
-  )
+  const [written, setWritten] = React.useState(() => ({
+    storage,
+    values: new Map<string, number>(),
+  }))
   // Bumped when another tab writes, so reads are redone.
   const [storageVersion, setStorageVersion] = React.useState(0)
   const [forced, setForced] = React.useState<string | null>(null)
@@ -690,7 +691,10 @@ export function PromotionProvider({
       // Re-read after a cross-tab write bumps the version.
       void storageVersion
       const id = `${scope}|${key}`
-      const value = written.has(id) ? written.get(id) : storage.get(key, scope)
+      const value =
+        written.storage === storage && written.values.has(id)
+          ? written.values.get(id)
+          : storage.get(key, scope)
       return typeof value === 'number' && Number.isFinite(value) ? value : null
     },
     [written, storage, storageVersion],
@@ -698,7 +702,12 @@ export function PromotionProvider({
   const write = React.useCallback(
     (key: string, scope: DismissScope, at = readNow()) => {
       storage.set(key, at, scope)
-      setWritten((previous) => new Map(previous).set(`${scope}|${key}`, at))
+      setWritten((previous) => ({
+        storage,
+        values: new Map(
+          previous.storage === storage ? previous.values : [],
+        ).set(`${scope}|${key}`, at),
+      }))
       return at
     },
     [readNow, storage],
@@ -1010,7 +1019,12 @@ export function PromotionProvider({
       'browser',
     )
     setForced((id) => (matches.some((m) => m.id === id) ? null : id))
-    report('convert', first)
+    // Selection contains assigned copy; the source records do not. Resolve
+    // from the stable seed even if the offer has expired or is off-route.
+    report(
+      'convert',
+      seed === null ? first : assignVariant(first, seed).promotion,
+    )
     return true
   }
   const convertRef = React.useRef(convert)
@@ -1054,7 +1068,8 @@ export function PromotionProvider({
           .filter(
             (record) =>
               deliveryState(record, now) === 'live' &&
-              targetsRoute(record, pathname),
+              targetsRoute(record, pathname) &&
+              available(record) !== null,
           )
           .map((record) => record.id)
           .join(' ')
@@ -1193,24 +1208,42 @@ export function useImpression(
     if (typeof IntersectionObserver === 'undefined') return
 
     let timer: number | undefined
+    let visibleEnough = false
+    let finished = false
+    const cancel = () => {
+      if (timer !== undefined) window.clearTimeout(timer)
+      timer = undefined
+    }
+    const check = () => {
+      if (finished || !visibleEnough || isHidden()) {
+        cancel()
+        return
+      }
+      if (timer !== undefined) return
+      timer = window.setTimeout(() => {
+        timer = undefined
+        if (finished || !visibleEnough || isHidden()) return
+        finished = true
+        seen.current = key
+        observer.disconnect()
+        onImpression(promotion)
+      }, 1000)
+    }
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting && !isHidden()) {
-          timer = window.setTimeout(() => {
-            seen.current = key
-            onImpression(promotion)
-            observer.disconnect()
-          }, 1000)
-        } else if (timer !== undefined) {
-          window.clearTimeout(timer)
-          timer = undefined
+      (entries) => {
+        for (const entry of entries) {
+          visibleEnough = entry.isIntersecting && entry.intersectionRatio >= 0.5
+          check()
         }
       },
       { threshold: 0.5 },
     )
+    document.addEventListener('visibilitychange', check)
     observer.observe(element)
     return () => {
-      if (timer !== undefined) window.clearTimeout(timer)
+      finished = true
+      cancel()
+      document.removeEventListener('visibilitychange', check)
       observer.disconnect()
     }
   }, [promotion, onImpression, viewKey])

@@ -26,7 +26,11 @@ const DOCS: Doc[] = [
 'use client'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { PromotionProvider, promotionLabels } from '@/components/promotions'
+import {
+  PromotionProvider,
+  promotionLabels,
+  segmentSink,
+} from '@/components/promotions'
 
 export function Promotions({ records, children }) {
   return (
@@ -36,7 +40,7 @@ export function Promotions({ records, children }) {
       linkComponent={Link}
       labels={promotionLabels.en}
       suppressOn={['/checkout', '/login']}
-      onEvent={(e) => analytics.track(\`promo_\${e.type}\`, e)}
+      onEvent={segmentSink(analytics)}
     >
       {children}
     </PromotionProvider>
@@ -131,6 +135,7 @@ export async function POST(request: Request) {
 <PromoBar variant="floating" />  // docked, never shifts layout`,
     notes: [
       'Use floating when Core Web Vitals matter, or read dismissals from a cookie on the server.',
+      'A floating bar claims the bottom edge: toasts stack above it, and the page can pad its end with var(--promo-bottom-inset).',
     ],
   },
   {
@@ -141,8 +146,12 @@ export async function POST(request: Request) {
     summary:
       'The “New: … →” pill above a hero headline, filled from a card slot.',
     code: `<PromoPill slot="announcement" />
+<PromoPill slot="announcement" expandable />  // opens in place into its card
 <h1>Plan the week your team actually has.</h1>`,
-    notes: ['In the flow, never interrupts. Right for launches.'],
+    notes: [
+      'In the flow, never interrupts. Right for launches.',
+      'expandable: a pill with a body or media grows into its card in place (one shape, corners included) and folds back on Escape.',
+    ],
   },
   {
     item: 'promo-card',
@@ -466,6 +475,92 @@ const sale = storeSaleKit({
 <PromotionProvider source={sale.promotions} {...sale.provider} … />`,
     notes: [
       'storeSaleKit, productLaunchKit and courseEnrolmentKit. Each lists the slots it fills.',
+      'Kits ship no images: pass yours (clips included) with images, or surfaces render text-only.',
+    ],
+  },
+  {
+    item: 'promo-showcase',
+    pro: true,
+    name: 'Showcase',
+    tier: 'Surface',
+    summary:
+      'One frame and a row of chapters, each a clip that explains one thing. The clip’s end moves to the next.',
+    code: `<PromoShowcase slot="showcase" label="What’s new" />
+
+// or, outside a campaign
+<Showcase label="Features" chapters={[{ id, label, title, body, media }]} />`,
+    notes: [
+      'Holds on hover and focus, pauses in a hidden tab, never advances with reduced motion.',
+      'A clip that fails or whose autoplay is refused is timed like a still, so it never stalls.',
+    ],
+  },
+  {
+    item: 'promotion-analytics',
+    name: 'Analytics sinks',
+    tier: 'Add-on',
+    summary:
+      'onEvent for PostHog, GA4, Segment, Vercel Analytics and a GTM data layer, using the client you already load.',
+    code: `import { combineSinks, ga4Sink, posthogSink } from '@/components/promotions'
+
+<PromotionProvider
+  onEvent={consented
+    ? combineSinks(posthogSink(posthog), ga4Sink(gtag, { include: ['click', 'convert'] }))
+    : undefined}
+  …
+/>`,
+    notes: [
+      'Flat, GA4-safe properties: promotion_id, placement, campaign, variant, pathname.',
+      'One failing vendor never breaks the page or the other sinks. Consent stays yours.',
+    ],
+  },
+  {
+    item: 'promotion-themes',
+    name: 'Themes',
+    tier: 'Add-on',
+    summary:
+      'Editorial, mono and bold: finished looks made only of the --promo-* tokens.',
+    code: `import { promotionThemeStyle } from '@/components/promotions'
+
+<body style={promotionThemeStyle('editorial')}>`,
+    notes: [
+      'Surfaces portal into <body>, so set a theme there, not on a wrapper.',
+      'Spread a theme to change one token: { ...promotionThemes.bold, "--promo-radius": "0.5rem" }.',
+    ],
+  },
+  {
+    item: 'promotion-schema',
+    name: 'Write campaigns with an assistant',
+    tier: 'Core',
+    summary:
+      'A JSON Schema of every field and limit, built from the parser’s own constants.',
+    code: `import { parsePromotion, promotionJsonSchema } from '@/components/promotions'
+
+const prompt = \`Write a launch toast for /pricing as JSON matching:
+\${JSON.stringify(promotionJsonSchema)}\`
+
+const result = parsePromotion(JSON.parse(await ask(prompt)))
+if (!result.ok) console.log(result.errors) // feed these back for a fix`,
+    notes: [
+      'Also served at /schema/promotion.json for CMS validation.',
+      'parsePromotion stays the judge for links, routes and windows; its errors are written to be fed back.',
+    ],
+  },
+  {
+    item: 'promotions',
+    name: 'No dark patterns',
+    tier: 'Core',
+    summary: 'What the system refuses to do, and where the code enforces it.',
+    code: `// Nothing to install: these are defaults you cannot switch off by accident.
+frequency         // a toast or dialog opens at most once per window (default 24h)
+floatingBudget    // one floating surface per visitor per day, across campaigns
+visitorIsBusy()   // nothing opens over typing, a selection or another modal
+story             // opens only when the visitor asks, never by itself
+countdown         // only real end times, only in the last 14 days, never per second
+holdout           // measure lift honestly instead of assuming it`,
+    notes: [
+      'No fake scarcity: countdowns come from the record’s real endsAt.',
+      'Dismissals are remembered and respected across tabs; convert() ends a campaign for a buyer.',
+      'Clips are silent, pause off screen and for reduced motion, and always have a pause control.',
     ],
   },
 ]

@@ -198,6 +198,8 @@ export const SCENARIOS = {
         overrides: {
           pill: {
             title: 'Ink on any page is here',
+            body: 'Pen and marker in five inks, kept with the page on every device and in every view.',
+            media: INK,
             translations: {
               fr: {
                 eyebrow: 'Nouveau',

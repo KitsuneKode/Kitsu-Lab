@@ -9,8 +9,8 @@ import { track } from '@vercel/analytics/react'
 import {
   PromoBar,
   PromotionProvider,
+  vercelSink,
   type Promotion,
-  type PromotionEvent,
   type PromotionLinkProps,
   type PromotionMedia,
 } from '@/components/promotions'
@@ -101,14 +101,8 @@ function SiteLink({
   )
 }
 
-function onEvent(event: PromotionEvent) {
-  track(`promo_${event.type}`, {
-    id: event.id,
-    placement: event.placement,
-    campaign: event.campaign ?? null,
-    pathname: event.pathname,
-  })
-}
+/** Same names as before (`promo_click`), so the dashboards carry on. */
+const onEvent = vercelSink(track, { prefix: 'promo_' })
 
 /**
  * The site's promotion surfaces. The bar floats at the bottom so it never

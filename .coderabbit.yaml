@@ -1,0 +1,20 @@
+# Work lands as stacked PRs (stack/* branches), so review every base, and
+# skip generated output: shadcn build writes public/r and registry-pro/r.
+reviews:
+  auto_review:
+    enabled: true
+    base_branches:
+      - '.*'
+  path_filters:
+    - '!public/r/**'
+    - '!registry-pro/r/**'
+    - '!bun.lock'
+    - '!public/promo-clips/**'
+  path_instructions:
+    - path: 'components/**'
+      instructions: |
+        Registry components ship into other projects: flag imports of files not
+        listed in the item's registry.json entry, free code importing pro code,
+        and anything that assumes this app's globals.css.
+        Check reduced motion, RTL (logical properties), keyboard paths and
+        every UI state: loading, empty, error, refused autoplay.

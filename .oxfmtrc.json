@@ -16,6 +16,8 @@
     "dist/",
     "logs/",
     "public/r/",
+    "registry-pro/r/",
+    ".claude/skills/",
     "bun.lock"
   ]
 }

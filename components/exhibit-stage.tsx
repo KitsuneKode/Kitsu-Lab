@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils'
 import { IconMaximize, IconMinimize } from '@tabler/icons-react'
 import { useRef, useSyncExternalStore, type ReactNode } from 'react'
+import { ChromeButtonShell } from './exhibit-chrome'
 
 const subscribeFullscreen = (onChange: () => void) => {
   document.addEventListener('fullscreenchange', onChange)
@@ -55,18 +56,27 @@ export function ExhibitStage({
     >
       {children}
       {canFullscreen && (
+        <ChromeButtonShell
+          className={cn('fixed top-5 right-5 z-50', isFullscreen && 'hidden')}
+        >
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label="View fullscreen"
+            className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-neutral-900/80 text-neutral-400 backdrop-blur-xl transition-[background-color,color,scale] hover:scale-105 hover:bg-neutral-800 hover:text-white"
+          >
+            <IconMaximize className="size-4" aria-hidden />
+          </button>
+        </ChromeButtonShell>
+      )}
+      {isFullscreen && (
         <button
           type="button"
           onClick={toggleFullscreen}
-          aria-label={isFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
-          aria-pressed={isFullscreen}
+          aria-label="Exit fullscreen"
           className="fixed top-5 right-5 z-50 flex size-9 items-center justify-center rounded-full border border-white/10 bg-neutral-900/80 text-neutral-400 backdrop-blur-xl transition-[background-color,color,scale] hover:scale-105 hover:bg-neutral-800 hover:text-white"
         >
-          {isFullscreen ? (
-            <IconMinimize className="size-4" aria-hidden />
-          ) : (
-            <IconMaximize className="size-4" aria-hidden />
-          )}
+          <IconMinimize className="size-4" aria-hidden />
         </button>
       )}
     </div>

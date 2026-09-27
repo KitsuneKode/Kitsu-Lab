@@ -43,6 +43,13 @@ export function usePersistedPageIndex({
 }) {
   const sourceReady = useRef(false)
   const resetPageRef = useRef({ pageControlled, pageIndex, defaultPageIndex })
+  // Which source the store's status and pages describe. The commit that
+  // brings a new sourceKey still carries the old source's ready state, and
+  // its passive effects run before the reset re-renders, so the effects
+  // below skip while the two disagree. Without this, the old book's page is
+  // saved under the new book's key and its deep link is spent too early.
+  const [stateFor, setStateFor] = useState(sourceKey)
+  const stale = stateFor !== sourceKey
   useLayoutEffect(() => {
     resetPageRef.current = { pageControlled, pageIndex, defaultPageIndex }
   })
@@ -63,6 +70,7 @@ export function usePersistedPageIndex({
         ? reset.pageIndex
         : reset.defaultPageIndex,
     })
+    setStateFor(sourceKey)
   }, [sourceKey, dispatch])
 
   const restoredKeyRef = useRef<string | null>(null)
@@ -79,6 +87,7 @@ export function usePersistedPageIndex({
     // ready state that must not consume the deep link before the document
     // is actually open.
     if (
+      stale ||
       status !== 'ready' ||
       totalPages === 0 ||
       restoredKeyRef.current === sourceKey
@@ -118,6 +127,7 @@ export function usePersistedPageIndex({
     pageControlled,
     sourceKey,
     persistKey,
+    stale,
     status,
     totalPages,
     goToPage,
@@ -125,6 +135,7 @@ export function usePersistedPageIndex({
 
   useEffect(() => {
     if (
+      stale ||
       !persistPage ||
       pageControlled ||
       status !== 'ready' ||
@@ -136,14 +147,22 @@ export function usePersistedPageIndex({
     } catch {
       // localStorage may be unavailable.
     }
-  }, [persistPage, pageControlled, status, totalPages, persistKey, activePage])
+  }, [
+    stale,
+    persistPage,
+    pageControlled,
+    status,
+    totalPages,
+    persistKey,
+    activePage,
+  ])
 
   // Keep the deep link current as the reader moves. replaceState only —
   // turning pages must never spam the back stack.
   useEffect(() => {
-    if (!pageParam || status !== 'ready' || totalPages === 0) return
+    if (stale || !pageParam || status !== 'ready' || totalPages === 0) return
     writeUrlParams({ [pageParam]: String(activePage + 1) })
-  }, [pageParam, status, totalPages, activePage])
+  }, [stale, pageParam, status, totalPages, activePage])
 
   const dismissResume = useCallback(() => setResume(null), [])
   return {

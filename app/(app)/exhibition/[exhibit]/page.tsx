@@ -1,9 +1,9 @@
-import Link from 'next/link'
 import { Suspense } from 'react'
 import Intro from '@/components/intro'
 import { registry } from '@/app/utils/registry'
 import { ExhibitStage } from '@/components/exhibit-stage'
 import { NavTransition } from '@/components/nav-transition'
+import { BackToLab } from '@/components/exhibit-chrome'
 
 type Props = {
   params: Promise<{ exhibit: string }>
@@ -11,25 +11,6 @@ type Props = {
 
 export function generateStaticParams() {
   return registry.list.map((component) => ({ exhibit: component.path }))
-}
-
-function BackToLab() {
-  return (
-    <div
-      className="fixed top-5 left-5 z-50"
-      style={{ viewTransitionName: 'exhibit-back' }}
-    >
-      <Link
-        href="/"
-        prefetch
-        transitionTypes={['nav-back']}
-        className="flex items-center gap-2 rounded-full border border-white/10 bg-neutral-900/80 px-4 py-2 text-xs font-medium text-neutral-300 backdrop-blur-xl transition-[background-color,color,scale] hover:scale-105 hover:bg-neutral-800 hover:text-white"
-      >
-        <span>←</span>
-        <span>Back to Lab</span>
-      </Link>
-    </div>
-  )
 }
 
 async function ExhibitionBody({ params }: Props) {

@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   // compiler on — automatic memoization, no manual useMemo audits needed.
   reactCompiler: true,
   poweredByHeader: false,
+  // The pro registry route reads its built JSON at request time.
+  outputFileTracingIncludes: {
+    '/pro/r/*': ['./registry-pro/r/**/*.json'],
+  },
   experimental: {
     optimizePackageImports: [
       '@tabler/icons-react',
@@ -17,10 +21,11 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Baseline hardening on every route. The CSP ships report-only:
-        // pdf.js workers, upload blob: URLs and analytics each need an
-        // allowance, and a blind enforce would break the reader. Watch the
-        // reports, tighten, then promote to Content-Security-Policy.
+        // Baseline hardening on every route, including the paid registry
+        // and API routes. The CSP ships report-only: pdf.js workers,
+        // upload blob: URLs and analytics each need an allowance, and a
+        // blind enforce would break the reader. Watch the reports,
+        // tighten, then promote to Content-Security-Policy.
         source: '/:path*',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },

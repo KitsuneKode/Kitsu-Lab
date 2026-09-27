@@ -35,6 +35,7 @@ export type {
   BookPreviewErrorKind,
   BookPreviewMode,
   BookPreviewPage,
+  BookPreviewPageImage,
   BookPreviewProps,
   BookPreviewSource,
   BookPreviewStatus as BookPreviewStatusValue,

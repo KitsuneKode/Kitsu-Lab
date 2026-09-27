@@ -1,6 +1,6 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
-  "name": "kitsu-lab",
+  "name": "kitsu",
   "homepage": "https://kitsulab.kitsunekode.in",
   "items": [
     {
@@ -526,6 +526,168 @@
       "files": [
         {
           "path": "components/email-domain-input.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promotion",
+      "type": "registry:lib",
+      "title": "Promotion core",
+      "description": "Types and pure rules for scheduled promotions: validation, delivery state, route targeting, selection, dismissal, time-zone-safe date input and review warnings. No dependencies.",
+      "files": [
+        {
+          "path": "components/promotions/promotion.ts",
+          "type": "registry:lib"
+        }
+      ]
+    },
+    {
+      "name": "promotion-provider",
+      "type": "registry:component",
+      "title": "Promotion provider",
+      "description": "Loads and sanitises promotions, keeps time to the exact start and end, routes dismissals to per-scope stores, applies frequency windows and a daily interruption budget, waits for engagement without interrupting, runs plugins such as exit intent, and reports impressions, clicks, copies, reveals and dismissals.",
+      "dependencies": ["@tabler/icons-react", "motion"],
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion.json",
+        "button"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-provider.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/promotions/promotion-views.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/promotions/promotion-stores.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/promotion-plugins.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/promo-gallery.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Pass your router's pathname and, for client-side navigation, your Link as `linkComponent`. A `{ load }` source runs once per mount; change `sourceKey` to reload. Add behaviour with `plugins={[exitIntent()]}` (keep the array stable). Route dismissals with `storage={composeStores({ cookie: cookieDismissalStore(), account })}`. Set `locale` to pick record translations and pass a `labels` pack. Theme the highlight tone with `--promo-highlight` and `--promo-highlight-foreground`."
+    },
+    {
+      "name": "promo-bar",
+      "type": "registry:component",
+      "title": "Promo bar",
+      "description": "Announcement bar, inline above the header or floating at the bottom of the viewport (no layout shift), with an optional countdown to a real end date and a copyable code.",
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-bar.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-card",
+      "type": "registry:component",
+      "title": "Promo card",
+      "description": "Inline promotion for a named slot. Lays itself out from its own width with container queries and folds away when dismissed.",
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-card.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-badge",
+      "type": "registry:component",
+      "title": "Promo badge",
+      "description": "A small “New” pill or dot beside a nav item, shown while a live promotion points its button there. Needs no record of its own.",
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-badge.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-toast",
+      "type": "registry:component",
+      "title": "Promo toast",
+      "description": "A polite corner card that appears after light engagement, never takes focus, folds into a chip the visitor can reopen, and can be swiped away.",
+      "dependencies": ["motion", "@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-toast.tsx",
+          "type": "registry:component"
+        }
+      ]
+    },
+    {
+      "name": "promo-dialog",
+      "type": "registry:component",
+      "title": "Promo dialog",
+      "description": "The loudest surface: a centred dialog, or a split image-and-copy layout for launches. A swipe-down sheet on phones. Full-screen stories plug in with the pro promo-story add-on.",
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json",
+        "button"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-dialog.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Requires Base UI 1.8+ (a base-* shadcn project): the phone layout uses the Base UI Drawer for swipe dismissal.",
+      "dependencies": ["@base-ui/react", "@tabler/icons-react", "motion"]
+    },
+    {
+      "name": "promotion-labels",
+      "type": "registry:lib",
+      "title": "Promotion labels",
+      "description": "Label packs for English, French, German, Japanese, Hindi and Arabic, with countdowns from Intl.RelativeTimeFormat, plus createPromotionLabels for your own languages.",
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-labels.ts",
+          "type": "registry:lib"
+        }
+      ]
+    },
+    {
+      "name": "promotions",
+      "type": "registry:block",
+      "title": "Promotions",
+      "description": "The free promotions core: rules, provider, stores, plugins, label packs, and the bar, card, badge, toast and dialog surfaces.",
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion.json",
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json",
+        "https://kitsulab.kitsunekode.in/r/promotion-labels.json",
+        "https://kitsulab.kitsunekode.in/r/promo-bar.json",
+        "https://kitsulab.kitsunekode.in/r/promo-card.json",
+        "https://kitsulab.kitsunekode.in/r/promo-toast.json",
+        "https://kitsulab.kitsunekode.in/r/promo-badge.json",
+        "https://kitsulab.kitsunekode.in/r/promo-dialog.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/index.ts",
           "type": "registry:component"
         }
       ]

@@ -204,84 +204,6 @@ body {
   }
 }
 
-/* ---------- Custom cursor (fine pointers only) ---------- */
-
-.cursor-dot,
-.cursor-ring {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0;
-  translate: -50% -50%;
-  will-change: transform;
-}
-
-.cursor-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 9999px;
-  background: var(--foreground);
-}
-
-.cursor-ring {
-  width: 34px;
-  height: 34px;
-  border-radius: 9999px;
-  border: 1.5px solid color-mix(in oklab, var(--foreground) 45%, transparent);
-  transition:
-    width 0.25s var(--nav-ease),
-    height 0.25s var(--nav-ease),
-    border-color 0.25s var(--nav-ease),
-    opacity 0.2s ease;
-}
-
-.cursor-ring[data-hover] {
-  width: 52px;
-  height: 52px;
-  border-color: color-mix(in oklab, var(--foreground) 75%, transparent);
-}
-
-/* Native cursor only hides once the custom one is live — never before —
-   and never where it carries meaning: text fields and surfaces marked
-   [data-native-cursor] (the book reader's I-beam, grab hand, crosshair)
-   keep their own cursor while the custom one steps aside. */
-body[data-custom-cursor]
-  :where(*):not(
-    :is(
-      input,
-      textarea,
-      select,
-      [contenteditable='true'],
-      [data-native-cursor],
-      [data-native-cursor] *
-    )
-  ),
-body[data-custom-cursor] {
-  cursor: none !important;
-}
-
-/* cursor inherits, so the opted-out surfaces reset it explicitly — at zero
-   specificity, so their own cursor utilities still win. */
-:where(body[data-custom-cursor])
-  :where(
-    input,
-    textarea,
-    select,
-    [contenteditable='true'],
-    [data-native-cursor]
-  ) {
-  cursor: auto;
-}
-
-@media (pointer: coarse), (prefers-reduced-motion: reduce) {
-  .cursor-dot,
-  .cursor-ring {
-    display: none;
-  }
-}
-
 /* ---------- Exhibit rows ---------- */
 
 @keyframes exhibit-row-in {
@@ -311,4 +233,15 @@ body[data-custom-cursor] {
 ::view-transition-group(.exhibit-share) {
   animation-duration: var(--nav-duration-move);
   animation-timing-function: var(--nav-ease);
+}
+
+/* An exhibit in an immersive preview owns the screen: page chrome steps out. */
+html[data-exhibit-immersive] [data-exhibit-chrome] {
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+html[data-exhibit-immersive] {
+  overflow: hidden;
 }

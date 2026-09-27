@@ -71,6 +71,22 @@ Project: Foundation · Priority: Medium · Size: S · Depends on: KL-01
 - [ ] Script reports gzipped cost of each registry item's own code and its dependencies
 - [ ] Budgets checked in CI; numbers published in each item's docs
 
+### KL-05 Adopt @shadcn/lint to "error"
+
+Project: Foundation · Priority: High · Size: L · Depends on: KL-01
+
+`@shadcn/lint` 0.2.0 is installed in oxlint with the five core rules at
+`warn`. First measurement (538 findings): 175 arbitrary values, 145 inline
+styles, 125 raw colours, 90 restyles, 3 dynamic classNames. Triage, then
+promote each rule to `error`.
+
+- [ ] Repeated curves and radii become tokens shipped through registry `cssVars` (`ease-snappy`, `ease-drawer`, `rounded-promo`), so buyers' projects get them too
+- [ ] Reader chrome restyles of `<Button>` become real button variants
+- [ ] Raw palette colours (`#D4AF37`, `stone-700`, …) move to theme tokens
+- [ ] Engine transforms stay inline where values are per-frame; others move to CSS variables
+- [ ] Decide how exact `transition-[…]` property lists (the "never transition all" rule) coexist with `no-arbitrary-values`
+- [ ] Every rule at `error` with a clean tree
+
 ---
 
 ## Media & Showcase

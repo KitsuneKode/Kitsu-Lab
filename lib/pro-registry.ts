@@ -23,6 +23,12 @@ export function readKeys(raw: string | undefined): string[] {
 
 const digest = (value: string) => createHash('sha256').update(value).digest()
 
+/** The token from `Authorization: Bearer <token>`, or null. */
+export function bearerToken(header: string | null): string | null {
+  const match = header?.match(/^Bearer\s+(\S+)\s*$/i)
+  return match?.[1] ?? null
+}
+
 /**
  * True when `Authorization: Bearer <key>` matches a configured key. Keys are
  * hashed first so the comparison is constant-time whatever their length.

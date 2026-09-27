@@ -109,6 +109,18 @@ export function PromoMedia({
   // then offers Play, and pressing it is the gesture that is allowed to.
   const [refused, setRefused] = React.useState(false)
   const [stillFailed, setStillFailed] = React.useState(false)
+  // A reused instance (a side-card pager, a gallery) can be handed another
+  // picture: everything learned about the old one starts over. Adjusting
+  // state during render avoids painting a frame with the old state.
+  const [forSrc, setForSrc] = React.useState(media.src)
+  if (forSrc !== media.src) {
+    setForSrc(media.src)
+    setChoice(null)
+    setStarted(false)
+    setFailed(false)
+    setRefused(false)
+    setStillFailed(false)
+  }
   // Surfaces pass these inline; a ref keeps playback from re-running each render.
   const callbacks = React.useRef({
     onEnded,
@@ -193,6 +205,9 @@ export function PromoMedia({
       />
       {clip ? (
         <video
+          // Changing <source> children does not reload a video; a new
+          // element per picture does.
+          key={media.src}
           ref={video}
           // The still carries the description; the clip only animates it.
           aria-hidden

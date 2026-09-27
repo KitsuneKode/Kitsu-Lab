@@ -199,7 +199,8 @@ export function toInput(
           alt: draft.mediaAlt,
           width: draft.mediaWidth,
           height: draft.mediaHeight,
-          video: clipFrom(draft.mediaVideo),
+          // A clip needs its still; a stale clip in the disabled field is ignored.
+          video: draft.mediaSrc.trim() ? clipFrom(draft.mediaVideo) : undefined,
         }
       : undefined,
     include: draft.include,

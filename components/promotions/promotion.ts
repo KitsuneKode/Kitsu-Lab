@@ -1075,7 +1075,8 @@ function isStoredMedia(value: unknown): boolean {
     !optionalString(value.caption)
   )
     return false
-  if (value.video === undefined) return true
+  // Absent, as parsePromotion reads it: CMS rows often store null.
+  if (value.video === undefined || value.video === null) return true
   const sources = isRecord(value.video) ? value.video.sources : null
   return (
     Array.isArray(sources) &&

@@ -172,3 +172,14 @@ describe('clips in the editor', () => {
     if (!result.ok) expect(result.errors.media).toContain('Clips')
   })
 })
+
+test('a stale clip is ignored once the image is cleared', () => {
+  const draft = {
+    ...initialDraft({}, T0, ZONE),
+    mediaSrc: '',
+    mediaAlt: 'Left over',
+    mediaVideo: '/a.mov',
+  }
+  const result = parsePromotion(toInput(draft, ZONE, {}))
+  if (!result.ok) expect(result.errors.media ?? '').not.toContain('Clips')
+})

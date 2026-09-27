@@ -26,6 +26,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   PromoBadge,
   PromoBar,
+  PromoMedia,
   PromoDialog,
   PromoToast,
   PromotionProvider,
@@ -43,6 +44,7 @@ import {
 } from '@/components/promotions'
 import {
   PromoCarousel,
+  PromoShowcase,
   PromoInbox,
   PromoPill,
   PromoProgress,
@@ -296,6 +298,41 @@ function relativeOffset(hours: number, locale: string) {
     : format.format(Math.round(hours / 24), 'day')
 }
 
+/**
+ * The site's features: the first leads with its picture, the others stack
+ * beside it, so the section has a focal point instead of equal tiles.
+ */
+function FeatureGrid({ features }: { features: Scenario['tiles'] }) {
+  const [lead, ...rest] = features
+  if (!lead) return null
+  return (
+    <section className="grid gap-4 @xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+      <article className="bg-muted/40 flex flex-col overflow-hidden rounded-xl">
+        {lead.media ? <PromoMedia media={lead.media} aspect="16 / 10" /> : null}
+        <div className="flex flex-col gap-1 p-5">
+          <h3 className="font-medium">{lead.title}</h3>
+          <p className="text-muted-foreground text-sm text-pretty">
+            {lead.body}
+          </p>
+        </div>
+      </article>
+      <div className="divide-border/60 flex flex-col divide-y">
+        {rest.map((feature) => (
+          <article
+            key={feature.title}
+            className="flex flex-col gap-1 py-5 first:pt-0 @xl:first:pt-5"
+          >
+            <h3 className="font-medium">{feature.title}</h3>
+            <p className="text-muted-foreground text-sm text-pretty">
+              {feature.body}
+            </p>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 /** The fictional site inside the preview frame, with every surface placed where a real site would put it. */
 function MockSite({
   scenario,
@@ -381,60 +418,67 @@ function MockSite({
           </nav>
         )}
       </header>
-      {/* A centred column, like a real site: the side card docks only where the margin is wide enough. */}
+      {/*
+        A centred column, like a real site: the side card docks only where
+        the margin is wide enough. Layout follows the frame's width through
+        container queries, so the phone and laptop frames lay out for real.
+      */}
       <main
         ref={content}
-        className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-5 sm:p-8"
+        className="@container mx-auto flex w-full max-w-3xl flex-col gap-12 px-5 pt-8 pb-4 sm:px-8 sm:pt-12"
       >
-        <div className="flex flex-col items-start gap-4">
-          <PromoPill slot="announcement" />
-          <h2
-            className={cn(
-              'max-w-xl font-medium tracking-tight text-balance',
-              phone ? 'text-2xl' : 'text-3xl',
-            )}
-          >
-            {page.heading}
-          </h2>
-          <p className="text-muted-foreground max-w-lg text-sm">{page.lede}</p>
-          {story || hasSpotlight || upgradeOffer ? (
-            <div className="flex flex-wrap gap-2">
-              {upgradeOffer ? (
-                <Button
-                  size="sm"
-                  // The offer gets one chance at the moment of intent; after
-                  // that, Upgrade simply goes to checkout.
-                  onClick={() => {
-                    if (!trigger('upgrade-intent')) navigate('/checkout')
-                  }}
-                >
-                  Upgrade to Team
-                </Button>
-              ) : null}
-              {hasSpotlight ? (
-                <Button ref={share} size="sm" variant="outline">
-                  Share workspace
-                </Button>
-              ) : null}
-              {story ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => openPromotion(story.id)}
-                >
-                  See what’s new
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-          <PromoSpotlight name="share" anchor={share} container={frame} />
-        </div>
-        <PromoCarousel
-          slot="hero"
-          dismissible
-          label="Offers"
-          className="max-w-2xl"
-        />
+        <section className="grid items-center gap-8 @2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+          <div className="flex flex-col items-start gap-4">
+            <PromoPill slot="announcement" />
+            <h2 className="text-3xl leading-[1.1] font-medium tracking-tight text-balance @2xl:text-4xl">
+              {page.heading}
+            </h2>
+            <p className="text-muted-foreground max-w-md text-pretty">
+              {page.lede}
+            </p>
+            {story || hasSpotlight || upgradeOffer ? (
+              <div className="flex flex-wrap gap-2">
+                {upgradeOffer ? (
+                  <Button
+                    size="sm"
+                    // The offer gets one chance at the moment of intent; after
+                    // that, Upgrade simply goes to checkout.
+                    onClick={() => {
+                      if (!trigger('upgrade-intent')) navigate('/checkout')
+                    }}
+                  >
+                    Upgrade to Team
+                  </Button>
+                ) : null}
+                {hasSpotlight ? (
+                  <Button ref={share} size="sm" variant="outline">
+                    Share workspace
+                  </Button>
+                ) : null}
+                {story ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => openPromotion(story.id)}
+                  >
+                    See what’s new
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            <PromoSpotlight name="share" anchor={share} container={frame} />
+          </div>
+          <PromoMedia
+            media={scenario.hero}
+            eager
+            aspect="16 / 10"
+            className="rounded-xl shadow-2xl ring-1 shadow-black/20 ring-black/5 dark:ring-white/10"
+          />
+        </section>
+
+        <PromoCarousel slot="hero" dismissible label="Offers" />
+
+        <PromoShowcase slot="showcase" label="What’s new" />
 
         {page.kind === 'cart' ? (
           <div className="border-border/60 flex max-w-md flex-col gap-4 rounded-xl border p-4">
@@ -496,20 +540,23 @@ function MockSite({
           </div>
         ) : null}
 
-        <div className={cn('grid gap-3', !phone && 'grid-cols-3')}>
-          {scenario.tiles.map((tile) => (
-            <div
-              key={tile.title}
-              className="border-border/60 rounded-xl border p-4"
-            >
-              <p className="font-medium">{tile.title}</p>
-              <p className="text-muted-foreground mt-1 text-sm">{tile.body}</p>
-            </div>
-          ))}
-        </div>
-        <div className="bg-muted/40 h-72 rounded-xl" aria-hidden />
-        <div className="bg-muted/40 h-72 rounded-xl" aria-hidden />
+        <FeatureGrid features={scenario.tiles} />
       </main>
+      <footer className="border-border/60 text-muted-foreground mt-12 flex flex-wrap items-center justify-between gap-3 border-t px-5 py-6 text-xs sm:px-8">
+        <span className="text-foreground font-medium">{scenario.brand}</span>
+        <span className="flex gap-4">
+          {scenario.nav.map((item) => (
+            <button
+              key={item.href}
+              type="button"
+              onClick={() => navigate(item.href)}
+              className="hover:text-foreground transition-colors duration-150"
+            >
+              {item.label}
+            </button>
+          ))}
+        </span>
+      </footer>
       {page.kind === 'product' ? (
         <PromoStickyCta
           slot="sticky"
@@ -911,6 +958,8 @@ export function PromotionsDemo() {
             tabIndex={theatre ? -1 : undefined}
             role={theatre ? 'dialog' : undefined}
             aria-modal={theatre || undefined}
+            // The preview hosts the site, so its own toasts may still arrive.
+            data-promo-host={theatre ? '' : undefined}
             aria-label={
               theatre ? `${scenario.brand} full-window preview` : undefined
             }
@@ -1207,6 +1256,7 @@ export function PromotionsDemo() {
               { value: 'hero', label: 'Hero card' },
               { value: 'announcement', label: 'Announcement pill' },
               { value: 'sticky', label: 'Sticky CTA' },
+              { value: 'showcase', label: 'Showcase chapter' },
             ]}
             others={records}
             segments={MEMBER}

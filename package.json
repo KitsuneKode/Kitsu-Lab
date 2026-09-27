@@ -11,6 +11,7 @@
     "format:check": "oxfmt --check",
     "lint": "oxlint",
     "test": "bun test components/book-preview components/book-preview-demo",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "registry:build": "npx -y shadcn@4.21.0 build",
     "registry:check": "npx -y shadcn@4.21.0 build && git diff --exit-code --stat public/r registry.json",
@@ -36,6 +37,7 @@
     "three": "^0.186.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "19.3.0",

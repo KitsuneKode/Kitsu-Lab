@@ -207,6 +207,11 @@ export type BookPreviewProps = {
   sound?: boolean
   onSoundChange?: (sound: boolean) => void
   prefetchModes?: BookPreviewMode[]
+  /** Two-page views show the first page alone, the way a book's cover sits
+      on its own, then pair (2|3), (4|5)…. `'auto'` (default) does so when
+      the first page is marked `isCover`; PDFs and other documents pair
+      (1|2), (3|4)… from the first page. Readers can override it in "Aa". */
+  spreadCover?: boolean | 'auto'
   /** Starting "Aa" settings (type size, face, spacing, measure). Remembered
       across visits with `persistPreferences`. */
   defaultTypography?: Partial<BookPreviewTypography>

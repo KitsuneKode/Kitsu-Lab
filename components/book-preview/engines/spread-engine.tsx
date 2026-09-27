@@ -323,8 +323,13 @@ export default function SpreadEngine({
   const stageRef = useRef<HTMLDivElement | null>(null)
   const finePointer = useFinePointer()
   const pages = source.pages
-  const evenIndex = pageIndex - (pageIndex % 2)
-  const left = pages[evenIndex]
+  const { setPageStep, pageLayout } = useBookPreview()
+  const cover = pageLayout.cover
+  // Documents pair (1|2), (3|4)…; a book's cover stands alone on the right
+  // (its left slot is -1), then (2|3), (4|5)….
+  const offset = cover ? 1 : 0
+  const evenIndex = pageIndex - ((Math.max(0, pageIndex) + offset) % 2)
+  const left = evenIndex >= 0 ? pages[evenIndex] : undefined
   const right = pages[evenIndex + 1]
   const reportReady = useStableHandler(onReady)
   const reportError = useStableHandler(onError)
@@ -371,20 +376,35 @@ export default function SpreadEngine({
 
   // Two pages on screen turn two at a time — a one-page step would land on
   // the facing page, already visible, and every other swipe would look dead.
-  const stride = viewMode === 'spread' ? 2 : 1
-  const from = viewMode === 'spread' ? evenIndex : pageIndex
-  const prevTarget = from - stride >= 0 ? from - stride : null
-  const nextTarget = from + stride < pages.length ? from + stride : null
-  const { setPageStep } = useBookPreview()
+  const spreadTarget = (at: number, direction: 1 | -1, count: number) => {
+    const start = at - ((Math.max(0, at) + offset) % 2)
+    const target = start + direction * 2
+    if (target < -offset || target > count - 1) return null
+    return Math.max(0, target)
+  }
+  const prevTarget =
+    viewMode === 'spread'
+      ? spreadTarget(pageIndex, -1, pages.length)
+      : pageIndex > 0
+        ? pageIndex - 1
+        : null
+  const nextTarget =
+    viewMode === 'spread'
+      ? spreadTarget(pageIndex, 1, pages.length)
+      : pageIndex < pages.length - 1
+        ? pageIndex + 1
+        : null
   useEffect(() => {
     if (viewMode !== 'spread') return
     const count = pages.length
     setPageStep((at, direction) => {
-      const target = at - (at % 2) + direction * 2
-      return target >= 0 && target < count ? target : null
+      const start = at - ((Math.max(0, at) + offset) % 2)
+      const target = start + direction * 2
+      if (target < -offset || target > count - 1) return null
+      return Math.max(0, target)
     })
     return () => setPageStep(null)
-  }, [pages.length, setPageStep, viewMode])
+  }, [offset, pages.length, setPageStep, viewMode])
 
   const { surfaceRef } = usePageGesture({
     enabled: viewMode !== 'thumbs',

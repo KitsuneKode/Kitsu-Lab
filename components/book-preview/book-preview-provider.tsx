@@ -1,8 +1,14 @@
 'use client'
 
+import type { BookPreviewSpreads } from './prefs'
 import {
   createContext,
+  useCallback,
   useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
   type ReactNode,
   type RefObject,
 } from 'react'
@@ -42,6 +48,15 @@ export type BookPreviewPageStep = (
   from: number,
   direction: 1 | -1,
 ) => number | null
+
+/** Offered once when a document opens: after a silent resume ("picked up
+    where you left off — start over?") or when a shared link opened away
+    from the reader's own place ("you were on page M — go there?"). */
+export type BookPreviewResumeNotice = {
+  kind: 'resumed' | 'yours'
+  pageIndex: number
+  source: string
+}
 
 export type BookPreviewCompanionTab = 'notes' | 'ask'
 
@@ -96,6 +111,17 @@ export type BookPreviewContextValue = {
     toggle: () => void
     togglePinned: () => void
   }
+  /** How two-page views lay out: spreads by screen shape / never / always
+      (the reader's choice, remembered), and whether the first page stands
+      alone as a cover. */
+  pageLayout: { spreads: BookPreviewSpreads; cover: boolean }
+  setSpreads: (spreads: BookPreviewSpreads) => void
+  setCover: (cover: boolean) => void
+  resume: BookPreviewResumeNotice | null
+  dismissResume: () => void
+  /** Estimated minutes to the end at this reader's own pace; null until a
+      few page turns have taught it. */
+  minutesLeft: number | null
   /** The keyboard-shortcut sheet (`?`), with the engine shortcuts that
       exist at the moment it opened. */
   shortcutsOpen: boolean
@@ -150,6 +176,33 @@ export type BookPreviewDrawState = {
 
 const BookPreviewContext = createContext<BookPreviewContextValue | null>(null)
 
+type BookPreviewStore = {
+  get: () => BookPreviewContextValue
+  set: (value: BookPreviewContextValue) => void
+  subscribe: (listener: () => void) => () => void
+}
+
+function createBookPreviewStore(
+  initial: BookPreviewContextValue,
+): BookPreviewStore {
+  let current = initial
+  const listeners = new Set<() => void>()
+  return {
+    get: () => current,
+    set: (value) => {
+      if (value === current) return
+      current = value
+      for (const listener of listeners) listener()
+    },
+    subscribe: (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+}
+
+const BookPreviewStoreContext = createContext<BookPreviewStore | null>(null)
+
 export function BookPreviewProvider({
   value,
   children,
@@ -157,17 +210,73 @@ export function BookPreviewProvider({
   value: BookPreviewContextValue
   children: ReactNode
 }) {
+  const [store] = useState(() => createBookPreviewStore(value))
+  // Published before paint, so selector consumers never show a stale frame.
+  useLayoutEffect(() => {
+    store.set(value)
+  }, [store, value])
   return (
-    <BookPreviewContext.Provider value={value}>
-      {children}
-    </BookPreviewContext.Provider>
+    <BookPreviewStoreContext.Provider value={store}>
+      <BookPreviewContext.Provider value={value}>
+        {children}
+      </BookPreviewContext.Provider>
+    </BookPreviewStoreContext.Provider>
   )
 }
 
+/** The whole reader context. Re-renders on every change — a page turn
+    included; prefer `useBookPreviewSelector` in anything heavy. */
 export function useBookPreview(): BookPreviewContextValue {
   const value = useContext(BookPreviewContext)
   if (!value) {
     throw new Error('useBookPreview must be used within BookPreview')
   }
   return value
+}
+
+function shallowEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+  if (
+    typeof a !== 'object' ||
+    typeof b !== 'object' ||
+    a === null ||
+    b === null
+  ) {
+    return false
+  }
+  const keysA = Object.keys(a)
+  if (keysA.length !== Object.keys(b).length) return false
+  return keysA.every((key) =>
+    Object.is(
+      (a as Record<string, unknown>)[key],
+      (b as Record<string, unknown>)[key],
+    ),
+  )
+}
+
+/**
+ * A slice of the reader context that re-renders only when that slice
+ * changes (compared shallowly). A notebook panel that picks
+ * `{ annotations, companion }` stays put while the reader turns pages.
+ */
+export function useBookPreviewSelector<T>(
+  select: (value: BookPreviewContextValue) => T,
+): T {
+  const store = useContext(BookPreviewStoreContext)
+  if (!store) {
+    throw new Error('useBookPreviewSelector must be used within BookPreview')
+  }
+  const selectRef = useRef(select)
+  const lastRef = useRef<{ value: T } | null>(null)
+  useLayoutEffect(() => {
+    selectRef.current = select
+  })
+  const getSnapshot = useCallback(() => {
+    const next = selectRef.current(store.get())
+    const last = lastRef.current
+    if (last && shallowEqual(last.value, next)) return last.value
+    lastRef.current = { value: next }
+    return next
+  }, [store])
+  return useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot)
 }

@@ -49,7 +49,12 @@ export function buildPremierFaces(input: {
           className="h-full w-full object-contain"
         />
       ) : (
-        <div className="bg-muted/40 h-full w-full animate-pulse" aria-hidden />
+        // Paper-coloured placeholder: a pending PDF page is still a white
+        // page, so its arrival never flashes dark → white.
+        <div
+          className="h-full w-full animate-pulse bg-neutral-100"
+          aria-hidden
+        />
       ),
     }))
   }
@@ -63,7 +68,8 @@ export function buildPremierFaces(input: {
       <BookPreviewPageView
         page={page}
         appearance={appearance}
-        isLeftPage={index % 2 === 1}
+        // Spreads pair (1|2), (3|4)…: the even index is the left-hand page.
+        isLeftPage={index % 2 === 0}
       />
     ),
   }))

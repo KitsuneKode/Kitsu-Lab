@@ -163,8 +163,9 @@ function BookPreviewTextPage({
   return (
     <article
       ref={ref}
+      data-bp-prose
       className={cn(
-        'relative flex h-full w-full flex-col justify-between overflow-hidden p-6 font-serif transition-colors duration-200 sm:p-8',
+        'relative flex h-full w-full flex-col justify-between overflow-hidden p-6 transition-colors duration-200 sm:p-8',
         theme.bg,
         theme.text,
         className,
@@ -181,6 +182,7 @@ function BookPreviewTextPage({
         }}
       />
       <header
+        data-bp-annotate-skip
         className={cn(
           'flex items-center justify-between border-b pb-2 text-[11px] tracking-wider uppercase',
           theme.border,
@@ -226,6 +228,7 @@ function BookPreviewTextPage({
         ) : null}
       </div>
       <footer
+        data-bp-annotate-skip
         className={cn(
           'text-center font-mono text-[10px] tracking-widest',
           theme.muted,

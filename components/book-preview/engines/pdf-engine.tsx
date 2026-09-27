@@ -1170,9 +1170,15 @@ export default function PdfEngine({
   )
 
   return (
-    <div className="flex h-full w-full flex-col gap-3 p-4">
+    <div
+      data-book-preview-engine-frame
+      className="flex h-full w-full flex-col gap-3 p-4"
+    >
       {chromeHost ? createPortal(controls, chromeHost) : controls}
-      <div className="bg-muted/30 flex min-h-0 flex-1 overflow-hidden rounded-lg border">
+      <div
+        data-book-preview-engine-stage
+        className="bg-muted/30 flex min-h-0 flex-1 overflow-hidden rounded-lg border"
+      >
         {narrow ? (
           <PdfThumbSheet
             doc={pdf}
@@ -1251,6 +1257,9 @@ export default function PdfEngine({
             <div
               ref={stageInnerRef}
               data-book-preview-pdf-stage
+              data-bp-inkable
+              data-bp-ink-paper="light"
+              data-page-index={pageIndex}
               {...arrival}
               className={
                 grabMode
@@ -1275,6 +1284,8 @@ export default function PdfEngine({
                 ref={textLayerRef}
                 className="textLayer"
                 data-book-preview-text-layer
+                data-bp-annotatable
+                data-page-index={pageIndex}
               />
               {links && links.key === linkKey && links.items.length > 0 ? (
                 <div

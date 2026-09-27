@@ -2,6 +2,68 @@
 
 import type { BookPreviewContentsEntry } from './types'
 
+/**
+ * Whether this browser runs pdf.js's modern build. That build calls
+ * JavaScript APIs only the newest engines ship (Map#getOrInsertComputed,
+ * Promise.try, Math.sumPrecise, Uint8Array.fromBase64); without them every
+ * page renders blank — in older Safari/iPadOS, Firefox and Chromium alike.
+ * Pure (takes the globals) so bun can test it.
+ */
+export function pdfjsNeedsLegacyBuild(
+  globals: {
+    Map?: unknown
+    WeakMap?: unknown
+    Promise?: unknown
+    Math?: unknown
+    Uint8Array?: unknown
+  } = globalThis as never,
+): boolean {
+  const has = (owner: unknown, key: string) =>
+    typeof (owner as Record<string, unknown> | undefined)?.[key] === 'function'
+  const proto = (ctor: unknown) =>
+    (ctor as { prototype?: unknown } | undefined)?.prototype
+  return !(
+    has(proto(globals.Map), 'getOrInsertComputed') &&
+    has(proto(globals.WeakMap), 'getOrInsertComputed') &&
+    has(globals.Promise, 'try') &&
+    has(globals.Math, 'sumPrecise') &&
+    has(globals.Uint8Array, 'fromBase64')
+  )
+}
+
+type PdfjsModule = typeof import('pdfjs-dist')
+let pdfjsPromise: Promise<PdfjsModule> | null = null
+
+/** pdf.js, in the build this browser can run, with its matching worker. The
+    legacy build carries the polyfills; newest browsers skip its weight. */
+function loadPdfjs(): Promise<PdfjsModule> {
+  pdfjsPromise ??= (async () => {
+    const legacy = pdfjsNeedsLegacyBuild()
+    const pdfjs: PdfjsModule = legacy
+      ? ((await import('pdfjs-dist/legacy/build/pdf.mjs')) as PdfjsModule)
+      : await import('pdfjs-dist')
+    if (
+      !pdfjs.GlobalWorkerOptions.workerSrc &&
+      !pdfjs.GlobalWorkerOptions.workerPort
+    ) {
+      pdfjs.GlobalWorkerOptions.workerSrc = legacy
+        ? new URL(
+            'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
+            import.meta.url,
+          ).toString()
+        : new URL(
+            'pdfjs-dist/build/pdf.worker.min.mjs',
+            import.meta.url,
+          ).toString()
+    }
+    return pdfjs
+  })()
+  pdfjsPromise.catch(() => {
+    pdfjsPromise = null
+  })
+  return pdfjsPromise
+}
+
 export type PdfTextItem = { str?: string }
 export type PdfTextContent = { items: PdfTextItem[] }
 
@@ -83,16 +145,7 @@ export async function loadPdfDocument(
     timeoutMs?: number
   },
 ): Promise<PdfLoadResult> {
-  const pdfjs = await import('pdfjs-dist')
-  if (
-    !pdfjs.GlobalWorkerOptions.workerSrc &&
-    !pdfjs.GlobalWorkerOptions.workerPort
-  ) {
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.min.mjs',
-      import.meta.url,
-    ).toString()
-  }
+  const pdfjs = await loadPdfjs()
   const source = typeof src === 'string' ? { url: src } : src
   const task = pdfjs.getDocument(source) as unknown as PdfLoadingTask
   options?.onTask?.(task)
@@ -218,7 +271,7 @@ export async function renderPdfTextLayer(input: {
   if (typeof input.page.getTextContent !== 'function') {
     return { cancel: () => {} }
   }
-  const pdfjs = await import('pdfjs-dist')
+  const pdfjs = await loadPdfjs()
   const viewport = input.page.getViewport({
     scale: input.scale,
     rotation: input.rotation,

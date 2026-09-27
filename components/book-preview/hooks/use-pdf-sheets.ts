@@ -47,15 +47,14 @@ type UsePdfSheetsOptions = {
    * Bound live rasters to +/- this many pages around the reading position.
    * Pages that fall outside are revoked and re-render on return, so a long
    * document holds ~2*windowRadius+1 decoded bitmaps instead of all of them.
-   * Omit for engines that must keep every sheet painted (the curl flip book
-   * owns all leaves at once).
+   * Omit only for an engine that must keep every sheet painted.
    */
   windowRadius?: number
   /**
    * Fail with `maxPagesMessage` when the document exceeds this page count.
-   * For engines that hold every raster at once, a page-flip of a 400-page
-   * file is a hang, not a feature — they should point the reader at a
-   * bounded mode instead of starting work.
+   * For an engine that holds every raster at once, a 400-page file is a
+   * hang, not a feature — it should point the reader at a bounded mode
+   * instead of starting work.
    */
   maxPages?: number
   maxPagesMessage?: string
@@ -87,9 +86,8 @@ type UsePdfSheetsResult = {
  *
  * Every sheet is mounted up front with an empty src so the reader knows the
  * page count immediately and stays usable while pages fill in behind it.
- * Rasters are object URLs, released together when the document is torn down --
- * they cannot be released per sheet, because the curl engine clones the <img>
- * nodes into a flip book that React does not own.
+ * Rasters are object URLs; with `windowRadius` they are released as pages leave
+ * the window, and the rest together when the document is torn down.
  */
 export function usePdfSheets({
   pdfUrl,
@@ -225,8 +223,11 @@ export function usePdfSheets({
               }
             : current,
         )
-      } catch {
+      } catch (error) {
         if (cancelled) return
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(`book-preview: page ${pageNumber} raster failed`, error)
+        }
         const count = (failures.get(pageNumber) ?? 0) + 1
         failures.set(pageNumber, count)
         if (count < MAX_PAGE_FAILURES) {

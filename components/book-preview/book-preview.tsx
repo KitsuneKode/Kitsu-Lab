@@ -10,13 +10,36 @@ import { BookPreviewToolbar } from './book-preview-toolbar'
 import { BookPreviewViewport } from './book-preview-viewport'
 import { BookPreviewNavigation } from './book-preview-navigation'
 import { readBookPreviewPrefs, writeBookPreviewPrefs } from './prefs'
+import {
+  parsePageParam,
+  pickAllowed,
+  readUrlParam,
+  resolveUrlKeys,
+  writeUrlParams,
+} from './url-state'
 import { createInitialState, type BookPreviewAction } from './reducer'
 import { isInteractiveTarget, isReaderKeyboardEvent } from './keyboard'
 import { BookPreviewEngineBoundary } from './book-preview-engine-boundary'
+import { useImmersiveChrome } from './hooks/use-immersive-chrome'
+import { engineSupportNote } from './support'
+import { BookPreviewChromeHandle } from './book-preview-chrome-controls'
+import { useAnnotations } from './hooks/use-annotations'
+import { toggleBookmark } from './annotations'
+import { BookPreviewCompanion } from './book-preview-companion'
+import { BookPreviewBookmarkRibbon } from './book-preview-bookmark-ribbon'
+import { BookPreviewAnnotationLayer } from './book-preview-annotation-layer'
+import { BookPreviewInkLayer } from './book-preview-ink-layer'
+import { shareOrCopy } from './share'
+import {
+  DEFAULT_TYPOGRAPHY,
+  typographyVariables,
+  type BookPreviewTypography,
+} from './typography'
 import {
   clampPageIndex,
   isEmptySource,
   normalizeSource,
+  pageSearchText,
   sourceIdentity,
 } from './normalize'
 import {
@@ -27,8 +50,12 @@ import {
 } from './media'
 import {
   BookPreviewProvider,
+  type BookPreviewAskSeed,
+  type BookPreviewCompanionTab,
   type BookPreviewContextValue,
+  type BookPreviewDrawState,
   type BookPreviewEngineShortcuts,
+  type BookPreviewPageStep,
 } from './book-preview-provider'
 import {
   describeEngineLoadFailure,
@@ -37,6 +64,7 @@ import {
   resolveEnabledEngines,
   shouldPrefetchEngines,
 } from './engines'
+import { BOOK_PREVIEW_APPEARANCES } from './types'
 import type {
   BookPreviewAppearance,
   BookPreviewEngine,
@@ -52,6 +80,7 @@ import type {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -66,6 +95,8 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react'
+
+const noopSubscribe = () => () => {}
 
 function pickControlled<T>(controlled: T | undefined, fallback: T): T {
   return controlled !== undefined ? controlled : fallback
@@ -98,7 +129,6 @@ function BookPreviewActiveEngine({
   ...engineProps
 }: BookPreviewActiveEngineProps) {
   if (!loadedEngine || loadedEngine.id !== activeEngineId) return null
-  const EngineComponent = loadedEngine.Component
   return (
     // The key carries the engine epoch: a retry must remount the engine so a
     // dead document load (parse failure, cancelled password prompt) actually
@@ -109,14 +139,72 @@ function BookPreviewActiveEngine({
       resetKey={resetKey}
       onError={onError}
     >
-      <EngineComponent {...engineProps} onError={onError} />
+      <LiveEngine
+        Component={loadedEngine.Component}
+        engineProps={engineProps}
+        onError={onError}
+      />
     </BookPreviewEngineBoundary>
   )
 }
 
+/** One engine instance per reset key. Reports from an instance that has
+    already been replaced (a slow PDF parse finishing after the reader moved
+    on) are dropped, so a stale "ready" can never mark the new engine done. */
+function LiveEngine({
+  Component,
+  engineProps,
+  onError,
+}: {
+  Component: ComponentType<BookPreviewEngineProps>
+  engineProps: Omit<BookPreviewEngineProps, 'onError'>
+  onError: BookPreviewEngineProps['onError']
+}) {
+  const liveRef = useRef(true)
+  useEffect(() => {
+    liveRef.current = true
+    return () => {
+      liveRef.current = false
+    }
+  }, [])
+  const { onReady, onPageChange } = engineProps
+  const guardedReady = useCallback<BookPreviewEngineProps['onReady']>(
+    (info) => {
+      if (liveRef.current) onReady(info)
+    },
+    [onReady],
+  )
+  const guardedError = useCallback<BookPreviewEngineProps['onError']>(
+    (error) => {
+      if (liveRef.current) onError(error)
+    },
+    [onError],
+  )
+  const guardedPage = useCallback<BookPreviewEngineProps['onPageChange']>(
+    (index, behavior) => {
+      if (liveRef.current) onPageChange(index, behavior)
+    },
+    [onPageChange],
+  )
+  return (
+    <Component
+      {...engineProps}
+      onReady={guardedReady}
+      onError={guardedError}
+      onPageChange={guardedPage}
+    />
+  )
+}
+
+// Native fullscreen is requested on the document, not the reader: popups
+// (menus, sheets, tooltips) portal to <body>, and only the fullscreen
+// element's subtree is painted — fullscreening the reader itself would make
+// every one of them invisible. The reader then covers the screen with its
+// own immersive layout, the same one the CSS fallback uses on iOS.
 function useFullscreen(rootRef: RefObject<HTMLDivElement | null>) {
   const [nativeFullscreen, setNativeFullscreen] = useState(false)
   const [cssImmersive, setCssImmersive] = useState(false)
+  const ownsFullscreenRef = useRef(false)
 
   const toggleFullscreen = useCallback(() => {
     const node = rootRef.current
@@ -129,42 +217,66 @@ function useFullscreen(rootRef: RefObject<HTMLDivElement | null>) {
       setCssImmersive(false)
       return
     }
+    const target = document.documentElement
     if (
-      typeof node.requestFullscreen === 'function' &&
+      typeof target.requestFullscreen === 'function' &&
       document.fullscreenEnabled
     ) {
-      void node.requestFullscreen().catch(() => setCssImmersive(true))
+      ownsFullscreenRef.current = true
+      void target.requestFullscreen().catch(() => {
+        ownsFullscreenRef.current = false
+        setCssImmersive(true)
+      })
       return
     }
     setCssImmersive(true)
   }, [cssImmersive, rootRef])
 
   useEffect(() => {
-    const onChange = () =>
-      setNativeFullscreen(
-        Boolean(document.fullscreenElement === rootRef.current),
-      )
+    const onChange = () => {
+      const active =
+        ownsFullscreenRef.current &&
+        document.fullscreenElement === document.documentElement
+      if (!document.fullscreenElement) ownsFullscreenRef.current = false
+      setNativeFullscreen(active)
+    }
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
-  }, [rootRef])
+  }, [])
 
+  // Leaving the page (or unmounting the reader) while it owns fullscreen
+  // hands the screen back.
+  useEffect(
+    () => () => {
+      if (ownsFullscreenRef.current && document.fullscreenElement) {
+        void document.exitFullscreen?.().catch(() => {})
+      }
+    },
+    [],
+  )
+
+  const immersive = nativeFullscreen || cssImmersive
   useEffect(() => {
-    if (!cssImmersive) return
+    if (!immersive) return
     const root = document.documentElement
     const previous = root.style.overflow
     root.style.overflow = 'hidden'
+    root.setAttribute('data-book-preview-immersive', '')
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') setCssImmersive(false)
+      if (event.key === 'Escape' && !document.fullscreenElement) {
+        setCssImmersive(false)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => {
       root.style.overflow = previous
+      root.removeAttribute('data-book-preview-immersive')
       window.removeEventListener('keydown', onKey)
     }
-  }, [cssImmersive])
+  }, [immersive])
 
   return {
-    fullscreen: nativeFullscreen || cssImmersive,
+    fullscreen: immersive,
     cssImmersive,
     setCssImmersive,
     toggleFullscreen,
@@ -192,11 +304,17 @@ function useEngineLoader({
   const [loadedEngine, setLoadedEngine] = useState<LoadedEngine>(null)
   const loadedRef = useRef<BookPreviewMode | null>(null)
   const normalizedRef = useRef(normalized)
-  useEffect(() => {
+  useLayoutEffect(() => {
     normalizedRef.current = normalized
   })
 
-  useEffect(() => {
+  // A layout effect, not a passive one: an already-loaded engine remounts
+  // for a new source in the same commit and reports "ready" from its own
+  // passive effect. Children's passive effects run before the parent's, so
+  // a passive "loading" here would land after that ready and strand the
+  // reader on "Loading reader…" (StrictMode's double-invoke hid it in dev).
+  // Layout effects all run before any passive effect.
+  useLayoutEffect(() => {
     const currentSource = normalizedRef.current
     if (isEmptySource(currentSource)) {
       dispatch({ type: 'empty' })
@@ -210,9 +328,11 @@ function useEngineLoader({
       return
     }
     if (activeEngine.isSupported && !activeEngine.isSupported()) {
+      const note = engineSupportNote(activeEngine.id, false)
       dispatch({
         type: 'engine-unsupported',
-        message: `${activeEngine.label} is not supported in this browser.`,
+        message:
+          `${activeEngine.label}: ${note?.reason ?? 'not supported in this browser.'} ${note?.suggestion ?? ''}`.trim(),
       })
       return
     }
@@ -260,6 +380,7 @@ function useEngineLoader({
 
 function usePersistedPageIndex({
   sourceKey,
+  storageKey,
   persistPage,
   pageParam,
   pageControlled,
@@ -272,6 +393,8 @@ function usePersistedPageIndex({
   dispatch,
 }: {
   sourceKey: string
+  /** Stable identity for localStorage (differs from sourceKey for uploads). */
+  storageKey: string
   persistPage: boolean
   pageParam: string | undefined
   pageControlled: boolean
@@ -285,13 +408,15 @@ function usePersistedPageIndex({
 }) {
   const sourceReady = useRef(false)
   const resetPageRef = useRef({ pageControlled, pageIndex, defaultPageIndex })
-  useEffect(() => {
+  useLayoutEffect(() => {
     resetPageRef.current = { pageControlled, pageIndex, defaultPageIndex }
   })
 
   // Reset only when the source itself changes. Page props live in a ref so a
   // controlled consumer's pageIndex updates do not trigger a source reset.
-  useEffect(() => {
+  // Layout effect for the same reason as the engine loader: it must land
+  // before the remounted engine's passive "ready", never after it.
+  useLayoutEffect(() => {
     if (!sourceReady.current) {
       sourceReady.current = true
       return
@@ -306,7 +431,7 @@ function usePersistedPageIndex({
   }, [sourceKey, dispatch])
 
   const restoredKeyRef = useRef<string | null>(null)
-  const persistKey = `book-preview:page:${sourceKey}`
+  const persistKey = `book-preview:page:${storageKey}`
 
   // Restore the position once the source reports ready. A deep-linked
   // ?page=N wins over the remembered position — a shared link should land on
@@ -325,12 +450,9 @@ function usePersistedPageIndex({
       return
     restoredKeyRef.current = sourceKey
     try {
-      let target: number | null = null
-      if (pageParam) {
-        const raw = new URLSearchParams(window.location.search).get(pageParam)
-        const parsed = raw === null ? Number.NaN : Number.parseInt(raw, 10)
-        if (parsed > 0) target = parsed - 1
-      }
+      let target: number | null = pageParam
+        ? parsePageParam(readUrlParam(pageParam))
+        : null
       if (target === null && persistPage) {
         const raw = window.localStorage.getItem(persistKey)
         const stored = raw === null ? Number.NaN : Number.parseInt(raw, 10)
@@ -372,15 +494,7 @@ function usePersistedPageIndex({
   // turning pages must never spam the back stack.
   useEffect(() => {
     if (!pageParam || status !== 'ready' || totalPages === 0) return
-    try {
-      const url = new URL(window.location.href)
-      const next = String(activePage + 1)
-      if (url.searchParams.get(pageParam) === next) return
-      url.searchParams.set(pageParam, next)
-      window.history.replaceState(null, '', url)
-    } catch {
-      // history may be unavailable (sandboxed iframe).
-    }
+    writeUrlParams({ [pageParam]: String(activePage + 1) })
   }, [pageParam, status, totalPages, activePage])
 }
 
@@ -421,6 +535,117 @@ function usePersistedPreferences({
   }, [enabled, activeAppearance, activeMode])
 }
 
+// Mode and paper live in the query string when the host opts in, so a shared
+// link or a refresh opens the reader exactly as it was left. The URL wins over
+// remembered preferences (it is the more specific intent) and is applied
+// through the public actions, so controlled hosts hear about it too.
+function useUrlReaderState({
+  modeKey,
+  appearanceKey,
+  activeMode,
+  activeAppearance,
+  enabledModes,
+  setMode,
+  setAppearance,
+}: {
+  modeKey: string | undefined
+  appearanceKey: string | undefined
+  activeMode: BookPreviewMode
+  activeAppearance: BookPreviewAppearance
+  enabledModes: readonly BookPreviewMode[]
+  setMode: (mode: BookPreviewMode) => void
+  setAppearance: (appearance: BookPreviewAppearance) => void
+}) {
+  const hydratedRef = useRef(false)
+  // Values read from the URL that have not landed in state yet — the write
+  // effect holds off until they do, or it would clobber the link it just read.
+  const pendingRef = useRef<{
+    mode?: BookPreviewMode
+    appearance?: BookPreviewAppearance
+  }>({})
+
+  useEffect(() => {
+    if (hydratedRef.current) return
+    hydratedRef.current = true
+    const mode = pickAllowed(readUrlParam(modeKey), enabledModes)
+    const appearance = pickAllowed(
+      readUrlParam(appearanceKey),
+      BOOK_PREVIEW_APPEARANCES,
+    )
+    // Applied even when it matches the current value: the remembered
+    // preference was dispatched by an earlier effect this same commit, so the
+    // value seen here is stale — and the link must win over the preference.
+    if (mode) {
+      pendingRef.current.mode = mode
+      setMode(mode)
+    }
+    if (appearance) {
+      pendingRef.current.appearance = appearance
+      setAppearance(appearance)
+    }
+  }, [
+    activeAppearance,
+    activeMode,
+    appearanceKey,
+    enabledModes,
+    modeKey,
+    setAppearance,
+    setMode,
+  ])
+
+  useEffect(() => {
+    const pending = pendingRef.current
+    if (pending.mode && pending.mode !== activeMode) return
+    if (pending.appearance && pending.appearance !== activeAppearance) return
+    pendingRef.current = {}
+    writeUrlParams({
+      ...(modeKey ? { [modeKey]: activeMode } : {}),
+      ...(appearanceKey ? { [appearanceKey]: activeAppearance } : {}),
+    })
+  }, [activeAppearance, activeMode, appearanceKey, modeKey])
+}
+
+// Reading typography is the reader's own taste, like appearance: remembered
+// globally when preferences persist, applied as CSS variables on the root so
+// every text surface (page leaves, the premier text view) picks it up without
+// prop drilling or re-rendering engines.
+function useTypography({
+  persist,
+  defaultTypography,
+  onTypographyChange,
+}: {
+  persist: boolean
+  defaultTypography: Partial<BookPreviewTypography> | undefined
+  onTypographyChange: BookPreviewProps['onTypographyChange']
+}) {
+  // The remembered settings are read during render once hydrated (the server
+  // snapshot is false, so SSR markup stays deterministic); a choice made in
+  // this session overrides them.
+  const hydrated = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  )
+  const stored = useMemo(
+    () => (persist && hydrated ? readBookPreviewPrefs().typography : undefined),
+    [hydrated, persist],
+  )
+  const [chosen, setChosen] = useState<BookPreviewTypography | null>(null)
+  const typography = useMemo<BookPreviewTypography>(
+    () => chosen ?? stored ?? { ...DEFAULT_TYPOGRAPHY, ...defaultTypography },
+    [chosen, defaultTypography, stored],
+  )
+  const setTypography = useCallback(
+    (next: BookPreviewTypography) => {
+      setChosen(next)
+      if (persist) writeBookPreviewPrefs({ typography: next })
+      onTypographyChange?.(next)
+    },
+    [onTypographyChange, persist],
+  )
+  return { typography, setTypography }
+}
+
 // The shell owns uploaded documents: a picked or dropped File becomes an
 // object URL merged into the normalized source, so every engine reads it
 // through the same pdfUrl path — an upload made in pdf mode keeps working in
@@ -435,9 +660,15 @@ function useUploadedPdf({
   allowUpload: boolean
   dispatch: Dispatch<BookPreviewAction>
 }) {
-  const [upload, setUpload] = useState<{ url: string; name: string } | null>(
-    null,
-  )
+  const [upload, setUpload] = useState<{
+    url: string
+    name: string
+    /** Stable across uploads of the same file — the object URL is not. */
+    fingerprint: string
+    /** Kept so Share can hand the file itself to the share sheet — a link
+        cannot carry a document that only exists on this device. */
+    file: File
+  } | null>(null)
 
   const uploadPdf = useCallback(
     (file: File) => {
@@ -449,7 +680,12 @@ function useUploadedPdf({
         })
         return
       }
-      setUpload({ url: URL.createObjectURL(file), name: file.name })
+      setUpload({
+        url: URL.createObjectURL(file),
+        name: file.name,
+        fingerprint: `${file.name}|${file.size}|${file.lastModified}`,
+        file,
+      })
     },
     [allowUpload, dispatch],
   )
@@ -488,7 +724,9 @@ function useBookPreviewActions({
   onAppearanceChange,
   onSoundChange,
   onCapabilitiesChange,
+  pageStep,
 }: {
+  pageStep: BookPreviewPageStep | null
   modeControlled: boolean
   pageControlled: boolean
   appearanceControlled: boolean
@@ -521,14 +759,20 @@ function useBookPreviewActions({
     [onPageChange, pageControlled, totalPages, setNavigationBehavior, dispatch],
   )
 
-  const nextPage = useCallback(
-    () => goToPage(activePage + 1),
-    [activePage, goToPage],
+  // A view that shows two pages turns a whole spread; at an end, nothing.
+  const stepPage = useCallback(
+    (direction: 1 | -1, behavior?: BookPreviewNavigationBehavior) => {
+      if (!pageStep) {
+        goToPage(activePage + direction, behavior)
+        return
+      }
+      const target = pageStep(activePage, direction)
+      if (target !== null) goToPage(target, behavior)
+    },
+    [activePage, goToPage, pageStep],
   )
-  const prevPage = useCallback(
-    () => goToPage(activePage - 1),
-    [activePage, goToPage],
-  )
+  const nextPage = useCallback(() => stepPage(1), [stepPage])
+  const prevPage = useCallback(() => stepPage(-1), [stepPage])
 
   const setAppearance = useCallback(
     (next: BookPreviewAppearance) => {
@@ -572,6 +816,7 @@ function useBookPreviewActions({
   return {
     setMode,
     goToPage,
+    stepPage,
     nextPage,
     prevPage,
     setAppearance,
@@ -627,6 +872,7 @@ export function BookPreview({
   source,
   className,
   label = 'Book preview',
+  layout = 'inline',
   engines,
   enabledModes,
   defaultMode = 'page',
@@ -637,7 +883,8 @@ export function BookPreview({
   onPageChange,
   persistPage = false,
   persistPreferences = false,
-  pageParam,
+  pageParam: pageParamProp,
+  urlState,
   defaultAppearance = 'system',
   appearance,
   onAppearanceChange,
@@ -645,12 +892,23 @@ export function BookPreview({
   sound,
   onSoundChange,
   prefetchModes,
+  defaultTypography,
+  onTypographyChange,
+  annotate = true,
+  share = true,
+  annotations: annotationsProp,
+  defaultAnnotations,
+  onAnnotationsChange,
+  persistAnnotations = false,
+  ai,
   onModeFallback,
   onCapabilitiesChange,
   onError,
   onStatusChange,
 }: BookPreviewProps) {
   const propSource = useMemo(() => normalizeSource(source), [source])
+  const urlKeys = resolveUrlKeys(urlState, pageParamProp)
+  const pageParam = urlKeys.page
   const propSourceKey = sourceIdentity(propSource)
   const enabledEngines = useMemo(
     () => resolveEnabledEngines(engines, enabledModes),
@@ -700,11 +958,26 @@ export function BookPreview({
   const normalized = useMemo<NormalizedBookSource>(
     () =>
       upload
-        ? { ...propSource, pdfUrl: upload.url, pdfFileName: upload.name }
+        ? {
+            ...propSource,
+            pdfUrl: upload.url,
+            pdfFileName: upload.name,
+            // Download must hand back the reader's own file, not whatever
+            // document the host configured before the upload.
+            downloadUrl: upload.url,
+            downloadFileName: upload.name,
+          }
         : propSource,
     [propSource, upload],
   )
   const sourceKey = sourceIdentity(normalized)
+  // What the reader remembers (position, highlights, ink) is keyed by the
+  // document, not the session: an upload's blob: URL is new every time, so
+  // uploads are identified by file fingerprint instead. Re-opening the same
+  // file brings its notebook back.
+  const storageKey = upload
+    ? sourceIdentity({ ...normalized, pdfUrl: `upload:${upload.fingerprint}` })
+    : sourceKey
 
   const reducedMotion = usePrefersReducedMotion()
   const reducedTransparency = usePrefersReducedTransparency()
@@ -712,11 +985,72 @@ export function BookPreview({
   const finePointer = useFinePointer()
   const { fullscreen, cssImmersive, setCssImmersive, toggleFullscreen } =
     useFullscreen(rootRef)
+  const { typography, setTypography } = useTypography({
+    persist: persistPreferences,
+    defaultTypography,
+    onTypographyChange,
+  })
+  const rootStyle = useMemo(
+    () =>
+      ({
+        ...bookPreviewMotionStyle,
+        ...typographyVariables(typography),
+      }) as CSSProperties,
+    [typography],
+  )
+  const {
+    chromeHidden,
+    chromePinned,
+    showChrome,
+    toggleChrome,
+    togglePinned,
+    hideForReading,
+    chromeHandlers,
+  } = useImmersiveChrome({
+    enabled: fullscreen,
+    rootRef,
+  })
+  const [shortcutsOpen, setShortcutsOpenState] = useState(false)
+  const [engineShortcutsAvailable, setEngineShortcutsAvailable] = useState({
+    search: false,
+    zoom: false,
+  })
+  const setShortcutsOpen = useCallback(
+    (open: boolean) => {
+      if (open) {
+        // The sheet anchors to the toolbar; in fullscreen, bring it back.
+        showChrome()
+        const engine = engineShortcutsRef.current
+        setEngineShortcutsAvailable({
+          search: Boolean(engine.search),
+          zoom: Boolean(engine.zoomIn),
+        })
+      }
+      setShortcutsOpenState(open)
+    },
+    [showChrome],
+  )
+  const chrome = useMemo(
+    () => ({
+      hidden: chromeHidden,
+      pinned: chromePinned,
+      toggle: toggleChrome,
+      togglePinned,
+    }),
+    [chromeHidden, chromePinned, toggleChrome, togglePinned],
+  )
 
   const activeMode = pickControlled(mode, state.mode)
   const activePage = pickControlled(pageIndex, state.pageIndex)
   const activeAppearance = pickControlled(appearance, state.appearance)
   const activeSound = pickControlled(sound, state.sound)
+  // Turning the page puts fullscreen chrome away — reading has resumed.
+  const lastPageRef = useRef(activePage)
+  useEffect(() => {
+    if (lastPageRef.current === activePage) return
+    lastPageRef.current = activePage
+    hideForReading()
+  }, [activePage, hideForReading])
   const compatibleEngines = useMemo(
     () => resolveCompatibleEngines(enabledEngines, normalized),
     [enabledEngines, normalized],
@@ -729,9 +1063,17 @@ export function BookPreview({
   const activeEngine = activeResolution.engine
   const effectiveMode = activeEngine?.id ?? activeMode
 
+  const [pageStep, setPageStepState] = useState<BookPreviewPageStep | null>(
+    null,
+  )
+  const setPageStep = useCallback(
+    (step: BookPreviewPageStep | null) => setPageStepState(() => step),
+    [],
+  )
   const {
     setMode,
     goToPage,
+    stepPage,
     nextPage,
     prevPage,
     setAppearance,
@@ -740,6 +1082,7 @@ export function BookPreview({
     handleEngineReady,
     handleEngineError,
   } = useBookPreviewActions({
+    pageStep,
     modeControlled,
     pageControlled,
     appearanceControlled,
@@ -769,6 +1112,7 @@ export function BookPreview({
   // lands last, matching the pre-extraction effect order.
   usePersistedPageIndex({
     sourceKey,
+    storageKey,
     persistPage,
     pageParam,
     pageControlled,
@@ -800,6 +1144,20 @@ export function BookPreview({
     dispatch,
   })
 
+  const enabledModeIds = useMemo(
+    () => enabledEngines.map((engine) => engine.id),
+    [enabledEngines],
+  )
+  useUrlReaderState({
+    modeKey: urlKeys.mode,
+    appearanceKey: urlKeys.appearance,
+    activeMode,
+    activeAppearance,
+    enabledModes: enabledModeIds,
+    setMode,
+    setAppearance,
+  })
+
   // Tell the consumer when an incompatible request quietly landed on another
   // engine, so a host can surface "WebGL isn't available for PDFs" instead of
   // a silent mode switch.
@@ -827,21 +1185,105 @@ export function BookPreview({
 
   const engineShortcutsRef = useRef<BookPreviewEngineShortcuts>({})
 
+  const { annotations, updateAnnotations } = useAnnotations({
+    sourceKey: storageKey,
+    annotations: annotationsProp,
+    defaultAnnotations,
+    onAnnotationsChange,
+    persist: persistAnnotations,
+  })
+
+  // The companion sheet: the notebook (highlights, notes, bookmarks) and Ask.
+  const [companion, setCompanion] = useState<{
+    open: boolean
+    tab: BookPreviewCompanionTab
+    askSeed: BookPreviewAskSeed | null
+  }>({ open: false, tab: 'notes', askSeed: null })
+  const openCompanion = useCallback(
+    (
+      tab: BookPreviewCompanionTab,
+      askSeed?: Omit<BookPreviewAskSeed, 'nonce'>,
+    ) =>
+      setCompanion((current) => ({
+        open: true,
+        tab,
+        askSeed: askSeed
+          ? { ...askSeed, nonce: (current.askSeed?.nonce ?? 0) + 1 }
+          : current.askSeed,
+      })),
+    [],
+  )
+  const setCompanionOpen = useCallback(
+    (open: boolean) => setCompanion((current) => ({ ...current, open })),
+    [],
+  )
+  const setCompanionTab = useCallback(
+    (tab: BookPreviewCompanionTab) =>
+      setCompanion((current) => ({ ...current, tab })),
+    [],
+  )
+
+  const [draw, setDrawState] = useState<BookPreviewDrawState>({
+    active: false,
+    tool: 'pen',
+    color: 'ink',
+  })
+  const setDraw = useCallback(
+    (patch: Partial<BookPreviewDrawState>) =>
+      setDrawState((current) => ({ ...current, ...patch })),
+    [],
+  )
+  const [inkAvailable, setInkAvailable] = useState(false)
+
+  // Share: the link (which carries page, mode, view and paper when urlState
+  // is on) through the system share sheet, or copied. An uploaded PDF has no
+  // link to share, so the file itself goes to the sheet where supported.
+  const sharePage = useCallback(
+    (extra?: { text?: string }) =>
+      shareOrCopy({
+        title: normalized.title ?? normalized.pdfFileName ?? label,
+        text: extra?.text,
+        url: upload ? undefined : window.location.href,
+        file: upload && !extra?.text ? upload.file : undefined,
+      }),
+    [label, normalized.pdfFileName, normalized.title, upload],
+  )
+
+  const getPageText = useCallback(
+    (index: number) => {
+      const fromEngine = engineShortcutsRef.current.pageText?.(index)
+      if (fromEngine) return fromEngine
+      const root = rootRef.current
+      const surfaces = root
+        ? root.querySelectorAll<HTMLElement>(
+            `[data-bp-annotatable][data-page-index="${index}"]`,
+          )
+        : []
+      const fromDom = Array.from(surfaces, (el) => el.textContent ?? '')
+        .join(' ')
+        .trim()
+      if (fromDom) return fromDom
+      const page = normalized.pages[index]
+      return page ? pageSearchText(page) : ''
+    },
+    [normalized.pages],
+  )
+
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!isReaderKeyboardEvent(event.nativeEvent, rootRef.current)) return
       const shortcuts = engineShortcutsRef.current
       if (event.key === 'ArrowRight' || event.key === 'PageDown') {
         event.preventDefault()
-        goToPage(activePage + 1, 'instant')
+        stepPage(1, 'instant')
       }
       if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
         event.preventDefault()
-        goToPage(activePage - 1, 'instant')
+        stepPage(-1, 'instant')
       }
       if (event.key === ' ') {
         event.preventDefault()
-        goToPage(activePage + (event.shiftKey ? -1 : 1), 'instant')
+        stepPage(event.shiftKey ? -1 : 1, 'instant')
       }
       if (event.key === 'Home') {
         event.preventDefault()
@@ -913,6 +1355,47 @@ export function BookPreview({
           shortcuts.zoomReset()
         }
       }
+      if (
+        (event.key === 'b' || event.key === 'B') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        state.totalPages > 0
+      ) {
+        event.preventDefault()
+        updateAnnotations((list) => toggleBookmark(list, activePage))
+      }
+      if (
+        (event.key === 'd' || event.key === 'D') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        annotate &&
+        inkAvailable
+      ) {
+        event.preventDefault()
+        setDraw({ active: !draw.active })
+      }
+      if (
+        (event.key === 'c' || event.key === 'C') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        fullscreen
+      ) {
+        event.preventDefault()
+        toggleChrome()
+      }
+      if (event.key === '?' && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault()
+        setShortcutsOpen(true)
+      }
+      if (event.key === 'Escape' && draw.active) {
+        // Putting the pen down comes before closing any overlay.
+        event.preventDefault()
+        setDraw({ active: false })
+        return
+      }
       if (event.key === 'Escape') {
         // Overlays first (engine search/thumbnail sheets), then immersive.
         if (shortcuts.dismiss?.()) {
@@ -926,12 +1409,21 @@ export function BookPreview({
       }
     },
     [
+      stepPage,
       activePage,
       cssImmersive,
       goToPage,
       setCssImmersive,
       state.totalPages,
       toggleFullscreen,
+      updateAnnotations,
+      annotate,
+      fullscreen,
+      toggleChrome,
+      setShortcutsOpen,
+      draw.active,
+      inkAvailable,
+      setDraw,
     ],
   )
 
@@ -958,6 +1450,9 @@ export function BookPreview({
       )
     ) {
       requestAnimationFrame(() => {
+        // A trigger that just opened a popover or menu owns focus now —
+        // pulling it back to the root would dismiss what it opened.
+        if (target.closest('[aria-expanded="true"], [data-popup-open]')) return
         const root = rootRef.current
         // Only reclaim focus that stayed inside the reader — a click that
         // deliberately moved it elsewhere (dialog, external focus) wins.
@@ -1042,31 +1537,78 @@ export function BookPreview({
       reducedTransparency,
       moreContrast,
       finePointer,
-      canGoPrev: activePage > 0,
-      canGoNext: activePage < state.totalPages - 1,
+      canGoPrev: pageStep ? pageStep(activePage, -1) !== null : activePage > 0,
+      canGoNext: pageStep
+        ? pageStep(activePage, 1) !== null
+        : activePage < state.totalPages - 1,
       setMode,
       goToPage,
       nextPage,
       prevPage,
       setAppearance,
       setSound,
+      typography,
+      setTypography,
       retry,
       prefetchMode,
       uploadPdf,
       engineShortcutsRef,
+      setPageStep,
       toggleFullscreen,
       fullscreen,
+      chrome,
+      shortcutsOpen,
+      setShortcutsOpen,
+      engineShortcutsAvailable,
       chromeHost,
       setChromeHost,
+      rootRef,
+      annotate,
+      annotations,
+      updateAnnotations,
+      ai,
+      companion,
+      openCompanion,
+      setCompanionOpen,
+      setCompanionTab,
+      getPageText,
+      draw,
+      setDraw,
+      inkAvailable,
+      setInkAvailable,
+      share,
+      sharePage,
+      uploaded: Boolean(upload),
     }),
     [
       activeAppearance,
+      ai,
+      annotate,
+      annotations,
+      companion,
       compatibleEngines,
+      getPageText,
+      draw,
+      inkAvailable,
+      setDraw,
+      share,
+      sharePage,
+      upload,
+      openCompanion,
+      setCompanionOpen,
+      setCompanionTab,
+      updateAnnotations,
       effectiveMode,
+      setPageStep,
+      pageStep,
       activePage,
       activeSound,
       finePointer,
       fullscreen,
+      chrome,
+      shortcutsOpen,
+      setShortcutsOpen,
+      engineShortcutsAvailable,
       goToPage,
       label,
       moreContrast,
@@ -1081,8 +1623,10 @@ export function BookPreview({
       setAppearance,
       setMode,
       setSound,
+      setTypography,
       state,
       toggleFullscreen,
+      typography,
       uploadPdf,
     ],
   )
@@ -1096,16 +1640,37 @@ export function BookPreview({
             'book-preview focus-visible:ring-ring/60 focus-visible:ring-offset-background relative flex w-full min-w-0 flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
             className,
           )}
-          style={bookPreviewMotionStyle as CSSProperties}
+          style={rootStyle}
           tabIndex={0}
           aria-label={label}
-          aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f / + - 0 Escape"
+          aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Space f b d / + - 0 Escape"
           data-reduced-motion={reducedMotion || undefined}
           data-reduced-transparency={reducedTransparency || undefined}
           data-more-contrast={moreContrast || undefined}
           data-book-preview-immersive={fullscreen || undefined}
+          data-chrome-hidden={chromeHidden || undefined}
+          // The reader's cursors mean something (I-beam, grab, crosshair) —
+          // site-wide custom cursors step aside here.
+          data-native-cursor=""
+          data-layout={layout}
           onKeyDown={onKeyDown}
           onPointerDown={onPointerDown}
+          onPointerMove={chromeHandlers.onPointerMove}
+          onPointerLeave={chromeHandlers.onPointerLeave}
+          onPointerDownCapture={chromeHandlers.onPointerDownCapture}
+          onPointerUpCapture={chromeHandlers.onPointerUpCapture}
+          onFocusCapture={(event) => {
+            // Tabbing into hidden chrome brings it back — keyboard users
+            // must never land focus on something they cannot see.
+            if (
+              chromeHidden &&
+              (event.target as HTMLElement).closest?.(
+                '[data-book-preview-chrome]',
+              )
+            ) {
+              showChrome()
+            }
+          }}
           onClick={onClick}
           onDragEnter={onDragEnter}
           onDragOver={onDragOver}
@@ -1125,17 +1690,26 @@ export function BookPreview({
               reducedMotion={reducedMotion}
               navigationBehavior={navigationBehavior}
               persistPreferences={persistPreferences}
+              viewParam={urlKeys.view}
               onPageChange={goToPage}
               onReady={handleEngineReady}
               onError={handleEngineError}
             />
+            <BookPreviewBookmarkRibbon />
           </BookPreviewViewport>
           <BookPreviewNavigation />
+          <BookPreviewAnnotationLayer />
+          <BookPreviewInkLayer />
+          <BookPreviewCompanion />
+          <BookPreviewChromeHandle />
           <p className="sr-only">
             Arrow keys, Page Up and Page Down turn pages while this reader is
-            focused. Space moves forward, F toggles fullscreen, slash or Control
-            F opens search when the active reader supports it, and plus, minus
-            and zero control zoom. Typing in fields is ignored.
+            focused. Space moves forward, F toggles fullscreen, B bookmarks the
+            page, D picks up the pen to draw on it, slash or Control F opens
+            search when the active reader supports it, and plus, minus and zero
+            control zoom. In fullscreen, C shows or hides the controls; question
+            mark lists every shortcut. Select text to highlight it. Typing in
+            fields is ignored.
           </p>
           {dropActive ? (
             <div

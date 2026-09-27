@@ -60,6 +60,9 @@ export function PromoStory({
       : []
   const [index, setIndex] = React.useState(0)
   const [paused, setPaused] = React.useState(false)
+  const [stills, setStills] = React.useState<ReadonlySet<string>>(
+    () => new Set(),
+  )
   // The dialog keeps the story mounted after it closes, and a story is meant
   // to be watched again: every opening starts from the first slide.
   const [wasOpen, setWasOpen] = React.useState(open)
@@ -92,7 +95,9 @@ export function PromoStory({
   const go = (step: 1 | -1) =>
     setIndex((i) => Math.min(slides.length - 1, Math.max(0, i + step)))
   const slide = slides[index]
-  const isClip = Boolean(slide?.video)
+  const slideKey = slide ? slide.src + index : ''
+  // A clip that will not play is timed like a still, so the story never stalls.
+  const isClip = Boolean(slide?.video) && !stills.has(slideKey)
   const clipNow = clip.index === index ? clip : null
   const stopped = held || hidden || paused
   // Anything moving on its own offers a pause: the timer or the clip.
@@ -166,6 +171,9 @@ export function PromoStory({
                 )
               }
               onEnded={running ? () => go(1) : undefined}
+              onFallback={() =>
+                setStills((previous) => new Set(previous).add(slideKey))
+              }
               className="animate-in fade-in-0 absolute inset-0 size-full bg-transparent duration-300 motion-reduce:animate-none"
             />
           ) : null}

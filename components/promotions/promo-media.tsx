@@ -58,6 +58,7 @@ export function PromoMedia({
   onEnded,
   onPlayingChange,
   onDuration,
+  onFallback,
 }: {
   media: PromotionMedia
   /** Size the frame here (aspect ratio, width); the picture fills it. */
@@ -78,6 +79,12 @@ export function PromoMedia({
   /** Whether frames are advancing, e.g. to hold a story's progress bar. */
   onPlayingChange?: (playing: boolean) => void
   onDuration?: (seconds: number) => void
+  /**
+   * The clip will not play (it failed, or autoplay was refused) and the
+   * still stands in, e.g. so a story times the slide itself instead of
+   * waiting for an end that never comes.
+   */
+  onFallback?: () => void
 }) {
   const labels = usePromotionLabels()
   const reduce = useReducedMotion()
@@ -103,9 +110,14 @@ export function PromoMedia({
   const [refused, setRefused] = React.useState(false)
   const [stillFailed, setStillFailed] = React.useState(false)
   // Surfaces pass these inline; a ref keeps playback from re-running each render.
-  const callbacks = React.useRef({ onEnded, onPlayingChange, onDuration })
+  const callbacks = React.useRef({
+    onEnded,
+    onPlayingChange,
+    onDuration,
+    onFallback,
+  })
   React.useLayoutEffect(() => {
-    callbacks.current = { onEnded, onPlayingChange, onDuration }
+    callbacks.current = { onEnded, onPlayingChange, onDuration, onFallback }
   })
 
   const clip = failed ? undefined : media.video
@@ -135,8 +147,10 @@ export function PromoMedia({
       // Autoplay can still be refused (Low Power Mode); the still stays.
       element.play().catch((error: unknown) => {
         // AbortError only means a pause interrupted the request.
-        if ((error as { name?: string } | null)?.name !== 'AbortError')
+        if ((error as { name?: string } | null)?.name !== 'AbortError') {
           setRefused(true)
+          callbacks.current.onFallback?.()
+        }
         callbacks.current.onPlayingChange?.(false)
       })
     } else element.pause()
@@ -207,7 +221,10 @@ export function PromoMedia({
             if (Number.isFinite(seconds) && seconds > 0)
               callbacks.current.onDuration?.(seconds)
           }}
-          onError={() => setFailed(true)}
+          onError={() => {
+            setFailed(true)
+            callbacks.current.onFallback?.()
+          }}
           className={cn(
             'pointer-events-none absolute inset-0 size-full transition-opacity',
             fit === 'contain' ? 'object-contain' : 'object-cover',

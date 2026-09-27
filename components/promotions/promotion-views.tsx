@@ -93,7 +93,15 @@ export function countdownLabel(
   return left ? labels.endsIn(left) : null
 }
 
-/** The countdown chip; renders nothing when `countdownLabel` is null. */
+/**
+ * The countdown chip; renders nothing when `countdownLabel` is null.
+ *
+ * When the label changes ("4 days" to "3 days") it rolls: the old one rises
+ * out as the new one rises in, so the change is noticed without a flash. It
+ * only ever changes when the shown value does (at most once a minute, in the
+ * last hour), never per second. The whole localised label rolls, not single
+ * digits, so word order stays right in every language. Reduced motion fades.
+ */
 function Countdown({
   promotion,
   now,
@@ -101,11 +109,24 @@ function Countdown({
   promotion: PreviewablePromotion
   now: number | null
 }) {
+  const reduce = useReducedMotion()
   const label = countdownLabel(promotion, now, usePromotionLabels())
   if (!label) return null
+  const out = reduce ? { opacity: 0 } : { opacity: 0, y: '-70%' }
   return (
-    <span className="rounded-md bg-current/10 px-1.5 py-0.5 text-xs font-medium whitespace-nowrap tabular-nums ring-1 ring-current/15">
-      {label}
+    <span className="relative inline-grid overflow-hidden rounded-md bg-current/10 px-1.5 py-0.5 text-xs font-medium whitespace-nowrap tabular-nums ring-1 ring-current/15">
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          key={label}
+          initial={reduce ? { opacity: 0 } : { opacity: 0, y: '70%' }}
+          animate={{ opacity: 1, y: '0%' }}
+          exit={out}
+          transition={{ duration: 0.32, ease: PROMO_EASE_OUT }}
+          className="col-start-1 row-start-1"
+        >
+          {label}
+        </motion.span>
+      </AnimatePresence>
     </span>
   )
 }
@@ -163,6 +184,36 @@ async function writeClipboard(text: string): Promise<boolean> {
     area.remove()
     return ok
   }
+}
+
+const BURST = Array.from({ length: 8 }, (_, i) => i * 45)
+
+/**
+ * Eight dots that leave the Apply button once. CSS keyframes, so it stays
+ * smooth while checkout work runs; hidden entirely under reduced motion.
+ */
+function AppliedBurst() {
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute inset-0 grid place-items-center motion-reduce:hidden"
+    >
+      <style>{`@keyframes promo-burst{from{opacity:1;transform:rotate(var(--a)) translateY(0) scale(1)}to{opacity:0;transform:rotate(var(--a)) translateY(-18px) scale(.3)}}`}</style>
+      {BURST.map((angle) => (
+        <span
+          key={angle}
+          className="col-start-1 row-start-1 size-1 rounded-full bg-current"
+          style={
+            {
+              '--a': `${angle}deg`,
+              animation:
+                'promo-burst 520ms cubic-bezier(0.23,1,0.32,1) forwards',
+            } as React.CSSProperties
+          }
+        />
+      ))}
+    </span>
+  )
 }
 
 /**
@@ -283,10 +334,25 @@ export function PromoCode({
             setApplying('busy')
             setApplying((await applyCode(code)) ? 'done' : 'idle')
           }}
-          className="ms-0.5 inline-flex h-7 items-center gap-1 rounded-md bg-current/10 px-2 text-xs font-medium transition-[background-color,transform,opacity] duration-150 ease-out outline-none hover:bg-current/15 focus-visible:ring-3 focus-visible:ring-current/30 active:scale-[0.96] disabled:opacity-70"
+          className="relative ms-0.5 inline-flex h-7 items-center gap-1 rounded-md bg-current/10 px-2 text-xs font-medium transition-[background-color,transform,opacity] duration-150 ease-out outline-none hover:bg-current/15 focus-visible:ring-3 focus-visible:ring-current/30 active:scale-[0.96] disabled:opacity-70"
         >
           {applying === 'done' ? (
-            <IconCheck aria-hidden className="size-3.5" />
+            <>
+              {/* The one celebration in the system: rare, earned, over in half a second. */}
+              <AppliedBurst />
+              <motion.span
+                initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={
+                  reduce
+                    ? { duration: 0.15 }
+                    : { type: 'spring', duration: 0.4, bounce: 0.3 }
+                }
+                className="grid place-items-center"
+              >
+                <IconCheck aria-hidden className="size-3.5" />
+              </motion.span>
+            </>
           ) : null}
           {applying === 'done' ? labels.applied : labels.apply}
         </button>

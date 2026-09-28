@@ -19,6 +19,8 @@ is ticket KL-60.
 | KL-39                                    | Done for editorial, mono, bold; glass needs a surface token    | #11                          |
 | KL-32, KL-33, KL-34                      | Done                                                           | #12                          |
 | KL-30, KL-31                             | Done (tours are code-defined; editor authoring is a follow-up) | #13                          |
+| KL-50, KL-51, KL-52, KL-53, KL-56, KL-57 | Done                                                           | #14                          |
+| KL-54                                    | Done on Premier and PDF views (the faces ink draws on)         | #14                          |
 
 ## Operating rules
 

@@ -23,6 +23,8 @@ type Words = {
   whatsOn: string
   previous: string
   next: string
+  pause: string
+  play: string
 }
 
 /**
@@ -70,6 +72,8 @@ export const promotionLabels = {
     whatsOn: 'What’s on',
     previous: 'Previous',
     next: 'Next',
+    pause: 'Pause',
+    play: 'Play',
   }),
   fr: createPromotionLabels('fr', {
     announcement: 'Annonce',
@@ -93,6 +97,8 @@ export const promotionLabels = {
     whatsOn: 'En ce moment',
     previous: 'Précédent',
     next: 'Suivant',
+    pause: 'Pause',
+    play: 'Lecture',
   }),
   de: createPromotionLabels('de', {
     announcement: 'Ankündigung',
@@ -116,6 +122,8 @@ export const promotionLabels = {
     whatsOn: 'Aktuell',
     previous: 'Zurück',
     next: 'Weiter',
+    pause: 'Pause',
+    play: 'Abspielen',
   }),
   ja: createPromotionLabels('ja', {
     announcement: 'お知らせ',
@@ -139,6 +147,8 @@ export const promotionLabels = {
     whatsOn: '開催中',
     previous: '前へ',
     next: '次へ',
+    pause: '一時停止',
+    play: '再生',
   }),
   hi: createPromotionLabels('hi', {
     announcement: 'घोषणा',
@@ -162,6 +172,8 @@ export const promotionLabels = {
     whatsOn: 'अभी चल रहा है',
     previous: 'पिछला',
     next: 'अगला',
+    pause: 'रोकें',
+    play: 'चलाएँ',
   }),
   ar: createPromotionLabels('ar', {
     announcement: 'إعلان',
@@ -185,6 +197,8 @@ export const promotionLabels = {
     whatsOn: 'يحدث الآن',
     previous: 'السابق',
     next: 'التالي',
+    pause: 'إيقاف مؤقت',
+    play: 'تشغيل',
   }),
 } satisfies Record<string, PromotionLabels>
 

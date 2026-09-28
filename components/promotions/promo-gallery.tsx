@@ -6,6 +6,7 @@ import { useReducedMotion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
 import type { PromotionMedia } from './promotion'
+import { PromoMedia } from './promo-media'
 
 /**
  * A native scroll-snap carousel: the browser does the swiping, momentum and
@@ -74,18 +75,12 @@ export function PromoGallery({
 
   if (images.length === 0) return null
   if (images.length === 1) {
-    const image = images[0]!
     return (
-      // oxlint-disable-next-line nextjs/no-img-element
-      <img
-        src={image.src}
-        alt={image.alt}
-        width={image.width}
-        height={image.height}
-        loading={eager ? 'eager' : 'lazy'}
-        decoding="async"
-        style={{ aspectRatio: aspect }}
-        className={cn('w-full bg-current/5 object-cover', className)}
+      <PromoMedia
+        media={images[0]!}
+        eager={eager}
+        aspect={aspect}
+        className={cn('w-full', className)}
       />
     )
   }
@@ -124,28 +119,16 @@ export function PromoGallery({
             aria-label={`${index + 1} / ${images.length}`}
             className="w-full shrink-0 snap-start snap-always"
           >
-            {/* oxlint-disable-next-line nextjs/no-img-element */}
-            <img
-              src={image.src}
-              alt={image.alt}
-              width={image.width}
-              height={image.height}
-              loading={eager && index === 0 ? 'eager' : 'lazy'}
-              decoding="async"
-              draggable={false}
-              style={{ aspectRatio: aspect }}
-              className="w-full bg-current/5 object-cover select-none"
+            <PromoMedia
+              media={image}
+              eager={eager && index === 0}
+              active={index === active}
+              className="w-full"
+              aspect={aspect}
             />
           </div>
         ))}
       </div>
-
-      <span
-        aria-hidden
-        className="absolute start-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[0.6875rem] font-medium text-white tabular-nums backdrop-blur-sm"
-      >
-        {active + 1}/{images.length}
-      </span>
 
       {(['prev', 'next'] as const).map((which) => (
         <button

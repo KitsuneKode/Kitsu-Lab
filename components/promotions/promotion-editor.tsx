@@ -39,6 +39,7 @@ import {
 import {
   HAS_FREQUENCY,
   OPENS_ON_EVENT,
+  clipFrom,
   initialDraft,
   names,
   toInput,
@@ -138,17 +139,19 @@ function Field({
   label,
   hint,
   error,
+  className,
   children,
 }: {
   id: string
   label: string
   hint?: React.ReactNode
   error?: string
+  className?: string
   children: React.ReactNode
 }) {
   return (
     <div
-      className="flex flex-col gap-2"
+      className={cn('flex flex-col gap-2', className)}
       data-invalid={error ? true : undefined}
     >
       <Label id={`${id}-label`} htmlFor={id}>
@@ -349,6 +352,10 @@ export function PromotionEditor({
                 alt: draft.mediaAlt.trim(),
                 width: draft.mediaWidth,
                 height: draft.mediaHeight,
+                // A clip needs its still; a stale clip in the disabled field is ignored.
+                video: draft.mediaSrc.trim()
+                  ? clipFrom(draft.mediaVideo)
+                  : undefined,
               }
             : undefined,
         cta:
@@ -424,6 +431,8 @@ export function PromotionEditor({
     }
   }
 
+  // The parser reports clip problems on `media`; show them on the clip field.
+  const clipError = errors.media?.startsWith('Clips') ? errors.media : undefined
   const describedBy = (name: string, field = name) =>
     errors[field as PromotionField] ? `${id(name)}-error` : undefined
 
@@ -699,11 +708,12 @@ export function PromotionEditor({
         </Field>
 
         <fieldset className="grid gap-6 sm:grid-cols-2">
-          <legend className="sr-only">Image</legend>
+          <legend className="sr-only">Image and clip</legend>
           <Field
             id={id('media')}
             label="Image URL (optional)"
-            error={errors.media}
+            hint="With a clip, this is its poster: shown first, and kept for reduced motion."
+            error={clipError ? undefined : errors.media}
           >
             <Input
               id={id('media')}
@@ -725,6 +735,24 @@ export function PromotionEditor({
               value={draft.mediaAlt}
               onBlur={leave('media')}
               onChange={(e) => set('mediaAlt', e.target.value)}
+            />
+          </Field>
+          <Field
+            id={id('media-video')}
+            label="Clip (optional)"
+            hint="Silent WebM or MP4 over the image. For every browser, add both, comma separated."
+            error={clipError}
+            className="sm:col-span-2"
+          >
+            <Input
+              id={id('media-video')}
+              value={draft.mediaVideo}
+              placeholder="/clips/launch.webm, /clips/launch.mp4"
+              disabled={!draft.mediaSrc.trim()}
+              aria-describedby={`${id('media-video')}-${clipError ? 'error' : 'hint'}`}
+              aria-invalid={Boolean(clipError) || undefined}
+              onBlur={leave('media')}
+              onChange={(e) => set('mediaVideo', e.target.value)}
             />
           </Field>
         </fieldset>

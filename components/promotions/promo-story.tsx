@@ -2,7 +2,11 @@
 
 import * as React from 'react'
 import { Dialog } from '@base-ui/react/dialog'
-import { IconX } from '@tabler/icons-react'
+import {
+  IconPlayerPauseFilled,
+  IconPlayerPlayFilled,
+  IconX,
+} from '@tabler/icons-react'
 import { useReducedMotion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
@@ -10,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import type { Promotion, PromotionMedia } from './promotion'
 import type { PromotionLabels, PromotionLinkProps } from './promotion-provider'
 import { PromoCode } from './promotion-views'
+import { PromoMedia } from './promo-media'
 
 const SLIDE_MS = 6000
 
@@ -32,6 +37,10 @@ export type PromoStoryProps = {
  * auto-open a story), which is what earns it the whole screen. Slides move
  * on by themselves only while nobody is pressing, the tab is visible and
  * reduced motion is off; otherwise it is fully manual.
+ *
+ * A slide with a clip lasts as long as the clip: its segment fills only
+ * while frames are playing (so buffering holds it), and the clip's end moves
+ * the story on. Pause stops both, from the keyboard as well as by holding.
  */
 export function PromoStory({
   promotion,
@@ -50,14 +59,27 @@ export function PromoStory({
       ? [promotion.media]
       : []
   const [index, setIndex] = React.useState(0)
+  const [paused, setPaused] = React.useState(false)
+  const [stills, setStills] = React.useState<ReadonlySet<string>>(
+    () => new Set(),
+  )
   // The dialog keeps the story mounted after it closes, and a story is meant
   // to be watched again: every opening starts from the first slide.
   const [wasOpen, setWasOpen] = React.useState(open)
   if (open !== wasOpen) {
     setWasOpen(open)
-    if (open) setIndex(0)
+    if (open) {
+      setIndex(0)
+      setPaused(false)
+    }
   }
   const [held, setHeld] = React.useState(false)
+  // The showing clip's length and whether it is playing, for its segment.
+  const [clip, setClip] = React.useState<{
+    index: number
+    seconds: number | null
+    playing: boolean
+  }>({ index: -1, seconds: null, playing: false })
   const [hidden, setHidden] = React.useState(false)
   const last = index >= slides.length - 1
   // The current segment's own CSS animation is the clock: pausing it pauses
@@ -73,6 +95,27 @@ export function PromoStory({
   const go = (step: 1 | -1) =>
     setIndex((i) => Math.min(slides.length - 1, Math.max(0, i + step)))
   const slide = slides[index]
+  const slideKey = slide ? slide.src + index : ''
+  // A clip that will not play is timed like a still, so the story never stalls.
+  const isClip = Boolean(slide?.video) && !stills.has(slideKey)
+  const clipNow = clip.index === index ? clip : null
+  const stopped = held || hidden || paused
+  // Anything moving on its own offers a pause: the timer or the clip.
+  const moving = running || (isClip && !reduce)
+  const segmentStyle = (): React.CSSProperties | undefined => {
+    if (!running) return undefined
+    if (!isClip)
+      return {
+        animation: `promo-story-fill ${SLIDE_MS}ms linear forwards`,
+        animationPlayState: stopped ? 'paused' : 'running',
+      }
+    // Until the clip reports its length the segment waits at the start.
+    const ms = (clipNow?.seconds ?? SLIDE_MS / 1000) * 1000
+    return {
+      animation: `promo-story-fill ${ms}ms linear forwards`,
+      animationPlayState: clipNow?.playing && !stopped ? 'running' : 'paused',
+    }
+  }
 
   return (
     <Dialog.Root
@@ -94,16 +137,44 @@ export function PromoStory({
           }}
           className="fixed inset-0 z-50 m-auto flex h-full w-full flex-col overflow-hidden bg-black text-white transition-[opacity,scale] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-ending-style:duration-200 data-starting-style:scale-[0.96] data-starting-style:opacity-0 motion-reduce:transition-opacity sm:[aspect-ratio:9/16] sm:h-[min(52rem,calc(100%-2rem))] sm:w-auto sm:rounded-[calc(var(--promo-radius,0.75rem)+0.5rem)]"
         >
-          {slide ? (
+          {slide && slide.width > slide.height ? (
+            // Landscape media in a portrait story: letterbox it over a
+            // blurred copy of itself, so nothing is cropped away and the
+            // copy below always sits on a dark, quiet ground.
             // oxlint-disable-next-line nextjs/no-img-element
             <img
-              key={slide.src + index}
+              key={`backdrop-${slide.src}`}
               src={slide.src}
-              alt={slide.alt}
-              width={slide.width}
-              height={slide.height}
+              alt=""
+              aria-hidden
               decoding="async"
-              className="animate-in fade-in-0 absolute inset-0 size-full object-cover duration-300 motion-reduce:animate-none"
+              className="absolute inset-0 size-full scale-125 object-cover opacity-50 blur-2xl"
+            />
+          ) : null}
+          {slide ? (
+            <PromoMedia
+              key={slide.src + index}
+              fit={slide.width > slide.height ? 'contain' : 'cover'}
+              media={slide}
+              eager
+              controls={false}
+              active={open && !held && !paused}
+              playback={running ? 'once' : 'loop'}
+              onDuration={(seconds) =>
+                setClip((c) => ({ ...c, index, seconds }))
+              }
+              onPlayingChange={(playing) =>
+                setClip((c) =>
+                  c.index === index
+                    ? { ...c, playing }
+                    : { index, seconds: null, playing },
+                )
+              }
+              onEnded={running ? () => go(1) : undefined}
+              onFallback={() =>
+                setStills((previous) => new Set(previous).add(slideKey))
+              }
+              className="animate-in fade-in-0 absolute inset-0 size-full bg-transparent duration-300 motion-reduce:animate-none"
             />
           ) : null}
           <div
@@ -120,22 +191,17 @@ export function PromoStory({
               >
                 <span
                   key={i === index ? `run-${index}` : undefined}
-                  onAnimationEnd={i === index ? () => go(1) : undefined}
+                  // A clip's own end moves the story on; the bar only shows it.
+                  onAnimationEnd={
+                    i === index && !isClip ? () => go(1) : undefined
+                  }
                   className={cn(
                     'block h-full origin-left rounded-full bg-white rtl:origin-right',
                     i < index && 'scale-x-100',
                     i > index && 'scale-x-0',
                     i === index && !running && 'scale-x-100',
                   )}
-                  style={
-                    i === index && running
-                      ? {
-                          animation: `promo-story-fill ${SLIDE_MS}ms linear forwards`,
-                          animationPlayState:
-                            held || hidden ? 'paused' : 'running',
-                        }
-                      : undefined
-                  }
+                  style={i === index ? segmentStyle() : undefined}
                 />
               </span>
             ))}
@@ -148,12 +214,34 @@ export function PromoStory({
                 {promotion.eyebrow}
               </span>
             ) : null}
+            {moving ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={paused ? labels.play : labels.pause}
+                onClick={() => setPaused((p) => !p)}
+                className="ms-auto text-white hover:bg-white/15 hover:text-white"
+              >
+                {paused ? (
+                  <IconPlayerPlayFilled
+                    aria-hidden
+                    className="translate-x-px"
+                  />
+                ) : (
+                  <IconPlayerPauseFilled aria-hidden />
+                )}
+              </Button>
+            ) : null}
             <Dialog.Close
               render={
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="ms-auto text-white hover:bg-white/15 hover:text-white"
+                  className={cn(
+                    'text-white hover:bg-white/15 hover:text-white',
+                    !moving && 'ms-auto',
+                  )}
                 />
               }
             >

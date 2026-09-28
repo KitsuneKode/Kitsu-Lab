@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import type { Promotion } from './promotion'
 import { usePromotions } from './promotion-provider'
 import { PromoCode, countdownLabel } from './promotion-views'
+import { PromoMedia } from './promo-media'
 
 const CARD_WIDTH = 288
 const STRIP = 56
@@ -224,7 +225,7 @@ export function PromoSideCard({
       <div
         ref={card}
         className={cn(
-          'bg-popover text-popover-foreground flex overflow-hidden rounded-[calc(var(--promo-radius,0.75rem)+0.25rem)] text-sm shadow-xl ring-1 ring-black/5 transition-[clip-path] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none dark:ring-white/10',
+          'bg-popover text-popover-foreground flex flex-col overflow-hidden rounded-[calc(var(--promo-radius,0.75rem)+0.25rem)] text-sm shadow-xl ring-1 ring-black/5 transition-[clip-path] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none dark:ring-white/10',
           // Peeking shows only a small tab at the bottom of the strip; the
           // clip also limits where the pointer can open it.
           open
@@ -232,159 +233,187 @@ export function PromoSideCard({
             : '[clip-path:inset(calc(100%-4rem)_0_0_0_round_calc(var(--promo-radius,0.75rem)+0.25rem))]',
         )}
       >
-        {/* The strip: all that shows while peeking, and the image column when open. */}
-        <button
-          type="button"
-          aria-label={labels.restore(promotion.title)}
-          aria-expanded={open}
-          onClick={() => {
-            if (collapsed) setCollapsed(false)
-            setPinned((p) => !p)
-          }}
-          className="focus-visible:ring-ring/50 relative flex w-14 shrink-0 flex-col-reverse items-center justify-start gap-2 py-3 outline-none focus-visible:ring-3 focus-visible:ring-inset"
-        >
-          {image ? (
-            // oxlint-disable-next-line nextjs/no-img-element
-            <img
-              src={image.src}
-              alt=""
-              width={40}
-              height={40}
-              decoding="async"
-              className="size-10 rounded-lg bg-current/5 object-cover"
+        {/*
+          Open, the picture leads across the top and its clip plays; peeking,
+          the clip-path shows only the tab below, so nothing plays unseen.
+          Inset radius is concentric: the card's radius minus the padding.
+        */}
+        {image ? (
+          <div
+            inert={!open}
+            className={cn(
+              'p-1.5 pb-0 transition-opacity duration-200 ease-out motion-reduce:transition-none',
+              !open && 'opacity-0',
+            )}
+          >
+            <PromoMedia
+              media={image}
+              aspect="16 / 10"
+              active={open && !yielding}
+              className="w-full rounded-[calc(var(--promo-radius,0.75rem)-0.125rem)] outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
             />
-          ) : (
-            <span className="bg-primary/10 text-primary grid size-10 place-items-center rounded-lg">
-              <IconSparkles aria-hidden className="size-5" />
-            </span>
-          )}
-          {sides.length > 1 ? (
-            <span className="text-muted-foreground text-[0.6875rem] font-medium tabular-nums">
-              {index + 1}/{sides.length}
-            </span>
-          ) : null}
-          {promotion.tone !== 'neutral' ? (
-            <span
-              aria-hidden
-              className={cn(
-                'absolute inset-y-3 start-0 w-0.5 rounded-e-full',
-                promotion.tone === 'brand'
-                  ? 'bg-primary'
-                  : 'bg-[var(--promo-highlight,var(--primary))]',
-              )}
-            />
-          ) : null}
-        </button>
+          </div>
+        ) : null}
+        <div className="flex">
+          {/* The strip: all that shows while peeking; beside the text when open. */}
+          <button
+            type="button"
+            aria-label={labels.restore(promotion.title)}
+            aria-expanded={open}
+            onClick={() => {
+              if (collapsed) setCollapsed(false)
+              setPinned((p) => !p)
+            }}
+            className="focus-visible:ring-ring/50 relative flex w-14 shrink-0 flex-col-reverse items-center justify-start gap-2 py-3 outline-none focus-visible:ring-3 focus-visible:ring-inset"
+          >
+            {image ? (
+              // oxlint-disable-next-line nextjs/no-img-element
+              <img
+                src={image.src}
+                alt=""
+                width={40}
+                height={40}
+                decoding="async"
+                className={cn(
+                  'size-10 rounded-lg bg-current/5 object-cover transition-opacity duration-200 ease-out',
+                  open && 'opacity-0',
+                )}
+              />
+            ) : (
+              <span className="bg-primary/10 text-primary grid size-10 place-items-center rounded-lg">
+                <IconSparkles aria-hidden className="size-5" />
+              </span>
+            )}
+            {sides.length > 1 ? (
+              <span className="text-muted-foreground text-[0.6875rem] font-medium tabular-nums">
+                {index + 1}/{sides.length}
+              </span>
+            ) : null}
+            {promotion.tone !== 'neutral' ? (
+              <span
+                aria-hidden
+                className={cn(
+                  'absolute inset-y-3 start-0 w-0.5 rounded-e-full',
+                  promotion.tone === 'brand'
+                    ? 'bg-primary'
+                    : 'bg-[var(--promo-highlight,var(--primary))]',
+                )}
+              />
+            ) : null}
+          </button>
 
-        <div
-          inert={!open}
-          className={cn(
-            'flex min-w-0 flex-1 flex-col gap-1.5 py-3 pe-3 transition-opacity duration-200 ease-out',
-            !open && 'opacity-0',
-          )}
-        >
-          <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
-            <span
-              className="bg-primary size-1.5 shrink-0 rounded-full"
-              aria-hidden
-            />
-            <span className="truncate font-medium">
-              {promotion.eyebrow ?? labels.whatsOn}
-            </span>
-            <span className="ms-auto flex shrink-0">
-              {!docked ? null : (
+          <div
+            inert={!open}
+            className={cn(
+              'flex min-w-0 flex-1 flex-col gap-1.5 py-3 pe-3 transition-opacity duration-200 ease-out',
+              !open && 'opacity-0',
+            )}
+          >
+            <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+              <span
+                className="bg-primary size-1.5 shrink-0 rounded-full"
+                aria-hidden
+              />
+              <span className="truncate font-medium">
+                {promotion.eyebrow ?? labels.whatsOn}
+              </span>
+              <span className="ms-auto flex shrink-0">
+                {!docked ? null : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={labels.minimize}
+                    onClick={() => setCollapsed(true)}
+                  >
+                    <IconMinus aria-hidden />
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={labels.minimize}
-                  onClick={() => setCollapsed(true)}
+                  aria-label={labels.dismissNamed(promotion.title)}
+                  onClick={() => {
+                    dismiss(promotion)
+                    setIndex(0)
+                  }}
                 >
-                  <IconMinus aria-hidden />
+                  <IconX aria-hidden />
                 </Button>
-              )}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label={labels.dismissNamed(promotion.title)}
-                onClick={() => {
-                  dismiss(promotion)
-                  setIndex(0)
-                }}
-              >
-                <IconX aria-hidden />
-              </Button>
-            </span>
-          </div>
-          <p className="[font-family:var(--promo-display,inherit)] leading-snug font-medium text-balance">
-            {promotion.title}
-          </p>
-          {promotion.body ? (
-            <p className="text-muted-foreground line-clamp-3 text-pretty">
-              {promotion.body}
+              </span>
+            </div>
+            <p className="[font-family:var(--promo-display,inherit)] leading-snug font-medium text-balance">
+              {promotion.title}
             </p>
-          ) : null}
-          {ends ? (
-            <span className="text-muted-foreground text-xs tabular-nums">
-              {ends}
-            </span>
-          ) : null}
-          {promotion.code ? (
-            <PromoCode
-              code={promotion.code}
-              reveal={promotion.revealCode}
-              onReveal={() => report('reveal', promotion)}
-              onCopy={() => report('copy', promotion)}
-              className="mt-1 self-start"
-            />
-          ) : null}
-          <div className="mt-1 flex items-center gap-2">
-            {promotion.cta ? (
-              <Button
-                size="sm"
-                nativeButton={false}
-                render={
-                  <Link
-                    href={promotion.cta.href}
-                    onClick={() => report('click', promotion)}
-                    {...(promotion.cta.external
-                      ? { target: '_blank', rel: 'noopener noreferrer' }
-                      : {})}
-                  >
-                    {promotion.cta.label}
-                  </Link>
-                }
-              />
+            {promotion.body ? (
+              <p className="text-muted-foreground line-clamp-3 text-pretty">
+                {promotion.body}
+              </p>
             ) : null}
-            {sides.length > 1 ? (
-              <span className="ms-auto flex">
-                {([-1, 1] as const).map((step) => (
-                  <Button
-                    key={step}
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={step === -1 ? labels.previous : labels.next}
-                    onClick={() =>
-                      setIndex((i) => (i + step + sides.length) % sides.length)
-                    }
-                  >
-                    {step === -1 ? (
-                      <IconChevronLeft
-                        aria-hidden
-                        className="rtl:-scale-x-100"
-                      />
-                    ) : (
-                      <IconChevronRight
-                        aria-hidden
-                        className="rtl:-scale-x-100"
-                      />
-                    )}
-                  </Button>
-                ))}
+            {ends ? (
+              <span className="text-muted-foreground text-xs tabular-nums">
+                {ends}
               </span>
             ) : null}
+            {promotion.code ? (
+              <PromoCode
+                code={promotion.code}
+                reveal={promotion.revealCode}
+                onReveal={() => report('reveal', promotion)}
+                onCopy={() => report('copy', promotion)}
+                className="mt-1 self-start"
+              />
+            ) : null}
+            <div className="mt-1 flex items-center gap-2">
+              {promotion.cta ? (
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      href={promotion.cta.href}
+                      onClick={() => report('click', promotion)}
+                      {...(promotion.cta.external
+                        ? { target: '_blank', rel: 'noopener noreferrer' }
+                        : {})}
+                    >
+                      {promotion.cta.label}
+                    </Link>
+                  }
+                />
+              ) : null}
+              {sides.length > 1 ? (
+                <span className="ms-auto flex">
+                  {([-1, 1] as const).map((step) => (
+                    <Button
+                      key={step}
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={step === -1 ? labels.previous : labels.next}
+                      onClick={() =>
+                        setIndex(
+                          (i) => (i + step + sides.length) % sides.length,
+                        )
+                      }
+                    >
+                      {step === -1 ? (
+                        <IconChevronLeft
+                          aria-hidden
+                          className="rtl:-scale-x-100"
+                        />
+                      ) : (
+                        <IconChevronRight
+                          aria-hidden
+                          className="rtl:-scale-x-100"
+                        />
+                      )}
+                    </Button>
+                  ))}
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

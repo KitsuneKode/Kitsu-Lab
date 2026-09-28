@@ -28,7 +28,10 @@ export type KitOptions<Routes extends Record<string, string>> = {
   routes?: Partial<Routes>
   /** Per-record changes, keyed by the kit's record name. */
   overrides?: Record<string, Partial<Promotion>>
-  /** Your images for galleries, replacing the kit's samples. */
+  /**
+   * Your images and clips. Kits ship no assets: without these, surfaces
+   * that would carry a picture render as text, never as a broken image.
+   */
   images?: PromotionMedia[]
 }
 
@@ -70,45 +73,14 @@ export function finish(
   }))
 }
 
-export const SAMPLE_SWATCHES: PromotionMedia[] = [
-  {
-    src: '/promo-samples/linen-sand.svg',
-    alt: 'Sand linen overshirt',
-    width: 1600,
-    height: 900,
-  },
-  {
-    src: '/promo-samples/linen-sage.svg',
-    alt: 'Sage linen overshirt',
-    width: 1600,
-    height: 900,
-  },
-  {
-    src: '/promo-samples/linen-ink.svg',
-    alt: 'Ink linen overshirt',
-    width: 1600,
-    height: 900,
-  },
-  {
-    src: '/promo-samples/linen-clay.svg',
-    alt: 'Clay linen overshirt',
-    width: 1600,
-    height: 900,
-  },
-]
+/** A gallery only when the host supplied images; kits ship no assets. */
+export const galleryOf = (images: readonly PromotionMedia[]) =>
+  images.length ? { gallery: [...images] } : {}
 
-const PAGE_CAPTIONS = [
-  'Workspaces: one place per team.',
-  'Shared queues, with owners and due dates.',
-  'Weekly reports that write themselves.',
-]
-
-export const SAMPLE_PAGES: PromotionMedia[] = [1, 2, 3].map((n) => ({
-  src: `/sample-pages/page-${n}.svg`,
-  alt: `Page ${n} of the notes`,
-  width: 1600,
-  height: 900,
-  caption: PAGE_CAPTIONS[n - 1],
-}))
+/** The image at `index`, or nothing, so a kit without images stays text-only. */
+export const mediaAt = (images: readonly PromotionMedia[], index: number) => {
+  const media = images[index] ?? images[0]
+  return media ? { media } : {}
+}
 
 export const QUIET_CHECKOUT = ['/checkout', '/checkout/**', '/login', '/signup']

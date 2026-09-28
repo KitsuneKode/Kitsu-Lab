@@ -89,13 +89,32 @@ export type PromotionVariant = PromotionCopy & {
   weight?: number
 }
 
+/** Video containers a clip may use. List WebM first and MP4 as the fallback. */
+export const PROMOTION_VIDEO_TYPES = ['video/webm', 'video/mp4'] as const
+export type PromotionVideoType = (typeof PROMOTION_VIDEO_TYPES)[number]
+
+/**
+ * A short, silent clip that plays over the still. It never has sound, so it
+ * can play on its own; it only plays while on screen and in a visible tab,
+ * and reduced motion or Save-Data leaves the still in its place.
+ */
+export type PromotionVideo = {
+  sources: { src: string; type: PromotionVideoType }[]
+}
+
 export type PromotionMedia = {
+  /**
+   * The still image. With `video` it is also the poster: it paints first,
+   * stays for reduced motion and Save-Data, and is what compact surfaces
+   * (toast, side-card tab) show.
+   */
   src: string
   alt: string
   width: number
   height: number
   /** Shown over the image in stories and under it in galleries. Plain text. */
   caption?: string
+  video?: PromotionVideo
 }
 
 export type PromotionCta = {
@@ -189,6 +208,8 @@ export const EYEBROW_MAX = 40
 export const CTA_LABEL_MAX = 32
 export const CODE_MAX = 24
 export const GALLERY_MAX = 8
+/** One source per container is enough; more only slows the browser's pick. */
+export const VIDEO_SOURCES_MAX = PROMOTION_VIDEO_TYPES.length
 export const COUNTDOWN_MAX_DAYS = 14
 /** Industry guidance is at most twice a day; we default to once. */
 export const DEFAULT_FREQUENCY_HOURS = 24
@@ -831,6 +852,33 @@ export function parsePromotion(
     }
   }
 
+  /** Absent is fine; present must be 1–2 allowed sources of a known type. */
+  const parseVideo = (value: unknown): PromotionVideo | null | undefined => {
+    if (value === undefined || value === null) return undefined
+    const sources = isRecord(value) ? value.sources : null
+    if (
+      !Array.isArray(sources) ||
+      sources.length === 0 ||
+      sources.length > VIDEO_SOURCES_MAX
+    )
+      return null
+    const parsed: PromotionVideo['sources'] = []
+    for (const source of sources) {
+      if (
+        !isRecord(source) ||
+        typeof source.src !== 'string' ||
+        !isAllowedMediaSrc(source.src) ||
+        !(PROMOTION_VIDEO_TYPES as readonly unknown[]).includes(source.type)
+      )
+        return null
+      parsed.push({
+        src: source.src,
+        type: source.type as PromotionVideoType,
+      })
+    }
+    return { sources: parsed }
+  }
+
   const parseMedia = (value: unknown): PromotionMedia | null => {
     const raw = isRecord(value) ? value : {}
     const alt = plainText(raw.alt, 160, true)
@@ -844,19 +892,26 @@ export function parsePromotion(
       return null
     const caption = plainText(raw.caption, 120, false)
     if (!caption.ok) return null
+    const video = parseVideo(raw.video)
+    if (video === null) return null
     return {
       src: raw.src,
       alt: alt.value ?? '',
       width: raw.width,
       height: raw.height,
       ...(caption.value ? { caption: caption.value } : {}),
+      ...(video ? { video } : {}),
     }
   }
 
   let media: PromotionMedia | undefined
   if (input.media !== undefined && input.media !== null) {
     media = parseMedia(input.media) ?? undefined
-    if (!media) errors.media = 'Images need a source, a description and a size.'
+    if (!media)
+      errors.media =
+        isRecord(input.media) && parseVideo(input.media.video) === null
+          ? 'Clips need an allowed WebM or MP4 source.'
+          : 'Images need a source, a description and a size.'
   }
 
   let gallery: PromotionMedia[] | undefined
@@ -1008,6 +1063,35 @@ function isStringArray(value: unknown): value is string[] {
 const optionalString = (value: unknown) =>
   value === undefined || typeof value === 'string'
 
+/**
+ * A stored image, and its clip when present. Clip sources must be a known
+ * container and an allowed URL, because they reach a `<source src>` as is.
+ */
+function isStoredMedia(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    typeof value.src !== 'string' ||
+    typeof value.alt !== 'string' ||
+    !optionalString(value.caption)
+  )
+    return false
+  // Absent, as parsePromotion reads it: CMS rows often store null.
+  if (value.video === undefined || value.video === null) return true
+  const sources = isRecord(value.video) ? value.video.sources : null
+  return (
+    Array.isArray(sources) &&
+    sources.length > 0 &&
+    sources.length <= VIDEO_SOURCES_MAX &&
+    sources.every(
+      (source) =>
+        isRecord(source) &&
+        typeof source.src === 'string' &&
+        defaultIsAllowedHref(source.src) &&
+        (PROMOTION_VIDEO_TYPES as readonly unknown[]).includes(source.type),
+    )
+  )
+}
+
 /** Type guard for a stored record: required fields present and every optional field well formed. */
 export function isPromotion(value: unknown): value is Promotion {
   if (!isRecord(value)) return false
@@ -1049,19 +1133,8 @@ export function isPromotion(value: unknown): value is Promotion {
         typeof value.cta.href === 'string' &&
         defaultIsAllowedHref(value.cta.href))) &&
     (value.gallery === undefined ||
-      (Array.isArray(value.gallery) &&
-        value.gallery.every(
-          (item) =>
-            isRecord(item) &&
-            typeof item.src === 'string' &&
-            typeof item.alt === 'string' &&
-            optionalString(item.caption),
-        ))) &&
-    (value.media === undefined ||
-      (isRecord(value.media) &&
-        typeof value.media.src === 'string' &&
-        typeof value.media.alt === 'string' &&
-        optionalString(value.media.caption)))
+      (Array.isArray(value.gallery) && value.gallery.every(isStoredMedia))) &&
+    (value.media === undefined || isStoredMedia(value.media))
   )
 }
 

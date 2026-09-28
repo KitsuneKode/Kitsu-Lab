@@ -1,7 +1,7 @@
 import {
   DAY,
   QUIET_CHECKOUT,
-  SAMPLE_PAGES,
+  galleryOf,
   finish,
   record,
   tr,
@@ -30,7 +30,7 @@ export function courseEnrolmentKit({
   id = 'cohort',
   routes = {},
   overrides,
-  images = SAMPLE_PAGES,
+  images = [],
 }: KitOptions<CourseRoutes> = {}): PromotionKit {
   const r: CourseRoutes = {
     home: '/',
@@ -142,7 +142,7 @@ export function courseEnrolmentKit({
           eyebrow: 'Closes Friday',
           title: 'Scholarship applications close this week',
           body: 'Full and partial places for people changing careers. It takes ten minutes to apply.',
-          gallery: images,
+          ...galleryOf(images),
           cta: { label: 'Apply for a place', href: r.scholarships },
           include: [`${r.courses}/**`],
           startsAt: startsAt + 2 * DAY,

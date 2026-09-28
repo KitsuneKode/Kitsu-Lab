@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y"],
+  // @shadcn/lint: design-system rules with fixes drawn from our own
+  // components, variants and theme (read via components.json). Adopted at
+  // "warn" first, per its adoption guide; tighten rule by rule to "error".
+  "jsPlugins": ["@shadcn/lint"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn",
@@ -32,8 +36,30 @@
     "typescript/no-unused-vars": [
       "error",
       { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
-    ]
+    ],
+    "shadcn/no-restyle": ["warn", { "allow": ["layout"] }],
+    "shadcn/no-raw-colors": "warn",
+    "shadcn/no-arbitrary-values": ["warn", { "allow": ["layout"] }],
+    "shadcn/no-inline-styles": "warn",
+    "shadcn/require-static-classes": "warn"
   },
+  "overrides": [
+    {
+      // The primitives are the design system; they define the styles the
+      // rule protects everywhere else.
+      "files": ["components/ui/**"],
+      "rules": { "shadcn/no-restyle": "off" }
+    },
+    {
+      // Open Graph images render through Satori, which only reads inline
+      // styles and literal colours.
+      "files": ["lib/og-card.tsx", "app/**/opengraph-image.tsx"],
+      "rules": {
+        "shadcn/no-inline-styles": "off",
+        "shadcn/no-raw-colors": "off"
+      }
+    }
+  ],
   "env": {
     "builtin": true,
     "browser": true

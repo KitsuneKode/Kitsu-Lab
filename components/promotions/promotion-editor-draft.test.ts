@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
 import { parsePromotion, type PromotionContent } from './promotion'
-import { initialDraft, names, toInput } from './promotion-editor-draft'
+import {
+  clipFrom,
+  initialDraft,
+  names,
+  toInput,
+} from './promotion-editor-draft'
 
 const T0 = Date.UTC(2026, 8, 29, 9)
 const ZONE = 'UTC'
@@ -118,4 +123,63 @@ describe('editor round trip', () => {
     ])
     expect(names('')).toEqual([])
   })
+})
+
+describe('clips in the editor', () => {
+  const withClip: PromotionContent = {
+    placement: 'side',
+    title: 'Today: ink on any page',
+    tone: 'brand',
+    media: {
+      src: '/clips/ink.webp',
+      alt: 'Ink on a page',
+      width: 960,
+      height: 600,
+      video: {
+        sources: [
+          { src: '/clips/ink.webm', type: 'video/webm' },
+          { src: '/clips/ink.mp4', type: 'video/mp4' },
+        ],
+      },
+    },
+    include: [],
+    exclude: [],
+    startsAt: T0,
+    endsAt: T0 + 86_400_000,
+    priority: 50,
+    dismiss: { mode: 'days', days: 3 },
+  }
+
+  test('an untouched clip survives the round trip, both sources in order', () => {
+    const result = roundTrip(withClip)
+    expect(result.ok && result.value.media?.video).toEqual(
+      withClip.media?.video,
+    )
+  })
+
+  test('types come from the extension, ignoring query strings', () => {
+    expect(clipFrom('/a.webm?v=2, /a.MP4#t=1')?.sources).toEqual([
+      { src: '/a.webm?v=2', type: 'video/webm' },
+      { src: '/a.MP4#t=1', type: 'video/mp4' },
+    ])
+    expect(clipFrom('  ')).toBeUndefined()
+  })
+
+  test('an unknown container is explained on media, not dropped', () => {
+    const draft = { ...initialDraft(withClip, T0, ZONE), mediaVideo: '/a.mov' }
+    const result = parsePromotion(toInput(draft, ZONE, withClip))
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.errors.media).toContain('Clips')
+  })
+})
+
+test('a stale clip is ignored once the image is cleared', () => {
+  const draft = {
+    ...initialDraft({}, T0, ZONE),
+    mediaSrc: '',
+    mediaAlt: 'Left over',
+    mediaVideo: '/a.mov',
+  }
+  const result = parsePromotion(toInput(draft, ZONE, {}))
+  if (!result.ok) expect(result.errors.media ?? '').not.toContain('Clips')
 })

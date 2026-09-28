@@ -38,6 +38,7 @@ registries. CI runs the same and fails if the built registry drifts.
   `npx -y shadcn@4.21.0 build registry-pro.json -o registry-pro/r` (pro).
   Any change to a file listed in a manifest needs both rebuilt and committed.
 - `npm run lint` — oxlint only (`.oxlintrc.json`). The worker-pump `await`-in-loop and cleanup-closure flags in the book-preview engines are intentional; those rules are off there. `role="status"` live regions and canvas `role="img"` are correct ARIA — `prefer-tag-over-role` is off. React Compiler runs via `reactCompiler: true` in `next.config.ts`.
+- `@shadcn/lint` runs inside oxlint (`jsPlugins`), all five core rules at `warn` while the backlog is triaged (plan 07, KL-05). New code should not add findings: prefer theme tokens over arbitrary values, variants over restyling `components/ui` primitives, classes or CSS variables over inline styles. Primitives in `components/ui/**` and Satori OG images are exempt where noted in `.oxlintrc.json`.
 - `npm run format` — oxfmt (`sortingMethod: lineLength`, `sortTailwindcss`). Generated registry output is ignored.
 - `npm run test` — bun test over `components/book-preview`, `components/book-preview-demo`, `components/promotions` and `lib`.
 - `npm run test:e2e` — Playwright browser tests in `e2e/` (`*.e2e.ts`, so bun ignores them): turning, spreads, fullscreen chrome, resume, layouts, desktop and phone. Needs `npm run build` first; uses the installed Chrome (no browser download). Set `E2E_BASE_URL` to test a running server.

@@ -1,7 +1,7 @@
 import {
   DAY,
   QUIET_CHECKOUT,
-  SAMPLE_PAGES,
+  galleryOf,
   finish,
   record,
   tr,
@@ -32,7 +32,7 @@ export function productLaunchKit({
   id = 'launch',
   routes = {},
   overrides,
-  images = SAMPLE_PAGES,
+  images = [],
 }: KitOptions<LaunchRoutes> = {}): PromotionKit {
   const r: LaunchRoutes = {
     home: '/',
@@ -169,7 +169,7 @@ export function productLaunchKit({
           eyebrow: 'Thursday, 17:00',
           title: 'Watch the 3.0 keynote live',
           body: 'Forty minutes, three launches, and a live Q&A with the team.',
-          gallery: images,
+          ...galleryOf(images),
           cta: {
             label: 'Save my seat',
             href: r.event,
@@ -215,7 +215,7 @@ export function productLaunchKit({
           presentation: 'story',
           eyebrow: 'What’s new in 3.0',
           title: 'Three things that change how your team plans',
-          gallery: images,
+          ...galleryOf(images),
           cta: { label: 'Try workspaces', href: r.changelog },
           startsAt: startsAt - DAY,
           endsAt: startsAt + 30 * DAY,

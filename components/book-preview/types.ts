@@ -1,3 +1,4 @@
+import type { BookPreviewReadingEvent } from './reading-analytics'
 import type { BookPreviewUrlKeys } from './url-state'
 import type { BookPreviewTypography } from './typography'
 import type { BookPreviewAiAdapter } from './ai'
@@ -264,4 +265,10 @@ export type BookPreviewProps = {
   onCapabilitiesChange?: (capabilities: BookPreviewCapabilities) => void
   onError?: (error: BookPreviewError) => void
   onStatusChange?: (status: BookPreviewStatus) => void
+  /**
+   * Reading analytics: time on each page (visible time only), finishing the
+   * document, and the page a reader left on. Send them to your analytics and
+   * fold them with `summarizeReading` for a drop-off curve.
+   */
+  onReadingEvent?: (event: BookPreviewReadingEvent) => void
 }

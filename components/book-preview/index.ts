@@ -50,3 +50,10 @@ export type {
 export type { BookPreviewAiAdapter, BookPreviewAskRequest } from './ai'
 export type { BookPreviewTypography } from './typography'
 export type { BookPreviewUrlKeys } from './url-state'
+export {
+  createReadingTracker,
+  summarizeReading,
+  type BookPreviewReadingEvent,
+  type ReadingSummary,
+  type ReadingTracker,
+} from './reading-analytics'

@@ -74,6 +74,7 @@ import { pickControlled, isPdfFile, eventHasFiles } from './reader-utils'
 import { BookPreviewActiveEngine } from './book-preview-active-engine'
 import { useFullscreen } from './hooks/use-fullscreen'
 import { useEngineLoader } from './hooks/use-engine-loader'
+import { useReadingEvents } from './hooks/use-reading-events'
 import { usePersistedPageIndex, useReadingPace } from './hooks/use-page-memory'
 import {
   usePersistedPreferences,
@@ -124,6 +125,7 @@ export function BookPreview({
   onCapabilitiesChange,
   onError,
   onStatusChange,
+  onReadingEvent,
 }: BookPreviewProps) {
   const propSource = useMemo(() => normalizeSource(source), [source])
   const urlKeys = resolveUrlKeys(urlState, pageParamProp)
@@ -372,6 +374,13 @@ export function BookPreview({
   // Runs before useEngineLoader so a source change dispatches reset-source
   // first and the loader's status transition (loading/empty/unsupported)
   // lands last, matching the pre-extraction effect order.
+  useReadingEvents(
+    onReadingEvent,
+    activePage,
+    state.totalPages,
+    state.status === 'ready',
+    sourceKey,
+  )
   const minutesLeft = useReadingPace(
     activePage,
     state.totalPages,

@@ -250,6 +250,14 @@
         {
           "path": "components/book-preview/hooks/use-reader-actions.ts",
           "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/reading-analytics.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/hooks/use-reading-events.ts",
+          "type": "registry:component"
         }
       ]
     },

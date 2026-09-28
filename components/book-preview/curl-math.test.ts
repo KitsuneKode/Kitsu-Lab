@@ -8,6 +8,7 @@ import {
   curlDragPoint,
   curlFold,
   curlForwardProgress,
+  curlLight,
   curlSettleMs,
   curlSpreadBackwardProgress,
   curlWindow,
@@ -146,5 +147,31 @@ describe('curl spreads', () => {
     expect(curlSpreadBackwardProgress(100, 100, W)).toBe(1)
     expect(curlSpreadBackwardProgress(100, 500, W)).toBeCloseTo(0.5, 6)
     expect(curlSpreadBackwardProgress(100, 900, W)).toBe(0)
+  })
+})
+
+describe('curlLight', () => {
+  test('a crease leaning toward the lamp catches more light', () => {
+    // Bottom-corner lifts lean the fold one way, top-corner lifts the other.
+    const bottom = curlLight(14, 0.5)
+    const top = curlLight(-14, 0.5)
+    expect(bottom.gloss).toBeGreaterThan(top.gloss)
+    expect(bottom.shade).toBeLessThan(top.shade)
+  })
+
+  test('contrast peaks mid-turn and softens as the paper lies flat', () => {
+    expect(curlLight(10, 0.5).gloss).toBeGreaterThan(curlLight(10, 0.02).gloss)
+    expect(curlLight(10, 0.5).shade).toBeGreaterThan(curlLight(10, 0.98).shade)
+  })
+
+  test('always a usable opacity', () => {
+    for (const angle of [-180, -90, -15, 0, 15, 90, 180])
+      for (const p of [-1, 0, 0.3, 1, 2]) {
+        const { gloss, shade } = curlLight(angle, p)
+        for (const value of [gloss, shade]) {
+          expect(value).toBeGreaterThanOrEqual(0)
+          expect(value).toBeLessThanOrEqual(1)
+        }
+      }
   })
 })

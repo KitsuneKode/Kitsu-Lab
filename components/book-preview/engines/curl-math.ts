@@ -270,3 +270,34 @@ export function curlWindow(
   }
   return Array.from(set).sort((a, b) => a - b)
 }
+
+/** The reading lamp sits up and to the left of the page. */
+const CURL_LIGHT = { x: -Math.SQRT1_2, y: -Math.SQRT1_2 }
+
+/**
+ * How the lifted paper takes the light, from the fold's angle (degrees, as
+ * `curlFold` reports it) and how far over the leaf is (`p`, 0-1).
+ *
+ * The crease rolls toward the spine, so it faces the lamp when the fold
+ * leans toward it: a corner lifted from the bottom catches more light than
+ * one lifted from the top, and the glint moves as a hand tilts the page.
+ * Contrast peaks mid-turn, when the paper stands most upright, and fades
+ * as it lies flat. Both values are 0-1 opacities, for composited layers.
+ */
+export function curlLight(
+  angleDeg: number,
+  p: number,
+): { gloss: number; shade: number } {
+  const angle = (angleDeg * Math.PI) / 180
+  // The crease faces away from the fold's normal, back toward the spine.
+  const facing = -(
+    Math.cos(angle) * CURL_LIGHT.x +
+    Math.sin(angle) * CURL_LIGHT.y
+  )
+  const toward = Math.min(1, Math.max(0, (facing + 1) / 2))
+  const lift = Math.sin(Math.PI * Math.min(1, Math.max(0, p)))
+  return {
+    gloss: (0.25 + 0.75 * toward) * (0.55 + 0.45 * lift),
+    shade: (0.45 + 0.55 * lift) * (1 - 0.35 * toward),
+  }
+}

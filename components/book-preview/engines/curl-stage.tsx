@@ -37,6 +37,7 @@ import {
   curlPolygonCss,
   curlSettleMs,
   curlSpreadBackwardProgress,
+  curlLight,
   easeInOutCubic,
   easeOutCubic,
 } from './curl-math'
@@ -333,9 +334,15 @@ export function CurlStage({
       }
       show(el, 4, curlPolygonCss(fold.flap))
       el.style.transform = `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`
-      const gloss = el.lastElementChild
-      if (gloss instanceof HTMLElement) {
+      // Opacity only per frame: the lamp moves the light, not the paint.
+      const light = curlLight(fold.angle, turn.p)
+      const shade = el.lastElementChild
+      const gloss = shade?.previousElementSibling
+      if (gloss instanceof HTMLElement && shade instanceof HTMLElement) {
         placeAlongFold(gloss, fold.origin, fold.angle, fold.depth, size)
+        placeAlongFold(shade, fold.origin, fold.angle, fold.depth, size)
+        gloss.style.opacity = light.gloss.toFixed(3)
+        shade.style.opacity = light.shade.toFixed(3)
       }
     }
     if (shadow) {
@@ -1053,6 +1060,10 @@ export function CurlStage({
                   )}
                   <div
                     data-book-preview-curl-gloss
+                    className="absolute top-0 left-0 origin-top-left"
+                  />
+                  <div
+                    data-book-preview-curl-shade
                     className="absolute top-0 left-0 origin-top-left"
                   />
                 </div>

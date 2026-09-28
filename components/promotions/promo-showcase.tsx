@@ -81,11 +81,10 @@ export function Showcase({
   const [active, setActive] = React.useState(0)
   const [paused, setPaused] = React.useState(false)
   const [held, setHeld] = React.useState(false)
-  const [clip, setClip] = React.useState({
-    index: -1,
-    seconds: null as number | null,
-    playing: false,
-  })
+  // Every chapter stays mounted, so a paused inactive clip still reports.
+  // Durations are kept per chapter, and only the active one may say it plays.
+  const [durations, setDurations] = React.useState<Record<number, number>>({})
+  const [playing, setPlaying] = React.useState({ index: -1, value: false })
   const [stills, setStills] = React.useState<ReadonlySet<number>>(
     () => new Set(),
   )
@@ -113,7 +112,6 @@ export function Showcase({
   const advancing = !reduce && count > 1
   const stopped = paused || held || hidden
   const isClip = Boolean(current.media.video) && !stills.has(active)
-  const clipNow = clip.index === active ? clip : null
   const next = () => setActive((i) => (i + 1) % count)
 
   const select = (index: number, focus = false) => {
@@ -145,8 +143,9 @@ export function Showcase({
   // plays (or, for a still, while nothing holds it).
   const fill = (): React.CSSProperties | undefined => {
     if (!advancing) return undefined
-    const ms = isClip ? (clipNow?.seconds ?? STILL_MS / 1000) * 1000 : STILL_MS
-    const running = isClip ? Boolean(clipNow?.playing) && !stopped : !stopped
+    const ms = isClip ? (durations[active] ?? STILL_MS / 1000) * 1000 : STILL_MS
+    const clipPlaying = playing.index === active && playing.value
+    const running = isClip ? clipPlaying && !stopped : !stopped
     return {
       animation: `promo-showcase-fill ${ms}ms linear forwards`,
       animationPlayState: running ? 'running' : 'paused',
@@ -207,15 +206,11 @@ export function Showcase({
                 controls={!advancing}
                 className="size-full bg-transparent"
                 onDuration={(seconds) =>
-                  setClip((c) => ({ ...c, index, seconds }))
+                  setDurations((d) => ({ ...d, [index]: seconds }))
                 }
-                onPlayingChange={(playing) =>
-                  setClip((c) =>
-                    c.index === index
-                      ? { ...c, playing }
-                      : { index, seconds: c.seconds, playing },
-                  )
-                }
+                onPlayingChange={(value) => {
+                  if (index === active) setPlaying({ index, value })
+                }}
                 onEnded={advancing && index === active ? next : undefined}
                 onFallback={() =>
                   setStills((previous) => new Set(previous).add(index))

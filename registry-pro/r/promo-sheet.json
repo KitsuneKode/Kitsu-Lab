@@ -18,6 +18,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the swipeable Drawer.",
+  "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the swipeable Drawer. Size: about 2 kB gzipped of its own, 100 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

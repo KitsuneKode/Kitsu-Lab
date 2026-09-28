@@ -17,6 +17,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the Dialog. Render it through the free dialog: <PromoDialog story={PromoStory} />.",
+  "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the Dialog. Render it through the free dialog: <PromoDialog story={PromoStory} />. Size: about 3 kB gzipped of its own, 89 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

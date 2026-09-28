@@ -19,6 +19,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "Requires Base UI 1.8+ (a base-* shadcn project): the phone layout uses the Base UI Drawer for swipe dismissal.",
+  "docs": "Requires Base UI 1.8+ (a base-* shadcn project): the phone layout uses the Base UI Drawer for swipe dismissal. Size: about 2 kB gzipped of its own, 101 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

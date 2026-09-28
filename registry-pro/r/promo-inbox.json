@@ -17,6 +17,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the Popover.",
+  "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the Popover. Size: about 2 kB gzipped of its own, 103 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

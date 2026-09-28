@@ -201,7 +201,11 @@ export default function ScrollEngine({
     <div className="relative h-full w-full min-w-0">
       <div
         ref={scrollerRef}
-        className="h-full overflow-y-auto overscroll-contain px-3 py-4 sm:px-6"
+        // A scroller keyboard users can land on and scroll with the arrows.
+        tabIndex={0}
+        role="region"
+        aria-label="Pages"
+        className="focus-visible:ring-ring/50 h-full overflow-y-auto overscroll-contain px-3 py-4 outline-none focus-visible:ring-2 focus-visible:ring-inset sm:px-6"
         data-book-preview-scroll
       >
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">

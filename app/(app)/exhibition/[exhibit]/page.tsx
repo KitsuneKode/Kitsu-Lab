@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { notFound } from 'next/navigation'
 import Intro from '@/components/intro'
 import { registry } from '@/app/utils/registry'
 import { ExhibitStage } from '@/components/exhibit-stage'
@@ -20,14 +21,9 @@ async function ExhibitionBody({ params }: Props) {
     (component) => component.path === exhibit,
   )
 
-  if (!componentExists) {
-    return (
-      <div className="relative flex min-h-dvh w-full flex-col items-center">
-        <BackToLab />
-        <div>Not Found</div>
-      </div>
-    )
-  }
+  // The site's 404 page, marked noindex. The status stays 200: the shell
+  // has already streamed by the time params resolve.
+  if (!componentExists) notFound()
 
   const Exhibit = componentExists.component
 

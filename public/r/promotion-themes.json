@@ -10,6 +10,6 @@
       "type": "registry:lib"
     }
   ],
-  "docs": "Surfaces portal into <body>, so set a preset there: <body style={promotionThemeStyle('editorial')}>. Spread one to override a single token.",
+  "docs": "Surfaces portal into <body>, so set a preset there: <body style={promotionThemeStyle('editorial')}>. Spread one to override a single token. Size: about <1 kB gzipped of its own, <1 kB with its dependencies (React and Next not counted).",
   "type": "registry:lib"
 }

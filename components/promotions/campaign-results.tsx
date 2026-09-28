@@ -94,7 +94,8 @@ export function CampaignResults({
                 'focus-visible:ring-ring/50 rounded-md px-3 py-1 transition-[background-color,color] duration-150 outline-none focus-visible:ring-3',
                 metric === value
                   ? 'bg-background text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  : // muted-foreground on the muted track is under 4.5:1 in light.
+                    'text-foreground/70 hover:text-foreground',
               )}
             >
               {value === 'convert' ? 'Conversions' : 'Clicks'}

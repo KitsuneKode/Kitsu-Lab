@@ -17,7 +17,8 @@
           "path": "components/promotions/promo-pill.tsx",
           "type": "registry:component"
         }
-      ]
+      ],
+      "docs": "Size: about 2 kB gzipped of its own, 65 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-sheet",
@@ -35,7 +36,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the swipeable Drawer."
+      "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the swipeable Drawer. Size: about 2 kB gzipped of its own, 100 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-progress",
@@ -48,7 +49,8 @@
           "path": "components/promotions/promo-progress.tsx",
           "type": "registry:component"
         }
-      ]
+      ],
+      "docs": "Size: about <1 kB gzipped of its own, 9 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-sticky-cta",
@@ -64,7 +66,8 @@
           "path": "components/promotions/promo-sticky-cta.tsx",
           "type": "registry:component"
         }
-      ]
+      ],
+      "docs": "Size: about 1 kB gzipped of its own, 23 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-carousel",
@@ -80,7 +83,8 @@
           "path": "components/promotions/promo-carousel.tsx",
           "type": "registry:component"
         }
-      ]
+      ],
+      "docs": "Size: about 2 kB gzipped of its own, 70 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-showcase",
@@ -97,7 +101,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Fill it from a card slot with <PromoShowcase slot=\"showcase\" /> (each live card with media becomes a chapter; its eyebrow is the tab label), or pass chapters directly to <Showcase />. Media may carry silent clips (media.video)."
+      "docs": "Fill it from a card slot with <PromoShowcase slot=\"showcase\" /> (each live card with media becomes a chapter; its eyebrow is the tab label), or pass chapters directly to <Showcase />. Media may carry silent clips (media.video). Size: about 3 kB gzipped of its own, 54 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-inbox",
@@ -114,7 +118,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the Popover."
+      "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the Popover. Size: about 2 kB gzipped of its own, 103 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-changelog",
@@ -132,7 +136,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "<PromoChangelog slot=\"changelog\" /> in your header. Publish card records with slot 'changelog'; the eyebrow is the entry's date label (falls back to its start date). New labels clear when the visitor closes the panel."
+      "docs": "<PromoChangelog slot=\"changelog\" /> in your header. Publish card records with slot 'changelog'; the eyebrow is the entry's date label (falls back to its start date). New labels clear when the visitor closes the panel. Size: about 2 kB gzipped of its own, 87 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promotion-kits",
@@ -160,7 +164,7 @@
           "type": "registry:lib"
         }
       ],
-      "docs": "Kits reference sample images under /promo-samples and /sample-pages; pass `images` with your own."
+      "docs": "Kits reference sample images under /promo-samples and /sample-pages; pass `images` with your own. Size: about 7 kB gzipped of its own, 7 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-spotlight",
@@ -178,7 +182,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Requires Base UI 1.8+ for the anchored Popover. Give the promotion `slot` the same value as the component's `name`."
+      "docs": "Requires Base UI 1.8+ for the anchored Popover. Give the promotion `slot` the same value as the component's `name`. Size: about 2 kB gzipped of its own, 52 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-tour",
@@ -196,7 +200,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "<PromoTour id=\"welcome\" steps={[{ target: '[data-tour=\"share\"]', title, body }]} /> anywhere under the provider, and startTour('welcome') from a button. Pass { restart: true } to begin again."
+      "docs": "<PromoTour id=\"welcome\" steps={[{ target: '[data-tour=\"share\"]', title, body }]} /> anywhere under the provider, and startTour('welcome') from a button. Pass { restart: true } to begin again. Size: about 2 kB gzipped of its own, 99 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-side-card",
@@ -213,7 +217,8 @@
           "path": "components/promotions/promo-side-card.tsx",
           "type": "registry:component"
         }
-      ]
+      ],
+      "docs": "Size: about 3 kB gzipped of its own, 69 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promotion-editor",
@@ -239,7 +244,7 @@
           "type": "registry:lib"
         }
       ],
-      "docs": "Requires Base UI primitives (a base-* shadcn project): ToggleGroup and Slider use array values. Pass `timeZone` so dates are entered in the campaign's zone, not the reviewer's."
+      "docs": "Requires Base UI primitives (a base-* shadcn project): ToggleGroup and Slider use array values. Pass `timeZone` so dates are entered in the campaign's zone, not the reviewer's. Size: about 9 kB gzipped of its own, 97 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promotion-preview",
@@ -260,7 +265,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Server: createPreviewToken(id, { secret }) for the link, verifyPreviewToken(searchParams[PREVIEW_PARAM], { secret }) on the page, then pass the loaded draft as <PromotionProvider preview={draft}>. Keep PROMO_PREVIEW_SECRET (32+ characters) server-side. Add <PromoPreviewNotice onExit={…} /> so reviewers know it is not live."
+      "docs": "Server: createPreviewToken(id, { secret }) for the link, verifyPreviewToken(searchParams[PREVIEW_PARAM], { secret }) on the page, then pass the loaded draft as <PromotionProvider preview={draft}>. Keep PROMO_PREVIEW_SECRET (32+ characters) server-side. Add <PromoPreviewNotice onExit={…} /> so reviewers know it is not live. Size: about 1 kB gzipped of its own, 10 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "campaign-timeline",
@@ -277,7 +282,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Pass `timeZone` so ticks and schedules are labelled in the campaign's zone, not the reviewer's. Records competing for the one floating slot are flagged; a dialog wins over a spotlight, a spotlight over a toast."
+      "docs": "Pass `timeZone` so ticks and schedules are labelled in the campaign's zone, not the reviewer's. Records competing for the one floating slot are flagged; a dialog wins over a spotlight, a spotlight over a toast. Size: about 2 kB gzipped of its own, 11 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "campaign-results",
@@ -298,7 +303,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "<CampaignResults events={events} promotions={records} />. Feed it the provider's events (collect onEvent, or read them back from your analytics). campaignStats(events) is the pure core, usable on a server over warehouse data."
+      "docs": "<CampaignResults events={events} promotions={records} />. Feed it the provider's events (collect onEvent, or read them back from your analytics). campaignStats(events) is the pure core, usable on a server over warehouse data. Size: about 3 kB gzipped of its own, 12 kB with its dependencies (React and Next not counted)."
     },
     {
       "type": "registry:component",
@@ -316,7 +321,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the Dialog. Render it through the free dialog: <PromoDialog story={PromoStory} />."
+      "docs": "Requires Base UI 1.8+ (a base-* shadcn project) for the Dialog. Render it through the free dialog: <PromoDialog story={PromoStory} />. Size: about 3 kB gzipped of its own, 89 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promotion-account-store",
@@ -331,7 +336,8 @@
           "path": "components/promotions/promotion-account-store.ts",
           "type": "registry:lib"
         }
-      ]
+      ],
+      "docs": "Size: about 1 kB gzipped of its own, 1 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promotions-pro",
@@ -365,7 +371,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Pro items install from the authenticated @kitsu-pro registry. Add it to components.json with your key in KITSU_PRO_KEY; see the Docs tab on the promotions exhibit."
+      "docs": "Pro items install from the authenticated @kitsu-pro registry. Add it to components.json with your key in KITSU_PRO_KEY; see the Docs tab on the promotions exhibit. Size: about 1 kB gzipped of its own, 147 kB with its dependencies (React and Next not counted)."
     }
   ]
 }

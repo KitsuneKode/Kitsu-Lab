@@ -1281,7 +1281,12 @@ export function PromotionsDemo() {
 
           <section className="border-border/60 flex flex-col gap-2 rounded-xl border p-4 text-sm">
             <h3 className="font-medium">Use it</h3>
-            <pre className="bg-muted/50 overflow-x-auto rounded-lg p-3 font-mono text-xs leading-relaxed">
+            <pre
+              tabIndex={0}
+              role="region"
+              aria-label="Install and use"
+              className="bg-muted/50 focus-visible:ring-ring/50 overflow-x-auto rounded-lg p-3 font-mono text-xs leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-inset"
+            >
               {`npx shadcn@latest add @kitsu/promotions
 
 <PromotionProvider

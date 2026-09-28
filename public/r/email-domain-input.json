@@ -14,6 +14,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "Requires Base UI primitives (a base-* shadcn project): the Select API relies on `items` and `alignItemWithTrigger`.",
+  "docs": "Requires Base UI primitives (a base-* shadcn project): the Select API relies on `items` and `alignItemWithTrigger`. Size: about 2 kB gzipped of its own, 67 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

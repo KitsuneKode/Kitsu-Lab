@@ -17,7 +17,8 @@
     "registry:check": "npm run registry:build && git diff --exit-code --stat public/r registry-pro registry.json registry-pro.json",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run test",
     "test:visual": "docker run --rm --network host --ipc=host -u \"$(id -u):$(id -g)\" -e HOME=/tmp -e CI=1 -e E2E_BASE_URL=\"${E2E_BASE_URL:-http://localhost:3400}\" -v \"$PWD\":/work -w /work mcr.microsoft.com/playwright:v1.63.0-noble npx playwright test --project=visual",
-    "test:visual:update": "docker run --rm --network host --ipc=host -u \"$(id -u):$(id -g)\" -e HOME=/tmp -e CI=1 -e E2E_BASE_URL=\"${E2E_BASE_URL:-http://localhost:3400}\" -v \"$PWD\":/work -w /work mcr.microsoft.com/playwright:v1.63.0-noble npx playwright test --project=visual --update-snapshots"
+    "test:visual:update": "docker run --rm --network host --ipc=host -u \"$(id -u):$(id -g)\" -e HOME=/tmp -e CI=1 -e E2E_BASE_URL=\"${E2E_BASE_URL:-http://localhost:3400}\" -v \"$PWD\":/work -w /work mcr.microsoft.com/playwright:v1.63.0-noble npx playwright test --project=visual --update-snapshots",
+    "budgets": "bun scripts/bundle-budgets.ts --check"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

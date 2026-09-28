@@ -16,6 +16,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "Pass `timeZone` so ticks and schedules are labelled in the campaign's zone, not the reviewer's. Records competing for the one floating slot are flagged; a dialog wins over a spotlight, a spotlight over a toast.",
+  "docs": "Pass `timeZone` so ticks and schedules are labelled in the campaign's zone, not the reviewer's. Records competing for the one floating slot are flagged; a dialog wins over a spotlight, a spotlight over a toast. Size: about 2 kB gzipped of its own, 11 kB with its dependencies (React and Next not counted).",
   "type": "registry:block"
 }

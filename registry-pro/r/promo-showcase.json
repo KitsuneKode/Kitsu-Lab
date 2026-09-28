@@ -17,6 +17,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "Fill it from a card slot with <PromoShowcase slot=\"showcase\" /> (each live card with media becomes a chapter; its eyebrow is the tab label), or pass chapters directly to <Showcase />. Media may carry silent clips (media.video).",
+  "docs": "Fill it from a card slot with <PromoShowcase slot=\"showcase\" /> (each live card with media becomes a chapter; its eyebrow is the tab label), or pass chapters directly to <Showcase />. Media may carry silent clips (media.video). Size: about 3 kB gzipped of its own, 54 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

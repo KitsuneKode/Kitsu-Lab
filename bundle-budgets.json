@@ -1,0 +1,170 @@
+{
+  "book-preview": {
+    "own": 54,
+    "initial": 158
+  },
+  "book-preview-pdf": {
+    "own": 15,
+    "initial": 68
+  },
+  "book-preview-curl": {
+    "own": 11,
+    "initial": 47
+  },
+  "book-preview-archival-curl": {
+    "own": 4,
+    "initial": 46
+  },
+  "book-preview-premier": {
+    "own": 12,
+    "initial": 85
+  },
+  "book-preview-scroll": {
+    "own": 4,
+    "initial": 38
+  },
+  "book-preview-spread": {
+    "own": 5,
+    "initial": 42
+  },
+  "book-preview-webgl": {
+    "own": 5,
+    "initial": 276
+  },
+  "book-preview-engines": {
+    "own": 1,
+    "initial": 4
+  },
+  "keyboard-button": {
+    "own": 2,
+    "initial": 48
+  },
+  "email-domain-input": {
+    "own": 3,
+    "initial": 74
+  },
+  "promotion": {
+    "own": 8,
+    "initial": 8
+  },
+  "promotion-provider": {
+    "own": 14,
+    "initial": 86
+  },
+  "promo-bar": {
+    "own": 2,
+    "initial": 75
+  },
+  "promo-card": {
+    "own": 2,
+    "initial": 77
+  },
+  "promo-badge": {
+    "own": 1,
+    "initial": 10
+  },
+  "promo-toast": {
+    "own": 3,
+    "initial": 75
+  },
+  "promo-dialog": {
+    "own": 3,
+    "initial": 112
+  },
+  "promotion-labels": {
+    "own": 3,
+    "initial": 3
+  },
+  "promotion-analytics": {
+    "own": 1,
+    "initial": 1
+  },
+  "promotion-themes": {
+    "own": 1,
+    "initial": 1
+  },
+  "promotion-schema": {
+    "own": 3,
+    "initial": 3
+  },
+  "promotions": {
+    "own": 2,
+    "initial": 133
+  },
+  "promo-pill": {
+    "own": 3,
+    "initial": 72
+  },
+  "promo-sheet": {
+    "own": 3,
+    "initial": 111
+  },
+  "promo-progress": {
+    "own": 2,
+    "initial": 11
+  },
+  "promo-sticky-cta": {
+    "own": 2,
+    "initial": 26
+  },
+  "promo-carousel": {
+    "own": 3,
+    "initial": 78
+  },
+  "promo-showcase": {
+    "own": 4,
+    "initial": 60
+  },
+  "promo-inbox": {
+    "own": 3,
+    "initial": 114
+  },
+  "promo-changelog": {
+    "own": 3,
+    "initial": 97
+  },
+  "promotion-kits": {
+    "own": 9,
+    "initial": 9
+  },
+  "promo-spotlight": {
+    "own": 3,
+    "initial": 58
+  },
+  "promo-tour": {
+    "own": 4,
+    "initial": 110
+  },
+  "promo-side-card": {
+    "own": 4,
+    "initial": 77
+  },
+  "promotion-editor": {
+    "own": 10,
+    "initial": 108
+  },
+  "promotion-preview": {
+    "own": 2,
+    "initial": 11
+  },
+  "campaign-timeline": {
+    "own": 3,
+    "initial": 13
+  },
+  "campaign-results": {
+    "own": 5,
+    "initial": 14
+  },
+  "promo-story": {
+    "own": 4,
+    "initial": 99
+  },
+  "promotion-account-store": {
+    "own": 2,
+    "initial": 2
+  },
+  "promotions-pro": {
+    "own": 2,
+    "initial": 162
+  }
+}

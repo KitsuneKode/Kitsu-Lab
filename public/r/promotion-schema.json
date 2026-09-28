@@ -13,6 +13,6 @@
       "type": "registry:lib"
     }
   ],
-  "docs": "Paste JSON.stringify(promotionJsonSchema) into a prompt, or serve it for your CMS. parsePromotion stays the judge for what a schema cannot say (allowed links, route patterns, a window that ends after it starts). Published at https://kitsulab.kitsunekode.in/schema/promotion.json.",
+  "docs": "Paste JSON.stringify(promotionJsonSchema) into a prompt, or serve it for your CMS. parsePromotion stays the judge for what a schema cannot say (allowed links, route patterns, a window that ends after it starts). Published at https://kitsulab.kitsunekode.in/schema/promotion.json. Size: about 2 kB gzipped of its own, 2 kB with its dependencies (React and Next not counted).",
   "type": "registry:lib"
 }

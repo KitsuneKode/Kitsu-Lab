@@ -21,6 +21,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "Server: createPreviewToken(id, { secret }) for the link, verifyPreviewToken(searchParams[PREVIEW_PARAM], { secret }) on the page, then pass the loaded draft as <PromotionProvider preview={draft}>. Keep PROMO_PREVIEW_SECRET (32+ characters) server-side. Add <PromoPreviewNotice onExit={…} /> so reviewers know it is not live.",
+  "docs": "Server: createPreviewToken(id, { secret }) for the link, verifyPreviewToken(searchParams[PREVIEW_PARAM], { secret }) on the page, then pass the loaded draft as <PromotionProvider preview={draft}>. Keep PROMO_PREVIEW_SECRET (32+ characters) server-side. Add <PromoPreviewNotice onExit={…} /> so reviewers know it is not live. Size: about 1 kB gzipped of its own, 10 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

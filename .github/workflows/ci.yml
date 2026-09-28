@@ -31,6 +31,9 @@ jobs:
       - name: Tests
         run: bun run test
 
+      - name: Bundle budgets
+        run: bun run budgets
+
       - name: Registry artifacts in sync
         run: npx -y shadcn@4.21.0 build && npx -y shadcn@4.21.0 build registry-pro.json -o registry-pro/r && git diff --exit-code --stat public/r registry-pro registry.json registry-pro.json
 

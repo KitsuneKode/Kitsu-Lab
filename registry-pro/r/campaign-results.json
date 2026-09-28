@@ -21,6 +21,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "<CampaignResults events={events} promotions={records} />. Feed it the provider's events (collect onEvent, or read them back from your analytics). campaignStats(events) is the pure core, usable on a server over warehouse data.",
+  "docs": "<CampaignResults events={events} promotions={records} />. Feed it the provider's events (collect onEvent, or read them back from your analytics). campaignStats(events) is the pure core, usable on a server over warehouse data. Size: about 3 kB gzipped of its own, 12 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

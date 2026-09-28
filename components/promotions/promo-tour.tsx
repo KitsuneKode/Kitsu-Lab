@@ -32,6 +32,14 @@ export function startTour(id: string, { restart = false } = {}) {
 
 const HALO = 'promo-tour-halo'
 
+/** Laid out and not hidden: responsive layouts often keep a hidden twin of
+    a control for another breakpoint, and a step should point at the one
+    the visitor can see. */
+function isShown(element: Element) {
+  if (element.getClientRects().length === 0) return false
+  return getComputedStyle(element).visibility !== 'hidden'
+}
+
 function ensureHalo() {
   if (document.getElementById(HALO)) return
   const style = document.createElement('style')
@@ -103,7 +111,8 @@ export function PromoTour({
 
   const find = React.useCallback(
     (selector: string) =>
-      (container ?? document).querySelector(selector) ?? null,
+      [...(container ?? document).querySelectorAll(selector)].find(isShown) ??
+      null,
     [container],
   )
 
@@ -150,10 +159,19 @@ export function PromoTour({
     return () => window.removeEventListener(PROMOTION_TOUR_EVENT, onStart)
   }, [id, markKey, recall, reachable, record, report, steps.length])
 
+  // The step effect runs once per step, not whenever a callback or an
+  // inline `steps` array changes identity: it scrolls the page.
+  const latest = React.useRef({ reachable, finish, remember, reduce })
+  React.useLayoutEffect(() => {
+    latest.current = { reachable, finish, remember, reduce }
+  })
+  const selector = step === null ? null : (steps[step]?.target ?? null)
+
   // Each step: find its target, bring it into view, outline it.
   React.useEffect(() => {
-    if (step === null) return
-    const element = find(steps[step]!.target)
+    if (step === null || selector === null) return
+    const { reachable, finish, remember, reduce } = latest.current
+    const element = find(selector)
     if (!element) {
       // The target left the page (the DOM is the external system here):
       // move on rather than stall.
@@ -174,7 +192,7 @@ export function PromoTour({
     // oxlint-disable-next-line react/set-state-in-effect -- the anchor is read from the DOM after the step commits
     setTarget(element)
     return () => element.removeAttribute('data-promo-toured')
-  }, [step, steps, find, reachable, finish, remember, markKey, reduce])
+  }, [step, selector, find, markKey])
 
   if (step === null || !target) return null
   const current = steps[step]!

@@ -25,10 +25,14 @@ export function PromoChangelog({
   label = 'What’s new',
   className,
   container,
+  compact = false,
 }: {
   slot?: string
   label?: string
   className?: string
+  /** Icon and unread count only, for tight headers; the label stays for
+      assistive tech. */
+  compact?: boolean
   /** Portal target, e.g. a device frame in a demo. */
   container?: HTMLElement | null
 }) {
@@ -75,7 +79,7 @@ export function PromoChangelog({
         )}
       >
         <IconSparkles aria-hidden className="size-4" />
-        <span>{label}</span>
+        <span className={compact ? 'sr-only' : undefined}>{label}</span>
         {unread.length ? (
           <span
             aria-hidden

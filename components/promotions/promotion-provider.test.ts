@@ -228,3 +228,13 @@ test('a modal hosting the site does not count as another modal', () => {
   expect(visitorIsBusy()).toBe(false)
   modal.remove()
 })
+
+test('a native dialog hosting the site does not count either', () => {
+  const dialog = document.createElement('dialog')
+  dialog.setAttribute('open', '')
+  document.body.append(dialog)
+  expect(visitorIsBusy()).toBe(true)
+  dialog.setAttribute('data-promo-host', '')
+  expect(visitorIsBusy()).toBe(false)
+  dialog.remove()
+})

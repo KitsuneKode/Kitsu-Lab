@@ -19,7 +19,7 @@ import {
   type PromotionEvent,
 } from './promotion-provider'
 import { memoryDismissalStore } from './promotion-stores'
-import { assignVariant, type Promotion } from './promotion'
+import { assignVariant, dismissalKey, type Promotion } from './promotion'
 
 const NOW = Date.UTC(2026, 8, 27, 12)
 const now = () => NOW
@@ -227,4 +227,35 @@ test('a modal hosting the site does not count as another modal', () => {
   modal.setAttribute('data-promo-host', '')
   expect(visitorIsBusy()).toBe(false)
   modal.remove()
+})
+
+test('a preview shows whatever its schedule, audience or dismissal say, silently', async () => {
+  const draft = promotion({
+    id: 'draft',
+    state: 'draft',
+    title: 'Draft bar',
+    startsAt: NOW + 7 * 86_400_000,
+    endsAt: NOW + 8 * 86_400_000,
+    audience: { include: ['member'] },
+  })
+  const storage = memoryDismissalStore()
+  await renderProvider({ source: [], storage, preview: draft })
+  expect(context.bar?.title).toBe('Draft bar')
+  await act(async () => {
+    context.report('click', context.bar!)
+    context.dismiss(context.bar!)
+  })
+  expect(events).toEqual([])
+  expect(context.bar).toBeNull()
+  // Nothing was written, so the real visitor state is untouched.
+  expect(storage.get(dismissalKey(draft), 'account')).toBeNull()
+})
+
+test('a floating preview opens at once, without engagement or budget', async () => {
+  const draft = promotion({ id: 'draft-toast', placement: 'toast' })
+  const storage = memoryDismissalStore()
+  // The daily budget is already spent on something else.
+  storage.set('promo:budget:floating', NOW - 1000, 'browser')
+  await renderProvider({ source: [], storage, preview: draft })
+  expect(context.toast?.id).toBe('draft-toast')
 })

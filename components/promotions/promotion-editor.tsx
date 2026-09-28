@@ -78,6 +78,12 @@ export type PromotionEditorProps = {
   timeZone?: string
   submitLabel?: string
   onSubmit: (content: PromotionContent) => void | Promise<void>
+  /**
+   * Shows the valid draft on the site before saving, e.g. through a signed
+   * preview link or the provider's `preview` prop. Adds a "Preview on site"
+   * button.
+   */
+  onPreview?: (content: PromotionContent) => void
   onCancel?: () => void
   /**
    * Segment names your site passes to the provider (`member`, `plan:pro`),
@@ -271,6 +277,7 @@ export function PromotionEditor({
   timeZone,
   submitLabel = 'Save',
   onSubmit,
+  onPreview,
   onCancel,
   segments,
   errors: serverErrors,
@@ -401,20 +408,27 @@ export function PromotionEditor({
     timeZoneName: 'short',
   })
 
+  /** Shows every error and moves focus to the first field that has one. */
+  function focusFirstProblem() {
+    setTouched(true)
+    setPane('form')
+    if (result.ok) return
+    const first = Object.keys(result.errors)[0] ?? 'title'
+    const target = document.getElementById(id(first.replace('.', '-')))
+    // Groups are not focusable themselves; focus their first control.
+    const focusable = target?.matches('input, textarea, select, button')
+      ? target
+      : target?.querySelector<HTMLElement>('input, button, select')
+    focusable?.focus()
+  }
+
   /** Validates the draft, reports the first problem, then hands the content to `onSubmit`. */
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setTouched(true)
     setFormError(null)
     if (!result.ok) {
-      setPane('form')
-      const first = Object.keys(result.errors)[0] ?? 'title'
-      const target = document.getElementById(id(first.replace('.', '-')))
-      // Groups are not focusable themselves; focus their first control.
-      const focusable = target?.matches('input, textarea, select, button')
-        ? target
-        : target?.querySelector<HTMLElement>('input, button, select')
-      focusable?.focus()
+      focusFirstProblem()
       return
     }
     setSaving(true)
@@ -1233,6 +1247,18 @@ export function PromotionEditor({
           <Button type="submit" disabled={saving}>
             {saving ? 'Saving…' : submitLabel}
           </Button>
+          {onPreview ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (result.ok) onPreview(result.value)
+                else focusFirstProblem()
+              }}
+            >
+              Preview on site
+            </Button>
+          ) : null}
           {onCancel ? (
             <Button type="button" variant="ghost" onClick={onCancel}>
               Cancel

@@ -50,6 +50,7 @@ import {
   PromoShowcase,
   PromoInbox,
   PromoPill,
+  PromoPreviewNotice,
   PromoProgress,
   PromoSheet,
   PromoSideCard,
@@ -593,6 +594,8 @@ export function PromotionsDemo() {
   const [exit, setExit] = React.useState(false)
   const [member, setMember] = React.useState(false)
   const [appliedCode, setAppliedCode] = React.useState<string | null>(null)
+  // A draft from the editor's "Preview on site", shown through `preview`.
+  const [previewDraft, setPreviewDraft] = React.useState<Promotion | null>(null)
   const [events, setEvents] = React.useState<
     (PromotionEvent & { seq: number })[]
   >([])
@@ -886,6 +889,7 @@ export function PromotionsDemo() {
           onEvent={onEvent}
           linkComponent={DemoLink}
           segments={member ? MEMBER : GUEST}
+          preview={previewDraft}
           onApplyCode={(code) => {
             setAppliedCode(code)
             return true
@@ -1180,6 +1184,7 @@ export function PromotionsDemo() {
                     onOrder={() => setAppliedCode(null)}
                   />
                 </div>
+                <PromoPreviewNotice onExit={() => setPreviewDraft(null)} />
                 <PromoToast />
                 <PromoSheet
                   layout={phone ? 'bottom' : 'side'}
@@ -1286,6 +1291,19 @@ export function PromotionsDemo() {
             segments={MEMBER}
             timeZone="Europe/Paris"
             submitLabel="Publish to the demo"
+            onPreview={(content) => {
+              setPreviewDraft({
+                ...content,
+                id: 'draft-preview',
+                state: 'draft',
+                dismissalVersion: 1,
+                revision: 1,
+              })
+              // Land where the draft would actually show.
+              const route = content.include.find((p) => !p.includes('*'))
+              if (route) setPathname(route)
+              setView('site')
+            }}
             onSubmit={(content) => {
               setRecords((previous) => [
                 ...previous,

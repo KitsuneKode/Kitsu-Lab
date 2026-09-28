@@ -206,6 +206,27 @@
       "docs": "Requires Base UI primitives (a base-* shadcn project): ToggleGroup and Slider use array values. Pass `timeZone` so dates are entered in the campaign's zone, not the reviewer's."
     },
     {
+      "name": "promotion-preview",
+      "type": "registry:component",
+      "title": "Signed previews",
+      "description": "Signed ?promo-preview links that show one draft to whoever holds them until they expire, silently (no events, dismissals or budget), plus a reviewer notice.",
+      "dependencies": ["@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promotion-preview-token.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/promo-preview-notice.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "Server: createPreviewToken(id, { secret }) for the link, verifyPreviewToken(searchParams[PREVIEW_PARAM], { secret }) on the page, then pass the loaded draft as <PromotionProvider preview={draft}>. Keep PROMO_PREVIEW_SECRET (32+ characters) server-side. Add <PromoPreviewNotice onExit={…} /> so reviewers know it is not live."
+    },
+    {
       "name": "campaign-timeline",
       "type": "registry:block",
       "title": "Campaign timeline",
@@ -259,7 +280,7 @@
       "name": "promotions-pro",
       "type": "registry:block",
       "title": "Promotions Pro",
-      "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, showcase, inbox, spotlight, side card, story, campaign timeline, kits, editor and the account store.",
+      "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, showcase, inbox, spotlight, side card, story, campaign timeline, kits, editor, signed previews and the account store.",
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/promotions.json",
         "@kitsu-pro/promo-pill",
@@ -275,7 +296,8 @@
         "@kitsu-pro/promo-story",
         "@kitsu-pro/promotion-account-store",
         "@kitsu-pro/promo-showcase",
-        "@kitsu-pro/campaign-timeline"
+        "@kitsu-pro/campaign-timeline",
+        "@kitsu-pro/promotion-preview"
       ],
       "files": [
         {

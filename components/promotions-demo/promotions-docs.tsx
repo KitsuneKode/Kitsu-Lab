@@ -495,6 +495,33 @@ const sale = storeSaleKit({
     ],
   },
   {
+    item: 'promotion-preview',
+    pro: true,
+    name: 'Signed previews',
+    tier: 'Add-on',
+    summary:
+      'A link that shows one draft on the real site to whoever holds it, until it expires. Silent: no events, dismissals or budget.',
+    code: `// app/api/promotions/[id]/preview-link/route.ts (editors only)
+const token = await createPreviewToken(id, {
+  secret: process.env.PROMO_PREVIEW_SECRET!,
+})
+return Response.json({ url: \`/pricing?\${PREVIEW_PARAM}=\${token}\` })
+
+// the page with the provider (server)
+const claim = await verifyPreviewToken((await searchParams)[PREVIEW_PARAM], {
+  secret: process.env.PROMO_PREVIEW_SECRET!,
+})
+const preview = claim ? await loadDraft(claim.id) : null
+
+<PromotionProvider preview={preview} …>
+  <PromoPreviewNotice onExit={() => router.replace(pathname)} />`,
+    notes: [
+      'The draft shows whatever its schedule, audience, frequency or dismissals say, and opens at once if it floats.',
+      'Route suppression still applies, so a preview looks exactly like the real thing.',
+      'HMAC-SHA256 through Web Crypto: Node, the edge and serverless alike. Tokens last a day by default.',
+    ],
+  },
+  {
     item: 'promotion-analytics',
     name: 'Analytics sinks',
     tier: 'Add-on',

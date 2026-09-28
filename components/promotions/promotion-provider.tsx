@@ -169,6 +169,8 @@ type PromotionContextValue = {
   /** The toast is folded into a small chip the visitor can reopen. */
   toastMinimized: boolean
   dialog: Promotion | null
+  /** The draft being previewed (the `preview` prop), for a reviewer notice. */
+  previewing: Promotion | null
   /**
    * Height of a bottom-docked bar (the sticky CTA) that floating surfaces
    * should sit above, so a phone never stacks two things in the thumb zone.
@@ -324,6 +326,14 @@ export type PromotionProviderProps = {
   ) => boolean | void | Promise<boolean | void>
   /** How long a conversion hides its campaign. Defaults to 30 days. */
   conversionDays?: number
+  /**
+   * A draft to show to this visitor only, e.g. from a verified signed link
+   * (see `createPreviewToken`). It shows whatever its schedule, audience,
+   * frequency or dismissals say, opens at once if it floats, and stays
+   * silent: no events, no dismissal writes, no budget spent. Route
+   * suppression still applies, so a preview looks exactly like the real one.
+   */
+  preview?: Promotion | null
   children: React.ReactNode
 }
 
@@ -621,16 +631,28 @@ export function PromotionProvider({
   segments: hostSegments = NO_SEGMENTS,
   onApplyCode,
   conversionDays = 30,
+  preview = null,
   children,
 }: PromotionProviderProps) {
   const loaded = useLoadedRecords(source, sourceKey)
-  const records = React.useMemo(
-    () =>
-      locale
-        ? loaded.map((record) => localizePromotion(record, locale))
-        : loaded,
-    [loaded, locale],
-  )
+  const previewId = preview?.id ?? null
+  const records = React.useMemo(() => {
+    // A preview is live now and wins its placement or slot, whatever its
+    // own schedule says; it replaces a stored record with the same id.
+    const all = preview
+      ? [
+          ...loaded.filter((record) => record.id !== preview.id),
+          {
+            ...preview,
+            state: 'published' as const,
+            startsAt: 0,
+            endsAt: 8.64e15,
+            priority: 101,
+          },
+        ]
+      : loaded
+    return locale ? all.map((record) => localizePromotion(record, locale)) : all
+  }, [loaded, locale, preview])
   const now = useClock(readNow, tickMs, records)
   // Local writes, so a dismissal applies at once even if storage throws.
   const [written, setWritten] = React.useState(() => ({
@@ -640,6 +662,14 @@ export function PromotionProvider({
   // Bumped when another tab writes, so reads are redone.
   const [storageVersion, setStorageVersion] = React.useState(0)
   const [forced, setForced] = React.useState<string | null>(null)
+  // A preview that floats opens at once; closing it only hides it here.
+  const [previewClosed, setPreviewClosed] = React.useState(false)
+  const [previewFor, setPreviewFor] = React.useState<string | null>(null)
+  if (previewFor !== previewId) {
+    setPreviewFor(previewId)
+    setPreviewClosed(false)
+    if (previewId) setForced(previewId)
+  }
   const [bottomInset, setBottomInset] = React.useState(0)
   // Mirrored as a CSS variable so the host page can keep its end clear of a
   // bottom-docked bar: `padding-bottom: var(--promo-bottom-inset, 0px)`.
@@ -738,6 +768,8 @@ export function PromotionProvider({
   })
   const report = React.useCallback<PromotionContextValue['report']>(
     (type, promotion) => {
+      // A preview is someone reviewing a draft, not a visitor: never counted.
+      if (promotion.id === previewId) return
       const event: PromotionEvent = {
         type,
         id: promotion.id,
@@ -749,27 +781,29 @@ export function PromotionProvider({
       onEventRef.current?.(event)
       for (const plugin of plugins) plugin.onEvent?.(event)
     },
-    [pathname, plugins],
+    [pathname, plugins, previewId],
   )
 
   const isDismissed = React.useCallback(
     (promotion: Promotion) => {
       if (now === null) return true
+      if (promotion.id === previewId) return previewClosed
       const at = read(dismissalKey(promotion), dismissScope(promotion.dismiss))
       if (at === null) return false
       const expiry = dismissalExpiry(promotion.dismiss, at)
       return expiry === null || now < expiry
     },
-    [now, read],
+    [now, read, previewId, previewClosed],
   )
 
   const close = React.useCallback(
     (promotion: Promotion) => {
-      write(dismissalKey(promotion), dismissScope(promotion.dismiss))
+      if (promotion.id === previewId) setPreviewClosed(true)
+      else write(dismissalKey(promotion), dismissScope(promotion.dismiss))
       setForced((id) => (id === promotion.id ? null : id))
       setOpenFloating((open) => (open?.id === promotion.id ? null : open))
     },
-    [write],
+    [write, previewId],
   )
 
   const dismiss = React.useCallback(
@@ -844,11 +878,13 @@ export function PromotionProvider({
     })
   const allowed = (promotion: Promotion) =>
     now !== null &&
-    audienceAllows(promotion, segments) &&
-    !converted(promotion) &&
-    plugins.every(
-      (plugin) => plugin.allow?.(promotion, { pathname, now }) ?? true,
-    )
+    // A reviewer is rarely in the audience; the preview shows regardless.
+    (promotion.id === previewId ||
+      (audienceAllows(promotion, segments) &&
+        !converted(promotion) &&
+        plugins.every(
+          (plugin) => plugin.allow?.(promotion, { pathname, now }) ?? true,
+        )))
   const available = (promotion: Promotion | undefined) =>
     !suppressed && promotion && !isDismissed(promotion) && allowed(promotion)
       ? promotion
@@ -1111,6 +1147,9 @@ export function PromotionProvider({
     toast,
     toastMinimized: Boolean(toast) && toastMinimized,
     dialog,
+    previewing: preview
+      ? (records.find((record) => record.id === preview.id) ?? null)
+      : null,
     bottomInset,
     setBottomInset,
     sideInset,
@@ -1182,6 +1221,11 @@ export function PromotionProvider({
     segments,
     markShown: (promotion) => {
       if (stillOpen(promotion)) return
+      if (promotion.id === previewId) {
+        // Shown, but nothing written: no frequency, budget or impression.
+        setOpenFloating({ id: promotion.id, pathname })
+        return
+      }
       const at = write(shownKey(promotion), 'browser')
       // Only interruptions spend the budget. An offer the visitor opened
       // (a sheet, a story, one their own action triggered) does not.

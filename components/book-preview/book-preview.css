@@ -42,18 +42,32 @@
   line-height: var(--bp-type-leading);
 }
 
-/* Paper for pure-type surfaces (the premier Text view). */
+/* Paper for pure-type surfaces (the premier Text view). Each paper has a
+   grain you feel more than see: a small noise tile the browser draws once
+   and repeats, so scrolling costs nothing. OLED stays true black, since
+   lit pixels are what that setting exists to avoid. */
 .book-preview [data-bp-paper='light'] {
-  background: #fdfdfc;
+  background: #fdfdfc
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.14 0 0 0 -0.045'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 180px;
   color: #1c1917;
 }
 .book-preview [data-bp-paper='sepia'] {
-  background: #fbf0d9;
+  background: #fbf0d9
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.27 0 0 0 0 0.1 0.2 0 0 0 -0.06'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 180px;
   color: #2c2523;
 }
 .book-preview [data-bp-paper='dark'] {
-  background: #27272a;
+  background: #27272a
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.1 0 0 0 -0.035'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 180px;
   color: #f4f4f5;
+}
+@media (forced-colors: active) {
+  .book-preview [data-bp-paper] {
+    background-image: none;
+  }
 }
 .book-preview [data-bp-paper='oled'] {
   background: #000;
@@ -163,14 +177,22 @@
 }
 
 /* Paper bending away from the fold: a highlight on the crease, easing into
-   shade toward the lifted corner. */
+   shade toward the lifted corner. Two layers so the lamp can brighten one
+   and deepen the other by opacity alone (see curlLight). */
 .book-preview [data-book-preview-curl-gloss] {
   background: linear-gradient(
     to right,
-    rgb(255 255 255 / 0.4) 0%,
-    rgb(255 255 255 / 0) 22%,
-    rgb(0 0 0 / 0.04) 60%,
-    rgb(0 0 0 / 0.14) 100%
+    rgb(255 255 255 / 0.55) 0%,
+    rgb(255 255 255 / 0) 24%
+  );
+}
+
+.book-preview [data-book-preview-curl-shade] {
+  background: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0) 28%,
+    rgb(0 0 0 / 0.05) 60%,
+    rgb(0 0 0 / 0.18) 100%
   );
 }
 
@@ -674,6 +696,18 @@ html[data-book-preview-immersive] body > [data-base-ui-portal] {
   left: 100%;
 }
 
+/* A turn moves leaves from one stack to the other: the clip slides on the
+   page-turn curve, so the book block visibly thins and thickens. */
+.book-preview [data-book-preview-curl-edge] {
+  transition: clip-path 480ms var(--book-preview-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-curl-edge] {
+    transition: none;
+  }
+}
+
 /* A rasterized PDF leaf fades up as its bitmap lands, instead of snapping
    from skeleton to page. */
 .book-preview [data-book-preview-sheet-img] {
@@ -951,5 +985,31 @@ html[data-book-preview-immersive] body > [data-base-ui-portal] {
 @media (prefers-reduced-motion: reduce) {
   .book-preview .bp-speaking-bar {
     animation: none;
+  }
+}
+
+/* Shoppable hotspots: the halo breathes twice as the page lands, to say
+   "this is touchable", then rests. One cue, not a page of blinking dots.
+   Still under reduced motion; the marker itself carries the meaning. */
+@keyframes book-preview-hotspot-halo {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.1);
+  }
+}
+
+.book-preview .bp-hotspot-halo {
+  animation: book-preview-hotspot-halo 1.4s cubic-bezier(0.23, 1, 0.32, 1) 0.35s
+    2 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview .bp-hotspot-halo {
+    animation: none;
+    opacity: 0;
   }
 }

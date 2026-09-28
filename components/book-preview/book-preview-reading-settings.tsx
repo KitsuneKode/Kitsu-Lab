@@ -379,6 +379,8 @@ export function BookPreviewReadingSettings() {
                 type="button"
                 variant={state.sound ? 'secondary' : 'outline'}
                 size="sm"
+                // The visible On/Off alone would be announced without context.
+                aria-label="Page-turn sound"
                 aria-pressed={state.sound}
                 onClick={() => setSound(!state.sound)}
                 data-book-preview-press

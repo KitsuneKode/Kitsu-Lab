@@ -17,6 +17,7 @@ import {
   CURL_PAGE_RATIO,
   CURL_TOUCH_SLOP_PX,
   curlClickIntent,
+  curlPageStacks,
   curlPageSizeForStage,
   curlReleaseVelocity,
   curlShouldCommit,
@@ -36,6 +37,7 @@ import {
   curlPolygonCss,
   curlSettleMs,
   curlSpreadBackwardProgress,
+  curlLight,
   easeInOutCubic,
   easeOutCubic,
 } from './curl-math'
@@ -58,6 +60,9 @@ type CurlStageProps = {
   reducedMotion: boolean
   soundEnabled: boolean
   onPageChange: (pageIndex: number) => void
+  /** Identifies a book that opens on a hardcover. The first time a reader
+      opens it, the cover lifts at its corner and settles back, once. */
+  openingKey?: string
 }
 
 type Direction = 'next' | 'prev'
@@ -90,6 +95,30 @@ type Layout = { size: CurlPageSize; spread: boolean }
     reader tapping through never waits: a new turn lands the old one. */
 const CURL_TURN_MS = 540
 const CURL_PEEK_MS = 220
+/** The first-open cover lift: how far, how long up, how long to settle. */
+const CURL_COVER_LIFT = 0.18
+const CURL_COVER_LIFT_MS = 720
+const CURL_COVER_SETTLE_MS = 560
+const CURL_COVER_DELAY_MS = 600
+const OPENED_PREFIX = 'book-preview:opened:'
+
+/** Whether this book's cover has lifted for this reader before. Storage
+    that is off (private mode, a sandbox) counts as opened: never nag. */
+function coverOpenedBefore(key: string) {
+  try {
+    return window.localStorage.getItem(OPENED_PREFIX + key) !== null
+  } catch {
+    return true
+  }
+}
+
+function rememberCoverOpened(key: string) {
+  try {
+    window.localStorage.setItem(OPENED_PREFIX + key, '1')
+  } catch {
+    // Unavailable storage already reads as opened.
+  }
+}
 /** Mouse this close to a corner lifts it. */
 const CURL_CORNER_PX = 64
 
@@ -100,13 +129,6 @@ function isInteractiveTarget(target: EventTarget | null) {
       'a, button, input, textarea, select, [data-book-preview-press]',
     ),
   )
-}
-
-/** Fore-edge page-stack thickness: a few pixels, growing gently with the
-    number of leaves on that side — enough to read as a book block. */
-function curlEdgeWidth(pageCountOnSide: number): number {
-  if (pageCountOnSide <= 0) return 0
-  return Math.min(6, 2 + Math.floor(pageCountOnSide / 8))
 }
 
 /** The pages to keep mounted: the spread in view, the one on either side
@@ -162,6 +184,7 @@ export function CurlStage({
   reducedMotion,
   soundEnabled,
   onPageChange,
+  openingKey,
 }: CurlStageProps) {
   const { setPageStep, pageLayout } = useBookPreview()
   const cover = pageLayout.cover
@@ -311,9 +334,15 @@ export function CurlStage({
       }
       show(el, 4, curlPolygonCss(fold.flap))
       el.style.transform = `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`
-      const gloss = el.lastElementChild
-      if (gloss instanceof HTMLElement) {
+      // Opacity only per frame: the lamp moves the light, not the paint.
+      const light = curlLight(fold.angle, turn.p)
+      const shade = el.lastElementChild
+      const gloss = shade?.previousElementSibling
+      if (gloss instanceof HTMLElement && shade instanceof HTMLElement) {
         placeAlongFold(gloss, fold.origin, fold.angle, fold.depth, size)
+        placeAlongFold(shade, fold.origin, fold.angle, fold.depth, size)
+        gloss.style.opacity = light.gloss.toFixed(3)
+        shade.style.opacity = light.shade.toFixed(3)
       }
     }
     if (shadow) {
@@ -527,6 +556,39 @@ export function CurlStage({
       targetOf,
     ],
   )
+
+  // ---- the first open ---------------------------------------------------
+
+  // A new book on its cover: the corner lifts the way a hand tests a
+  // hardcover, then settles, to say "this turns". Once per book, never under
+  // reduced motion, and only while the reader has not touched it: a hover
+  // peek, a press or a turn takes over.
+  const measured = layout !== null
+  useEffect(() => {
+    if (!openingKey || !measured || reducedMotion) return
+    if (shownRef.current !== 0 || coverOpenedBefore(openingKey)) return
+    const timer = window.setTimeout(() => {
+      if (shownRef.current !== 0 || turnRef.current) return
+      rememberCoverOpened(openingKey)
+      const lift = beginTurn('next', false, true)
+      if (!lift) return
+      animate(
+        { p: CURL_COVER_LIFT, dy: 0 },
+        CURL_COVER_LIFT_MS,
+        easeOutCubic,
+        () => {
+          if (turnRef.current !== lift || lift.landing != null) return
+          animate(
+            { p: 0, dy: 0 },
+            CURL_COVER_SETTLE_MS,
+            easeInOutCubic,
+            endTurn,
+          )
+        },
+      )
+    }, CURL_COVER_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [animate, beginTurn, endTurn, measured, openingKey, reducedMotion])
 
   // ---- the reader's page index -----------------------------------------
 
@@ -847,6 +909,10 @@ export function CurlStage({
   const isInView = (index: number) =>
     spread ? index === base || index === base + 1 : index === shown
 
+  const stacks = curlPageStacks(
+    Math.max(0, base),
+    Math.max(0, pageCount - 1 - base - (spread ? 1 : 0)),
+  )
   return (
     <div
       ref={stageRef}
@@ -860,20 +926,24 @@ export function CurlStage({
       >
         {pageCount > 1 ? (
           <>
-            {/* The book block: thin stacked page edges flanking the book,
-                thickest where the most leaves sit. Purely decorative. */}
+            {/* The book block shows progress: its thickness is shared by the
+                leaves on each side. Each edge is drawn at the full block
+                and clipped to its share, so a turn slides the clip rather
+                than squashing the stripes. Purely decorative. */}
             <div
               aria-hidden
               data-book-preview-curl-edge="prev"
-              style={{ width: curlEdgeWidth(Math.max(0, base)) }}
+              style={{
+                width: stacks.total,
+                clipPath: `inset(0 0 0 ${stacks.total - stacks.prev}px)`,
+              }}
             />
             <div
               aria-hidden
               data-book-preview-curl-edge="next"
               style={{
-                width: curlEdgeWidth(
-                  Math.max(0, pageCount - 1 - base - (spread ? 1 : 0)),
-                ),
+                width: stacks.total,
+                clipPath: `inset(0 ${stacks.total - stacks.next}px 0 0)`,
               }}
             />
           </>
@@ -990,6 +1060,10 @@ export function CurlStage({
                   )}
                   <div
                     data-book-preview-curl-gloss
+                    className="absolute top-0 left-0 origin-top-left"
+                  />
+                  <div
+                    data-book-preview-curl-shade
                     className="absolute top-0 left-0 origin-top-left"
                   />
                 </div>

@@ -3,8 +3,14 @@
 import { Badge } from '@/components/ui/badge'
 import { DEMO_BOOK_PAGES } from './sample-pages'
 import { useEffect, useMemo, useState } from 'react'
-import { BookPreview } from '@/components/book-preview'
+import {
+  BookPreview,
+  summarizeReading,
+  type BookPreviewReadingEvent,
+  type BookPreviewHotspotEvent,
+} from '@/components/book-preview'
 import { DEMO_ARCHIVAL_PAGES } from './sample-archival-pages'
+import { BIRD_HOTSPOTS } from './sample-hotspots'
 import { BookPreviewComparison } from './book-preview-comparison'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { optionalBookPreviewEngines } from '@/components/book-preview/optional-engines'
@@ -97,6 +103,10 @@ const engineLabel = (id: BookPreviewMode) =>
   optionalBookPreviewEngines.find((engine) => engine.id === id)?.label ?? id
 
 export function BookPreviewDemo() {
+  // This visit's reading, from the reader's own analytics events.
+  const [reading, setReading] = useState<BookPreviewReadingEvent[]>([])
+  // What the plates' shop hotspots reported this visit.
+  const [shop, setShop] = useState<BookPreviewHotspotEvent[]>([])
   const [mode, setMode] = useState<BookPreviewMode>('page')
   const [fallbackNote, setFallbackNote] = useState<string | null>(null)
   // The document itself is part of a shareable link: ?doc=pdf&file=… picks
@@ -289,7 +299,16 @@ export function BookPreviewDemo() {
         prefetchModes={['scroll', 'spread', 'curl']}
         defaultAppearance="system"
         defaultSound={false}
+        onReadingEvent={(event) =>
+          setReading((previous) => [...previous, event].slice(-500))
+        }
+        hotspots={docKind === 'bird' ? BIRD_HOTSPOTS : undefined}
+        onHotspotEvent={(event) =>
+          setShop((previous) => [...previous, event].slice(-500))
+        }
       />
+      <ReadingReadout events={reading} />
+      <ShopReadout events={shop} />
       {fallbackNote ? (
         <p className="text-muted-foreground text-center text-xs">
           {fallbackNote}
@@ -297,5 +316,50 @@ export function BookPreviewDemo() {
       ) : null}
       <BookPreviewComparison />
     </div>
+  )
+}
+
+/** What onHotspotEvent saw: markers seen, cards opened, links followed. */
+function ShopReadout({
+  events,
+}: {
+  events: readonly BookPreviewHotspotEvent[]
+}) {
+  if (events.length === 0) return null
+  const count = (type: BookPreviewHotspotEvent['type']) =>
+    new Set(events.filter((e) => e.type === type).map((e) => e.hotspotId)).size
+  const opened = count('open')
+  const followed = count('action')
+  return (
+    <p
+      role="status"
+      className="text-muted-foreground -mt-4 text-center text-xs tabular-nums"
+    >
+      Shop hotspots: {count('impression')} seen, {opened}{' '}
+      {opened === 1 ? 'card' : 'cards'} opened, {followed} followed.
+    </p>
+  )
+}
+
+/** A quiet line under the reader: what onReadingEvent saw this visit. */
+function ReadingReadout({
+  events,
+}: {
+  events: readonly BookPreviewReadingEvent[]
+}) {
+  const summary = summarizeReading(events)
+  if (summary.pages.length === 0) return null
+  const longest = [...summary.pages].sort((a, b) => b.totalMs - a.totalMs)[0]!
+  const seconds = (ms: number) => `${Math.round(ms / 1000)} s`
+  return (
+    <p
+      role="status"
+      className="text-muted-foreground text-center text-xs tabular-nums"
+    >
+      Reading analytics, this visit: {summary.pages.length}{' '}
+      {summary.pages.length === 1 ? 'page' : 'pages'} read, longest on page{' '}
+      {longest.pageIndex + 1} ({seconds(longest.totalMs)})
+      {summary.finishes ? ', finished' : ''}.
+    </p>
   )
 }

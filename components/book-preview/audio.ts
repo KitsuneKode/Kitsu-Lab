@@ -38,7 +38,28 @@ function getPageTurnBuffer(context: AudioContext): AudioBuffer {
   return buffer
 }
 
+/**
+ * A short tick as the page lets go, on touch devices that can (Android;
+ * iOS has no vibration API, so it stays silent there). It rides on the
+ * page-turn sound, so it follows the same rule: only the reader's own hand
+ * makes the paper speak, and turning sound off turns this off too.
+ */
+function pageTurnHaptic(): void {
+  try {
+    if (
+      typeof navigator === 'undefined' ||
+      typeof navigator.vibrate !== 'function' ||
+      !window.matchMedia('(pointer: coarse)').matches
+    )
+      return
+    navigator.vibrate(8)
+  } catch {
+    // Vibration is optional; a blocked call must never break a turn.
+  }
+}
+
 export function playPageTurnSound(): void {
+  pageTurnHaptic()
   const context = getAudioContext()
   if (!context) return
 

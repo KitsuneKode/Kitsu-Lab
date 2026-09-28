@@ -27,6 +27,7 @@ import { BookPreviewCompanion } from './book-preview-companion'
 import { BookPreviewBookmarkRibbon } from './book-preview-bookmark-ribbon'
 import { BookPreviewAnnotationLayer } from './book-preview-annotation-layer'
 import { BookPreviewInkLayer } from './book-preview-ink-layer'
+import { BookPreviewHotspotLayer } from './book-preview-hotspot-layer'
 import { shareOrCopy } from './share'
 import { typographyVariables } from './typography'
 import { normalizeSource, pageSearchText, sourceIdentity } from './normalize'
@@ -74,6 +75,7 @@ import { pickControlled, isPdfFile, eventHasFiles } from './reader-utils'
 import { BookPreviewActiveEngine } from './book-preview-active-engine'
 import { useFullscreen } from './hooks/use-fullscreen'
 import { useEngineLoader } from './hooks/use-engine-loader'
+import { useReadingEvents } from './hooks/use-reading-events'
 import { usePersistedPageIndex, useReadingPace } from './hooks/use-page-memory'
 import {
   usePersistedPreferences,
@@ -124,6 +126,9 @@ export function BookPreview({
   onCapabilitiesChange,
   onError,
   onStatusChange,
+  onReadingEvent,
+  hotspots,
+  onHotspotEvent,
 }: BookPreviewProps) {
   const propSource = useMemo(() => normalizeSource(source), [source])
   const urlKeys = resolveUrlKeys(urlState, pageParamProp)
@@ -372,6 +377,13 @@ export function BookPreview({
   // Runs before useEngineLoader so a source change dispatches reset-source
   // first and the loader's status transition (loading/empty/unsupported)
   // lands last, matching the pre-extraction effect order.
+  useReadingEvents(
+    onReadingEvent,
+    activePage,
+    state.totalPages,
+    state.status === 'ready',
+    sourceKey,
+  )
   const minutesLeft = useReadingPace(
     activePage,
     state.totalPages,
@@ -982,6 +994,10 @@ export function BookPreview({
           <BookPreviewNavigation />
           <BookPreviewAnnotationLayer />
           <BookPreviewInkLayer />
+          <BookPreviewHotspotLayer
+            hotspots={hotspots}
+            onHotspotEvent={onHotspotEvent}
+          />
           <BookPreviewCompanion />
           <BookPreviewChromeHandle />
           <p className="sr-only">

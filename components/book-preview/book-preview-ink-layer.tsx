@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { useBookPreviewSelector } from './book-preview-provider'
 import { useStableHandler } from './hooks/use-stable-handler'
+import { usePageSurfaces } from './hooks/use-page-surfaces'
 import {
   IconArrowBackUp,
   IconEraser,
@@ -40,21 +41,8 @@ import {
   type RefObject,
 } from 'react'
 
-const INK_SURFACE_SELECTOR = '[data-bp-inkable]'
 /** Eraser reach in page-width units — about a fingertip on a phone page. */
 const ERASER_RADIUS = 0.018
-
-type Surface = { el: HTMLElement; pageIndex: number }
-
-function sameSurfaces(a: Surface[], b: Surface[]) {
-  return (
-    a.length === b.length &&
-    a.every(
-      (item, index) =>
-        item.el === b[index].el && item.pageIndex === b[index].pageIndex,
-    )
-  )
-}
 
 /**
  * Freehand ink over page faces. Engines opt a page-sized element in with
@@ -86,47 +74,12 @@ export function BookPreviewInkLayer() {
     setDraw: v.setDraw,
     setInkAvailable: v.setInkAvailable,
   }))
-  const [surfaces, setSurfaces] = useState<Surface[]>([])
+  const surfaces = usePageSurfaces(rootRef, annotate)
   const createdRef = useRef<string[]>([])
   // Mirrors createdRef's length for the undo button — refs are not read
   // during render.
   const [undoDepth, setUndoDepth] = useState(0)
   const sawPenRef = useRef(false)
-
-  // Discover inkable faces as engines mount, swap, and window them.
-  useEffect(() => {
-    const root = rootRef.current
-    if (!annotate || !root) return
-    let frame = 0
-    const scan = () => {
-      frame = 0
-      const next: Surface[] = []
-      for (const el of root.querySelectorAll<HTMLElement>(
-        INK_SURFACE_SELECTOR,
-      )) {
-        const pageIndex = Number.parseInt(el.dataset.pageIndex ?? '', 10)
-        if (Number.isFinite(pageIndex) && pageIndex >= 0) {
-          next.push({ el, pageIndex })
-        }
-      }
-      setSurfaces((current) => (sameSurfaces(current, next) ? current : next))
-    }
-    const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(scan)
-    }
-    schedule()
-    const observer = new MutationObserver(schedule)
-    observer.observe(root, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ['data-page-index', 'data-bp-inkable'],
-    })
-    return () => {
-      observer.disconnect()
-      if (frame) cancelAnimationFrame(frame)
-    }
-  }, [annotate, rootRef])
 
   const hasSurfaces = surfaces.length > 0
   useEffect(() => {

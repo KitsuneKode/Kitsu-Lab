@@ -18,7 +18,11 @@ import { usePdfSheets, type PdfSheet } from '../hooks/use-pdf-sheets'
 import type { BookPreviewEngineProps, BookPreviewPage } from '../types'
 import { DEFAULT_CAPABILITIES, hasSpeechSupport } from '../capabilities'
 import { SUPPORT_NOTES } from '../support'
-import { CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from './curl-geometry'
+import {
+  CURL_PAGE_RATIO,
+  CURL_RASTER_WIDTH,
+  curlOpeningKey,
+} from './curl-geometry'
 
 type SearchMatch = { key: string; label: string; index: number }
 
@@ -380,6 +384,7 @@ export default function ArchivalCurlEngine({
           reducedMotion={reducedMotion}
           soundEnabled={soundEnabled}
           onPageChange={onPageChange}
+          openingKey={usePdf ? undefined : curlOpeningKey(source)}
         />
         {preparing && sheets ? (
           <PdfPreparingBadge prepared={prepared} total={sheets.length} />

@@ -1,3 +1,5 @@
+import type { BookPreviewReadingEvent } from './reading-analytics'
+import type { BookPreviewHotspot, BookPreviewHotspotEvent } from './hotspots'
 import type { BookPreviewUrlKeys } from './url-state'
 import type { BookPreviewTypography } from './typography'
 import type { BookPreviewAiAdapter } from './ai'
@@ -264,4 +266,18 @@ export type BookPreviewProps = {
   onCapabilitiesChange?: (capabilities: BookPreviewCapabilities) => void
   onError?: (error: BookPreviewError) => void
   onStatusChange?: (status: BookPreviewStatus) => void
+  /**
+   * Reading analytics: time on each page (visible time only), finishing the
+   * document, and the page a reader left on. Send them to your analytics and
+   * fold them with `summarizeReading` for a drop-off curve.
+   */
+  onReadingEvent?: (event: BookPreviewReadingEvent) => void
+  /**
+   * Shoppable hotspots: markers at page-relative points (0-1, like ink)
+   * that open a product card. Shown on the views that draw real page faces
+   * (Premier and the PDF reader); hidden while the reader draws.
+   */
+  hotspots?: BookPreviewHotspot[]
+  /** A marker was seen, its card opened, or its link followed. */
+  onHotspotEvent?: (event: BookPreviewHotspotEvent) => void
 }

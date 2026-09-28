@@ -181,6 +181,24 @@
       "docs": "Requires Base UI 1.8+ for the anchored Popover. Give the promotion `slot` the same value as the component's `name`."
     },
     {
+      "name": "promo-tour",
+      "type": "registry:component",
+      "title": "Product tour",
+      "description": "A few steps, each pointing at one thing on the page. Starts only when asked, resumes where the visitor left off, skips a missing target instead of stalling, and reports start, completion and skip like any campaign.",
+      "dependencies": ["@base-ui/react", "motion"],
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json",
+        "button"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/promo-tour.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "<PromoTour id=\"welcome\" steps={[{ target: '[data-tour=\"share\"]', title, body }]} /> anywhere under the provider, and startTour('welcome') from a button. Pass { restart: true } to begin again."
+    },
+    {
       "name": "promo-side-card",
       "type": "registry:component",
       "title": "Promo side card",
@@ -319,7 +337,7 @@
       "name": "promotions-pro",
       "type": "registry:block",
       "title": "Promotions Pro",
-      "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, showcase, inbox, changelog hub, spotlight, side card, story, campaign timeline and results, kits, editor, signed previews and the account store.",
+      "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, showcase, inbox, changelog hub, spotlight, tour, side card, story, campaign timeline and results, kits, editor, signed previews and the account store.",
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/promotions.json",
         "@kitsu-pro/promo-pill",
@@ -338,7 +356,8 @@
         "@kitsu-pro/campaign-timeline",
         "@kitsu-pro/promotion-preview",
         "@kitsu-pro/campaign-results",
-        "@kitsu-pro/promo-changelog"
+        "@kitsu-pro/promo-changelog",
+        "@kitsu-pro/promo-tour"
       ],
       "files": [
         {

@@ -1,4 +1,5 @@
 import type { Promotion, PromotionMedia } from '@/components/promotions'
+import type { TourStep } from '@/components/promotions/pro'
 import {
   courseEnrolmentKit,
   productLaunchKit,
@@ -126,6 +127,8 @@ export type Scenario = {
   pages: ScenarioPage[]
   /** The page's own product visual, beside the hero copy. */
   hero: PromotionMedia
+  /** A product tour of this page, started by a button. */
+  tour?: TourStep[]
   /** Features; the first leads with its picture. */
   tiles: { title: string; body: string; media?: PromotionMedia }[]
   targets: { value: string; label: string }[]
@@ -186,6 +189,29 @@ export const SCENARIOS = {
     ],
     // A still: the showcase below carries the motion, one focal point at a time.
     hero: still(TURN),
+    tour: [
+      {
+        target: '[data-slot="promo-pill"]',
+        title: 'Launches, in the page',
+        body: 'This pill opens into its card in place, instead of a popup over the page.',
+      },
+      {
+        target: '[data-tour="share"]',
+        title: 'One feature, once',
+        body: 'A spotlight explains a single thing, beside it, and never comes back.',
+      },
+      {
+        target: '[data-slot="promo-showcase"]',
+        title: 'Show, then tell',
+        body: 'Each chapter is a clip; the next starts when this one ends. Hover to hold it.',
+        side: 'top',
+      },
+      {
+        target: '[data-slot="promo-changelog-trigger"]',
+        title: 'Everything new, in one place',
+        body: 'Unread per visitor, cleared once they have read it.',
+      },
+    ],
     targets: [
       { value: '/pricing', label: 'Pricing' },
       { value: '/changelog', label: 'Changelog' },

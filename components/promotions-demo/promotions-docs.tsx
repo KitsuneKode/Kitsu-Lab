@@ -522,6 +522,28 @@ const initial = readPromotionCookies(jar.toString())
     ],
   },
   {
+    item: 'promo-tour',
+    pro: true,
+    name: 'Product tour',
+    tier: 'Surface',
+    summary:
+      'A few steps, each pointing at one thing. Starts when asked, resumes where the visitor left off.',
+    code: `<PromoTour
+  id="welcome"
+  steps={[
+    { target: '[data-tour="share"]', title: 'Share in one link', body: '…' },
+    { target: '[data-tour="export"]', title: 'Export anywhere', side: 'top' },
+  ]}
+/>
+
+<Button onClick={() => startTour('welcome')}>Take the tour</Button>`,
+    notes: [
+      'A step whose target is not on the page is skipped, never stalled on.',
+      'Focus moves to Next and returns to what started the tour; Escape pauses it.',
+      'Start, finish and skip report as impression, click and dismiss, so completion shows in results.',
+    ],
+  },
+  {
     item: 'promo-changelog',
     pro: true,
     name: 'Changelog hub',

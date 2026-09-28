@@ -56,6 +56,8 @@ import {
   PromoSheet,
   PromoSideCard,
   PromoSpotlight,
+  PromoTour,
+  startTour,
   PromoStickyCta,
   PromoStory,
 } from '@/components/promotions/pro'
@@ -446,7 +448,7 @@ function MockSite({
             <p className="text-muted-foreground max-w-md text-pretty">
               {page.lede}
             </p>
-            {story || hasSpotlight || upgradeOffer ? (
+            {story || hasSpotlight || upgradeOffer || scenario.tour ? (
               <div className="flex flex-wrap gap-2">
                 {upgradeOffer ? (
                   <Button
@@ -461,8 +463,22 @@ function MockSite({
                   </Button>
                 ) : null}
                 {hasSpotlight ? (
-                  <Button ref={share} size="sm" variant="outline">
+                  <Button
+                    ref={share}
+                    size="sm"
+                    variant="outline"
+                    data-tour="share"
+                  >
                     Share workspace
+                  </Button>
+                ) : null}
+                {scenario.tour ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => startTour('northwind', { restart: true })}
+                  >
+                    Take the tour
                   </Button>
                 ) : null}
                 {story ? (
@@ -489,6 +505,14 @@ function MockSite({
         <PromoCarousel slot="hero" dismissible label="Offers" />
 
         <PromoShowcase slot="showcase" label="What’s new" />
+        {scenario.tour ? (
+          <PromoTour
+            id="northwind"
+            label="Northwind tour"
+            steps={scenario.tour}
+            container={frame}
+          />
+        ) : null}
 
         {page.kind === 'cart' ? (
           <div className="border-border/60 flex max-w-md flex-col gap-4 rounded-xl border p-4">

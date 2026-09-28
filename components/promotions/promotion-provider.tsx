@@ -283,6 +283,15 @@ export type PromotionProviderProps = {
   /** Injectable clock for previews and tests. */
   now?: () => number
   /**
+   * The request time, from the server. With it, the server renders the
+   * inline bar and cards, and hydration uses the same instant, so they are
+   * in the HTML from the first paint: no layout shift. Pair it with
+   * `cookieDismissalStore({ initial: readPromotionCookies(header) })` so a
+   * dismissed bar is never rendered at all. Without it, time-based surfaces
+   * wait for the browser.
+   */
+  serverNow?: number
+  /**
    * The longest the clock sleeps. It also wakes exactly when a record starts
    * or ends, and whenever the tab becomes visible again.
    */
@@ -423,7 +432,7 @@ function createClockStore(
   }
 }
 
-const serverClock = () => null
+const noServerClock = () => null
 
 /**
  * The clock as an external store: SSR and hydration read null, so nothing
@@ -433,6 +442,7 @@ function useClock(
   now: () => number,
   tickMs: number,
   records: readonly Promotion[],
+  serverNow: number | undefined,
 ): number | null {
   // Keyed on the schedule's content, not the array's identity: a host that
   // builds `source` during render (a kit call) must not get a new store, and
@@ -455,7 +465,12 @@ function useClock(
       ),
     [now, tickMs, signature],
   )
-  return React.useSyncExternalStore(store.subscribe, store.get, serverClock)
+  // The server and the hydrating client must agree: both read serverNow.
+  const serverSnapshot = React.useMemo(
+    () => (serverNow === undefined ? noServerClock : () => serverNow),
+    [serverNow],
+  )
+  return React.useSyncExternalStore(store.subscribe, store.get, serverSnapshot)
 }
 
 const NON_TEXT_INPUTS = new Set([
@@ -615,6 +630,7 @@ export function PromotionProvider({
   sourceKey,
   pathname,
   now: readNow = Date.now,
+  serverNow,
   tickMs = 60_000,
   storage = browserDismissalStore,
   suppressOn = NO_ROUTES,
@@ -653,7 +669,7 @@ export function PromotionProvider({
       : loaded
     return locale ? all.map((record) => localizePromotion(record, locale)) : all
   }, [loaded, locale, preview])
-  const now = useClock(readNow, tickMs, records)
+  const now = useClock(readNow, tickMs, records, serverNow)
   // Local writes, so a dismissal applies at once even if storage throws.
   const [written, setWritten] = React.useState(() => ({
     storage,

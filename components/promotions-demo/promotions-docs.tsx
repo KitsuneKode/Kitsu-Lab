@@ -495,6 +495,33 @@ const sale = storeSaleKit({
     ],
   },
   {
+    item: 'promotion-provider',
+    name: 'Server-rendered bar',
+    tier: 'Core',
+    summary:
+      'An inline bar in the first paint: rendered on the server, hydrated at the same instant, so nothing shifts.',
+    code: `// app/layout.tsx (a server component; cookies() makes it per request)
+import { cookies } from 'next/headers'
+
+const jar = await cookies()
+const initial = readPromotionCookies(jar.toString())
+
+<Promotions serverNow={Date.now()} initialCookies={initial}>{children}</Promotions>
+
+// components/promotions.tsx ('use client')
+<PromotionProvider
+  serverNow={serverNow}
+  storage={cookieDismissalStore({ initial: initialCookies })}
+  …
+>
+  <PromoBar />`,
+    notes: [
+      'Give the bar dismiss.scope "cookie" so the server knows it was dismissed and never renders it.',
+      'Inline cards render on the server too. Floating surfaces still wait for engagement in the browser.',
+      'Audiences that use new or returning are only known in the browser; keep those off a server-rendered bar.',
+    ],
+  },
+  {
     item: 'promotion-preview',
     pro: true,
     name: 'Signed previews',

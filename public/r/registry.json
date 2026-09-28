@@ -24,7 +24,9 @@
         "popover",
         "tabs"
       ],
-      "dependencies": ["@tabler/icons-react"],
+      "dependencies": [
+        "@tabler/icons-react"
+      ],
       "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, array-valued Slider and ToggleGroup state. Orientation styling keys off Base UI's data-orientation attribute. Do not treat qualitative capability labels as measured performance guarantees. The core also ships highlights, notes, bookmarks and freehand ink (pen, marker, eraser; page-relative strokes) (CSS Custom Highlight API; controlled via annotations/onAnnotationsChange or persisted with persistAnnotations), the Aa reading settings, shareable URL state (urlState), auto-hiding fullscreen chrome, and a provider-agnostic Ask panel (pass an `ai` adapter from ai.ts: on-device, OpenAI-compatible/Ollama, or your own route). Tabs and Popover rely on Base UI.",
       "files": [
         {
@@ -300,7 +302,9 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["pdfjs-dist"],
+      "dependencies": [
+        "pdfjs-dist"
+      ],
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/book-preview.json",
         "badge",
@@ -394,6 +398,10 @@
         {
           "path": "components/book-preview/engines/premier-engine.meta.ts",
           "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/speech-highlight.ts",
+          "type": "registry:lib"
         }
       ],
       "registryDependencies": [
@@ -496,7 +504,10 @@
       "type": "registry:component",
       "title": "Keyboard Button",
       "description": "A tactile keycap with spring press physics, entrance animation, and click sound.",
-      "dependencies": ["motion", "@tabler/icons-react"],
+      "dependencies": [
+        "motion",
+        "@tabler/icons-react"
+      ],
       "files": [
         {
           "path": "components/keyboard-button.tsx",
@@ -529,7 +540,10 @@
       "type": "registry:component",
       "title": "Email Domain Input",
       "description": "Email input restricted to approved domains — an inline domain picker keeps the local part and suffix in one field.",
-      "registryDependencies": ["input", "select"],
+      "registryDependencies": [
+        "input",
+        "select"
+      ],
       "docs": "Requires Base UI primitives (a base-* shadcn project): the Select API relies on `items` and `alignItemWithTrigger`.",
       "files": [
         {
@@ -555,7 +569,10 @@
       "type": "registry:component",
       "title": "Promotion provider",
       "description": "Loads and sanitises promotions, keeps time to the exact start and end, routes dismissals to per-scope stores, applies frequency windows and a daily interruption budget, waits for engagement without interrupting, runs plugins such as exit intent, and reports impressions, clicks, copies, reveals and dismissals.",
-      "dependencies": ["@tabler/icons-react", "motion"],
+      "dependencies": [
+        "@tabler/icons-react",
+        "motion"
+      ],
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/promotion.json",
         "button"
@@ -639,7 +656,10 @@
       "type": "registry:component",
       "title": "Promo toast",
       "description": "A polite corner card that appears after light engagement, never takes focus, folds into a chip the visitor can reopen, and can be swiped away.",
-      "dependencies": ["motion", "@tabler/icons-react"],
+      "dependencies": [
+        "motion",
+        "@tabler/icons-react"
+      ],
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/promotion-provider.json"
       ],
@@ -666,7 +686,11 @@
         }
       ],
       "docs": "Requires Base UI 1.8+ (a base-* shadcn project): the phone layout uses the Base UI Drawer for swipe dismissal.",
-      "dependencies": ["@base-ui/react", "@tabler/icons-react", "motion"]
+      "dependencies": [
+        "@base-ui/react",
+        "@tabler/icons-react",
+        "motion"
+      ]
     },
     {
       "name": "promotion-labels",

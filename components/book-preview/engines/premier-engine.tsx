@@ -11,6 +11,11 @@ import { Spinner } from '@/components/ui/spinner'
 import { resolvePdfOutline } from '../pdf-runtime'
 import { buildPremierFaces } from './premier-faces'
 import { SpeakingBars } from '../speaking-bars'
+import {
+  createSpeechFollower,
+  spokenWord,
+  type SpeechFollower,
+} from '../speech-highlight'
 import { PdfPasswordGate } from './pdf-password-gate'
 import { PdfPreparingBadge } from './pdf-preparing-badge'
 import { useBookPreview } from '../book-preview-provider'
@@ -163,8 +168,22 @@ function useReadAloud({
     }
     const utterance = new SpeechSynthesisUtterance(text)
     utteranceRef.current = utterance
+    // Light each word as the voice reaches it, where the voice says where
+    // it is (word boundaries) and the page's text is on screen.
+    const surface = document.querySelector(
+      `[data-bp-annotatable][data-page-index="${pageIndex}"]`,
+    )
+    const follower: SpeechFollower | null = surface
+      ? createSpeechFollower(surface)
+      : null
+    const onBoundary = (event: SpeechSynthesisEvent) => {
+      if (event.name !== 'word' || utteranceRef.current !== utterance) return
+      follower?.at(spokenWord(text, event.charIndex, event.charLength))
+    }
+    utterance.addEventListener('boundary', onBoundary)
     const finish = () => {
       if (utteranceRef.current !== utterance || !speakingRef.current) return
+      follower?.clear()
       utteranceRef.current = null
       clearWatchdog()
       const at = pageIndexRef.current
@@ -184,6 +203,8 @@ function useReadAloud({
       (text.length / SPEECH_CHARS_PER_SECOND) * 1000 + SPEECH_WATCHDOG_SLACK_MS,
     )
     return () => {
+      follower?.clear()
+      utterance.removeEventListener('boundary', onBoundary)
       utterance.removeEventListener('end', finish)
       utterance.removeEventListener('error', finish)
       if (utteranceRef.current === utterance) {

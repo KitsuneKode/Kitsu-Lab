@@ -394,6 +394,10 @@
         {
           "path": "components/book-preview/engines/premier-engine.meta.ts",
           "type": "registry:component"
+        },
+        {
+          "path": "components/book-preview/speech-highlight.ts",
+          "type": "registry:lib"
         }
       ],
       "registryDependencies": [

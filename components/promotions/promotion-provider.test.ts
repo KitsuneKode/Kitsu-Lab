@@ -283,3 +283,35 @@ test('a held-out visitor who converts is counted in the holdout arm', async () =
   const conversion = events.find((event) => event.type === 'convert')
   expect(conversion?.variant).toBe('holdout')
 })
+
+test('marks live in the account store and keep their identity', async () => {
+  const account = memoryDismissalStore()
+  let renders = 0
+  const Counter = () => {
+    usePromotions()
+    // Once per committed render.
+    useLayoutEffect(() => {
+      renders += 1
+    })
+    return null
+  }
+  await act(async () => {
+    root.render(
+      createElement(
+        PromotionProvider,
+        { pathname: '/courses', now, onEvent, source: [], storage: account },
+        createElement(Probe),
+        createElement(Counter),
+      ),
+    )
+  })
+  const remember = context.remember
+  await act(async () => context.remember('changelog:news', 42))
+  expect(account.get('promo:mark:changelog:news', 'account')).toBe(42)
+  expect(context.recall('changelog:news')).toBe(42)
+  expect(context.remember).toBe(remember)
+  // Writing the same mark again changes nothing, so nothing re-renders.
+  const before = renders
+  await act(async () => context.remember('changelog:news', 42))
+  expect(renders).toBe(before)
+})

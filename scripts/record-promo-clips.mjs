@@ -246,7 +246,9 @@ const SCENES = {
       await page.getByRole('button', { name, exact: true }).click()
       await wait(page, 1300)
     }
-    return { start, end: await mark(page), crop: pageWindow(face, -4) }
+    // Negative on purpose: pulls the crop inside the page, clear of the
+    // settings popover that otherwise shows as a sliver at the edge.
+    return { start, end: await mark(page), crop: pageWindow(face, -20) }
   },
 }
 

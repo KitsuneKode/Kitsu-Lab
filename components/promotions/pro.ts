@@ -9,8 +9,15 @@ export { PromoStickyCta } from './promo-sticky-cta'
 export { PromoCarousel } from './promo-carousel'
 export { PromoShowcase, Showcase, type ShowcaseChapter } from './promo-showcase'
 export { PromoInbox } from './promo-inbox'
+export { PromoChangelog } from './promo-changelog'
 export { PromoSideCard } from './promo-side-card'
 export { PromoSpotlight } from './promo-spotlight'
+export {
+  PROMOTION_TOUR_EVENT,
+  PromoTour,
+  startTour,
+  type TourStep,
+} from './promo-tour'
 export { PromoStory, type PromoStoryProps } from './promo-story'
 export { CampaignTimeline } from './campaign-timeline'
 export * from './promotion-kit'

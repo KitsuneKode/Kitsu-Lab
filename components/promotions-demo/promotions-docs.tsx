@@ -522,6 +522,47 @@ const initial = readPromotionCookies(jar.toString())
     ],
   },
   {
+    item: 'promo-tour',
+    pro: true,
+    name: 'Product tour',
+    tier: 'Surface',
+    summary:
+      'A few steps, each pointing at one thing. Starts when asked, resumes where the visitor left off.',
+    code: `<PromoTour
+  id="welcome"
+  steps={[
+    { target: '[data-tour="share"]', title: 'Share in one link', body: '…' },
+    { target: '[data-tour="export"]', title: 'Export anywhere', side: 'top' },
+  ]}
+/>
+
+<Button onClick={() => startTour('welcome')}>Take the tour</Button>`,
+    notes: [
+      'A step whose target is not on the page is skipped, never stalled on.',
+      'Focus moves to Next and returns to what started the tour; Escape pauses it.',
+      'Start, finish and skip report as impression, click and dismiss, so completion shows in results.',
+    ],
+  },
+  {
+    item: 'promo-changelog',
+    pro: true,
+    name: 'Changelog hub',
+    tier: 'Surface',
+    summary:
+      'A What’s new button with an unread count and a panel of every entry, newest first, with clips.',
+    code: `<header>
+  <Nav />
+  <PromoChangelog slot="changelog" />
+</header>
+
+// entries are card records
+{ placement: 'card', slot: 'changelog', eyebrow: '28 Sept', title: 'Ink on any page', media: clip, … }`,
+    notes: [
+      'Unread is per visitor and goes through your store, so account stores carry it across devices.',
+      'New labels stay while the visitor reads and clear when they close the panel.',
+    ],
+  },
+  {
     item: 'campaign-results',
     pro: true,
     name: 'Results',

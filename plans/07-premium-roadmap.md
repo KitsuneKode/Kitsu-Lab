@@ -7,17 +7,18 @@ is ticket KL-60.
 
 ## Status
 
-| Ticket                                   | State                                                       | Where                        |
-| ---------------------------------------- | ----------------------------------------------------------- | ---------------------------- |
-| KL-01                                    | In review                                                   | #8 (stack of #3, #7, #5, #6) |
-| KL-05                                    | Started: `@shadcn/lint` at `warn`                           | #9                           |
-| KL-10, KL-11, KL-12, KL-21               | Done                                                        | #9                           |
-| KL-13, KL-20, KL-22, KL-23               | Done                                                        | #10                          |
-| KL-14                                    | Done except 9:16 cuts                                       | #9, #10                      |
-| KL-15                                    | Partly: counter removed; real product photos still needed   | #9                           |
-| KL-36, KL-37, KL-38, KL-40, KL-42, KL-43 | Done                                                        | #11                          |
-| KL-39                                    | Done for editorial, mono, bold; glass needs a surface token | #11                          |
-| KL-32, KL-33, KL-34                      | Done                                                        | #12                          |
+| Ticket                                   | State                                                          | Where                        |
+| ---------------------------------------- | -------------------------------------------------------------- | ---------------------------- |
+| KL-01                                    | In review                                                      | #8 (stack of #3, #7, #5, #6) |
+| KL-05                                    | Started: `@shadcn/lint` at `warn`                              | #9                           |
+| KL-10, KL-11, KL-12, KL-21               | Done                                                           | #9                           |
+| KL-13, KL-20, KL-22, KL-23               | Done                                                           | #10                          |
+| KL-14                                    | Done except 9:16 cuts                                          | #9, #10                      |
+| KL-15                                    | Partly: counter removed; real product photos still needed      | #9                           |
+| KL-36, KL-37, KL-38, KL-40, KL-42, KL-43 | Done                                                           | #11                          |
+| KL-39                                    | Done for editorial, mono, bold; glass needs a surface token    | #11                          |
+| KL-32, KL-33, KL-34                      | Done                                                           | #12                          |
+| KL-30, KL-31                             | Done (tours are code-defined; editor authoring is a follow-up) | #13                          |
 
 ## Operating rules
 

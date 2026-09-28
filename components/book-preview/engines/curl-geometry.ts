@@ -237,3 +237,17 @@ export function curlPageStacks(
       : Math.max(1, Math.round(((total * count) / leaves) * 2) / 2)
   return { prev: side(read), next: side(left), total }
 }
+
+/**
+ * Identifies a book that opens on a hardcover, for the once-per-book cover
+ * lift. A PDF, or pages that do not start on a cover, have none.
+ */
+export function curlOpeningKey(source: {
+  title?: string
+  pdfUrl?: string
+  pages: readonly { id: string; isCover?: boolean }[]
+}): string | undefined {
+  const first = source.pages[0]
+  if (!first?.isCover) return undefined
+  return `${source.title ?? ''}|${first.id}|${source.pages.length}`
+}

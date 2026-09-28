@@ -5,7 +5,11 @@ import { DEFAULT_CAPABILITIES } from '../capabilities'
 import { usePdfSheets } from '../hooks/use-pdf-sheets'
 import { useStableHandler } from '../hooks/use-stable-handler'
 import type { BookPreviewEngineProps } from '../types'
-import { CURL_PAGE_RATIO, CURL_RASTER_WIDTH } from './curl-geometry'
+import {
+  CURL_PAGE_RATIO,
+  CURL_RASTER_WIDTH,
+  curlOpeningKey,
+} from './curl-geometry'
 import { CurlStage } from './curl-stage'
 import { PdfPasswordGate } from './pdf-password-gate'
 import { PdfPreparingBadge } from './pdf-preparing-badge'
@@ -25,6 +29,7 @@ export default function CurlEngine({
   const pages = source.pages
   const pdfUrl = source.pdfUrl
   const usePdf = Boolean(pdfUrl) && pages.length === 0
+  const openingKey = usePdf ? undefined : curlOpeningKey(source)
   const reportReady = useStableHandler(onReady)
   const reportError = useStableHandler(onError)
 
@@ -163,6 +168,7 @@ export default function CurlEngine({
         reducedMotion={reducedMotion}
         soundEnabled={soundEnabled}
         onPageChange={onPageChange}
+        openingKey={openingKey}
       />
       {preparing && sheets ? (
         <PdfPreparingBadge prepared={prepared} total={sheets.length} />

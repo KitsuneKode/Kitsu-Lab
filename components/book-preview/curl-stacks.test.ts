@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   CURL_STACK_MAX_PX,
   CURL_STACK_MIN_PX,
+  curlOpeningKey,
   curlPageStacks,
 } from './engines/curl-geometry'
 
@@ -28,5 +29,19 @@ describe('page stacks', () => {
   test('a side with leaves never vanishes', () => {
     expect(curlPageStacks(1, 400).prev).toBeGreaterThanOrEqual(1)
     expect(curlPageStacks(0, 0)).toEqual({ prev: 0, next: 0, total: 0 })
+  })
+})
+
+describe('curlOpeningKey', () => {
+  test('only a book that opens on a cover lifts it', () => {
+    const cover = { id: 'cover', isCover: true }
+    const page = { id: 'one' }
+    expect(curlOpeningKey({ title: 'Birds', pages: [cover, page] })).toBe(
+      'Birds|cover|2',
+    )
+    expect(curlOpeningKey({ title: 'Birds', pages: [page, cover] })).toBe(
+      undefined,
+    )
+    expect(curlOpeningKey({ pdfUrl: '/a.pdf', pages: [] })).toBe(undefined)
   })
 })

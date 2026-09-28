@@ -59,6 +59,9 @@ type CurlStageProps = {
   reducedMotion: boolean
   soundEnabled: boolean
   onPageChange: (pageIndex: number) => void
+  /** Identifies a book that opens on a hardcover. The first time a reader
+      opens it, the cover lifts at its corner and settles back, once. */
+  openingKey?: string
 }
 
 type Direction = 'next' | 'prev'
@@ -91,6 +94,30 @@ type Layout = { size: CurlPageSize; spread: boolean }
     reader tapping through never waits: a new turn lands the old one. */
 const CURL_TURN_MS = 540
 const CURL_PEEK_MS = 220
+/** The first-open cover lift: how far, how long up, how long to settle. */
+const CURL_COVER_LIFT = 0.18
+const CURL_COVER_LIFT_MS = 720
+const CURL_COVER_SETTLE_MS = 560
+const CURL_COVER_DELAY_MS = 600
+const OPENED_PREFIX = 'book-preview:opened:'
+
+/** Whether this book's cover has lifted for this reader before. Storage
+    that is off (private mode, a sandbox) counts as opened: never nag. */
+function coverOpenedBefore(key: string) {
+  try {
+    return window.localStorage.getItem(OPENED_PREFIX + key) !== null
+  } catch {
+    return true
+  }
+}
+
+function rememberCoverOpened(key: string) {
+  try {
+    window.localStorage.setItem(OPENED_PREFIX + key, '1')
+  } catch {
+    // Unavailable storage already reads as opened.
+  }
+}
 /** Mouse this close to a corner lifts it. */
 const CURL_CORNER_PX = 64
 
@@ -156,6 +183,7 @@ export function CurlStage({
   reducedMotion,
   soundEnabled,
   onPageChange,
+  openingKey,
 }: CurlStageProps) {
   const { setPageStep, pageLayout } = useBookPreview()
   const cover = pageLayout.cover
@@ -521,6 +549,39 @@ export function CurlStage({
       targetOf,
     ],
   )
+
+  // ---- the first open ---------------------------------------------------
+
+  // A new book on its cover: the corner lifts the way a hand tests a
+  // hardcover, then settles, to say "this turns". Once per book, never under
+  // reduced motion, and only while the reader has not touched it: a hover
+  // peek, a press or a turn takes over.
+  const measured = layout !== null
+  useEffect(() => {
+    if (!openingKey || !measured || reducedMotion) return
+    if (shownRef.current !== 0 || coverOpenedBefore(openingKey)) return
+    const timer = window.setTimeout(() => {
+      if (shownRef.current !== 0 || turnRef.current) return
+      rememberCoverOpened(openingKey)
+      const lift = beginTurn('next', false, true)
+      if (!lift) return
+      animate(
+        { p: CURL_COVER_LIFT, dy: 0 },
+        CURL_COVER_LIFT_MS,
+        easeOutCubic,
+        () => {
+          if (turnRef.current !== lift || lift.landing != null) return
+          animate(
+            { p: 0, dy: 0 },
+            CURL_COVER_SETTLE_MS,
+            easeInOutCubic,
+            endTurn,
+          )
+        },
+      )
+    }, CURL_COVER_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [animate, beginTurn, endTurn, measured, openingKey, reducedMotion])
 
   // ---- the reader's page index -----------------------------------------
 

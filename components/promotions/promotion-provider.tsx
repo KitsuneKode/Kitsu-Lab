@@ -508,7 +508,7 @@ export function visitorIsBusy(): boolean {
   if (active instanceof HTMLElement && isTextEntry(active)) return true
   if (
     document.querySelector(
-      'dialog[open], [role="dialog"][aria-modal="true"]:not([data-slot^="promo-"]):not([data-promo-host]), [role="alertdialog"]',
+      'dialog[open]:not([data-promo-host]), [role="dialog"][aria-modal="true"]:not([data-slot^="promo-"]):not([data-promo-host]), [role="alertdialog"]',
     )
   )
     return true

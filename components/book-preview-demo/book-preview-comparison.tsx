@@ -27,7 +27,7 @@ const rows = [
   {
     engine: 'Curl',
     input: 'Finger-glued corner peel',
-    cost: 'Optional page-flip',
+    cost: 'Built-in fold engine',
     use: 'Physical book preview',
   },
   {
@@ -45,7 +45,7 @@ const rows = [
   {
     engine: 'Archival curl',
     input: 'Curl plus search and speech',
-    cost: 'Optional page-flip',
+    cost: 'Built-in fold engine',
     use: 'Illustrated facsimile reading',
   },
   {

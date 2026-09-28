@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="Sage linen swatch">
+<defs>
+<pattern id="w" width="14" height="14" patternUnits="userSpaceOnUse"><path d="M0 7h14M7 0v14" stroke="#b7c4ad" stroke-width="3" opacity=".55"/></pattern>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9e1d3"/><stop offset="1" stop-color="#b7c4ad"/></linearGradient>
+</defs>
+<rect width="1600" height="900" fill="url(#g)"/>
+<rect width="1600" height="900" fill="url(#w)"/>
+<path d="M980 120c140 60 260 220 300 420s-30 300-160 330H640c-120-30-190-150-160-330s160-360 300-420z" fill="#8c9c80" opacity=".9"/>
+<path d="M880 120c60 40 100 120 100 200" stroke="#d9e1d3" stroke-width="10" fill="none" opacity=".7"/>
+<circle cx="905" cy="360" r="11" fill="#d9e1d3"/><circle cx="905" cy="470" r="11" fill="#d9e1d3"/><circle cx="905" cy="580" r="11" fill="#d9e1d3"/>
+<text x="120" y="780" font-family="Georgia, serif" font-size="64" fill="#2a241c" opacity=".85">Sage</text>
+</svg>

@@ -10,6 +10,18 @@ export { bookPreviewReducer, createInitialState } from './reducer'
 export { normalizeSource, clampPageIndex, isEmptySource } from './normalize'
 export { isEditableTarget } from './keyboard'
 export { playPageTurnSound, stopPageTurnSounds } from './audio'
+export {
+  annotationsToMarkdown,
+  sanitizeAnnotations,
+  HIGHLIGHT_COLORS,
+} from './annotations'
+export {
+  chainAiAdapters,
+  createBuiltInAiAdapter,
+  createFetchAiAdapter,
+  createOpenAICompatibleAdapter,
+} from './ai'
+export { DEFAULT_TYPOGRAPHY } from './typography'
 
 export type {
   BookPreviewAppearance,
@@ -19,10 +31,22 @@ export type {
   BookPreviewEngineProps,
   BookPreviewEngineReadyInfo,
   BookPreviewError,
+  BookPreviewLayout,
   BookPreviewErrorKind,
   BookPreviewMode,
   BookPreviewPage,
+  BookPreviewPageImage,
   BookPreviewProps,
   BookPreviewSource,
   BookPreviewStatus as BookPreviewStatusValue,
 } from './types'
+export type {
+  BookPreviewAnnotation,
+  BookPreviewBookmark,
+  BookPreviewHighlight,
+  BookPreviewHighlightColor,
+  BookPreviewTextQuote,
+} from './annotations'
+export type { BookPreviewAiAdapter, BookPreviewAskRequest } from './ai'
+export type { BookPreviewTypography } from './typography'
+export type { BookPreviewUrlKeys } from './url-state'

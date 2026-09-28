@@ -7,8 +7,15 @@ import { Slider } from '@/components/ui/slider'
 import { useBookPreview } from './book-preview-provider'
 
 export function BookPreviewNavigation() {
-  const { state, canGoPrev, canGoNext, prevPage, nextPage, goToPage } =
-    useBookPreview()
+  const {
+    state,
+    canGoPrev,
+    canGoNext,
+    prevPage,
+    nextPage,
+    goToPage,
+    minutesLeft,
+  } = useBookPreview()
   const total = Math.max(state.totalPages, 1)
   const [scrub, setScrub] = useState<number | null>(null)
   const [jumpDraft, setJumpDraft] = useState<string | null>(null)
@@ -27,7 +34,10 @@ export function BookPreviewNavigation() {
   if (state.capabilities.pagination === false) return null
 
   return (
-    <div className="flex w-full flex-col gap-3" data-book-preview-chrome>
+    <div
+      className="flex w-full flex-col gap-3"
+      data-book-preview-chrome="bottom"
+    >
       <div className="flex items-center justify-between gap-3">
         <Button
           type="button"
@@ -77,8 +87,22 @@ export function BookPreviewNavigation() {
               }}
             />
             <span aria-hidden>of {state.totalPages}</span>
+            {minutesLeft !== null ? (
+              // Learned from this reader's own pace; the number that makes
+              // the end of a chapter feel close.
+              <span
+                aria-hidden
+                className="text-muted-foreground/80 hidden sm:inline"
+                data-book-preview-time-left
+              >
+                · {minutesLeft < 1 ? 'almost done' : `${minutesLeft} min left`}
+              </span>
+            ) : null}
             <span className="sr-only">
               Page {shown + 1} of {state.totalPages}
+              {minutesLeft !== null && minutesLeft > 0
+                ? `, about ${minutesLeft === 1 ? 'a minute' : `${minutesLeft} minutes`} left`
+                : ''}
             </span>
           </form>
         )}
@@ -98,11 +122,14 @@ export function BookPreviewNavigation() {
       </div>
       {state.totalPages > 1 ? (
         <Slider
-          value={shown}
+          // An array: a bare number makes the shadcn slider render a thumb
+          // per entry of [min, max] — two stacked thumbs, two tab stops.
+          value={[shown]}
           min={0}
           max={total - 1}
           step={1}
           aria-label="Page position"
+          className="[&_[data-slot=slider-track]]:bg-foreground/15 [&_[data-slot=slider-range]]:bg-foreground/60"
           onValueChange={(value) =>
             setScrub(Array.isArray(value) ? value[0] : value)
           }

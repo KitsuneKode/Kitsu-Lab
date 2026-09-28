@@ -26,6 +26,7 @@ import { DEFAULT_CAPABILITIES } from '../capabilities'
 import { usePageArrival } from '../hooks/use-page-arrival'
 import { usePageGesture } from '../hooks/use-page-gesture'
 import { useStableHandler } from '../hooks/use-stable-handler'
+import { useBookPreview } from '../book-preview-provider'
 import { pageSearchText } from '../normalize'
 import { useFinePointer } from '../media'
 import type { BookPreviewEngineProps, BookPreviewPage } from '../types'
@@ -322,15 +323,22 @@ export default function SpreadEngine({
   const stageRef = useRef<HTMLDivElement | null>(null)
   const finePointer = useFinePointer()
   const pages = source.pages
-  const evenIndex = pageIndex - (pageIndex % 2)
-  const left = pages[evenIndex]
+  const { setPageStep, pageLayout } = useBookPreview()
+  const cover = pageLayout.cover
+  // Documents pair (1|2), (3|4)…; a book's cover stands alone on the right
+  // (its left slot is -1), then (2|3), (4|5)….
+  const offset = cover ? 1 : 0
+  const evenIndex = pageIndex - ((Math.max(0, pageIndex) + offset) % 2)
+  const left = evenIndex >= 0 ? pages[evenIndex] : undefined
   const right = pages[evenIndex + 1]
   const reportReady = useStableHandler(onReady)
   const reportError = useStableHandler(onError)
 
   // Direction of travel for the enter animation.
+  // Keyed to the spread, not the page: stepping to the facing page changes
+  // nothing on screen and must not replay the arrival drift.
   const arrival = usePageArrival(
-    pageIndex,
+    viewMode === 'page' ? pageIndex : evenIndex,
     reducedMotion || navigationBehavior === 'instant',
   )
 
@@ -366,26 +374,64 @@ export default function SpreadEngine({
     })
   }, [finePointer, pages.length, reportError, reportReady, source.downloadUrl])
 
+  // Two pages on screen turn two at a time — a one-page step would land on
+  // the facing page, already visible, and every other swipe would look dead.
+  const spreadTarget = (at: number, direction: 1 | -1, count: number) => {
+    const start = at - ((Math.max(0, at) + offset) % 2)
+    const target = start + direction * 2
+    if (target < -offset || target > count - 1) return null
+    return Math.max(0, target)
+  }
+  const prevTarget =
+    viewMode === 'spread'
+      ? spreadTarget(pageIndex, -1, pages.length)
+      : pageIndex > 0
+        ? pageIndex - 1
+        : null
+  const nextTarget =
+    viewMode === 'spread'
+      ? spreadTarget(pageIndex, 1, pages.length)
+      : pageIndex < pages.length - 1
+        ? pageIndex + 1
+        : null
+  useEffect(() => {
+    if (viewMode !== 'spread') return
+    const count = pages.length
+    setPageStep((at, direction) => {
+      const start = at - ((Math.max(0, at) + offset) % 2)
+      const target = start + direction * 2
+      if (target < -offset || target > count - 1) return null
+      return Math.max(0, target)
+    })
+    return () => setPageStep(null)
+  }, [offset, pages.length, setPageStep, viewMode])
+
   const { surfaceRef } = usePageGesture({
     enabled: viewMode !== 'thumbs',
     reducedMotion,
-    canGoPrev: pageIndex > 0,
-    canGoNext: pageIndex < pages.length - 1,
+    canGoPrev: prevTarget !== null,
+    canGoNext: nextTarget !== null,
     onCommitPrev: () => {
+      if (prevTarget === null) return
       if (soundEnabled) playPageTurnSound()
-      onPageChange(Math.max(0, pageIndex - 1))
+      onPageChange(prevTarget)
     },
     onCommitNext: () => {
+      if (nextTarget === null) return
       if (soundEnabled) playPageTurnSound()
-      onPageChange(Math.min(pages.length - 1, pageIndex + 1))
+      onPageChange(nextTarget)
     },
   })
 
-  const stageKey =
-    viewMode === 'page' ? `p-${pageIndex}` : `s-${evenIndex}-${viewMode}`
+  // Keyed by view, not by page: a per-page key remounted the stage on every
+  // turn, re-decoding its images — a blank frame, a flash.
+  const stageKey = viewMode
 
   return (
-    <div className="flex h-full w-full flex-col gap-3 p-4">
+    <div
+      data-book-preview-engine-frame
+      className="flex h-full w-full flex-col gap-3 p-4"
+    >
       <SpreadControls
         viewMode={viewMode}
         loupeAvailable={loupeAvailable}

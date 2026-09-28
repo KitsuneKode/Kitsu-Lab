@@ -10,10 +10,11 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "lint": "oxlint",
-    "test": "bun test components/book-preview components/book-preview-demo",
+    "test": "bun test components/book-preview components/book-preview-demo components/promotions lib",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
-    "registry:build": "shadcn build",
-    "registry:check": "shadcn build && git diff --exit-code --stat public/r registry.json",
+    "registry:build": "npx -y shadcn@4.21.0 build && npx -y shadcn@4.21.0 build registry-pro.json -o registry-pro/r",
+    "registry:check": "npm run registry:build && git diff --exit-code --stat public/r registry-pro registry.json registry-pro.json",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run test"
   },
   "dependencies": {
@@ -29,7 +30,6 @@
     "motion": "^12.23.0",
     "next": "16.3.5",
     "next-themes": "^0.4.6",
-    "page-flip": "^2.0.7",
     "pdfjs-dist": "^6.3.289",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -37,6 +37,8 @@
     "three": "^0.186.0"
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "^20.14.5",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "19.3.0",

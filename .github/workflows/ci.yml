@@ -29,10 +29,41 @@ jobs:
         run: bunx oxfmt --check
 
       - name: Tests
-        run: bun test components/book-preview components/book-preview-demo
+        run: bun run test
 
       - name: Registry artifacts in sync
-        run: npx -y shadcn@4.21.0 build && git diff --exit-code --stat public/r registry.json
+        run: npx -y shadcn@4.21.0 build && npx -y shadcn@4.21.0 build registry-pro.json -o registry-pro/r && git diff --exit-code --stat public/r registry-pro registry.json registry-pro.json
 
       - name: Build
         run: bun run build
+
+  # Browser tests are a separate job so a flake here can't block the whole
+  # pipeline; failures upload the Playwright report.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: bun install --frozen-lockfile
+
+      - name: Build (e2e runs against production)
+        run: bun run build
+
+      - name: Install Chrome
+        run: bunx playwright install --with-deps chrome
+
+      - name: E2E tests
+        run: bun run test:e2e --retries=2
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

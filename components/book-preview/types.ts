@@ -1,3 +1,7 @@
+import type { BookPreviewUrlKeys } from './url-state'
+import type { BookPreviewTypography } from './typography'
+import type { BookPreviewAiAdapter } from './ai'
+import type { BookPreviewAnnotation } from './annotations'
 import type { ComponentType, ReactNode } from 'react'
 
 export const BOOK_PREVIEW_MODES = [
@@ -72,6 +76,25 @@ export type BookPreviewPageRenderContext = {
   page: BookPreviewPage
 }
 
+/**
+ * A pre-rendered page raster. Lets hosts serve page images (for bandwidth,
+ * low-end devices, or keeping the source document off the client) without a
+ * custom `render` per page. Images can still be captured; this is not DRM.
+ */
+export type BookPreviewPageImage = {
+  src: string
+  /** e.g. '/p/3-1024.webp 1024w, /p/3-1600.webp 1600w' */
+  srcSet?: string
+  sizes?: string
+  /** Intrinsic size, used for the aspect ratio so nothing shifts on load. */
+  width: number
+  height: number
+  /** Required. A short summary of the page, or "Page 3". */
+  alt: string
+  /** Shown behind the image while it loads: a CSS colour or a tiny data URL. */
+  placeholder?: string
+}
+
 export type BookPreviewPage = {
   id: string
   pageNumber: number
@@ -86,6 +109,8 @@ export type BookPreviewPage = {
   isCover?: boolean
   isBackCover?: boolean
   searchableText?: string
+  /** Render this page as an image. Takes precedence over text fields. */
+  image?: BookPreviewPageImage
   render?: (context: BookPreviewPageRenderContext) => ReactNode
 }
 
@@ -129,6 +154,8 @@ export type BookPreviewEngineReadyInfo = {
   contents?: BookPreviewContentsEntry[]
 }
 
+export type BookPreviewLayout = 'inline' | 'fill'
+
 export type BookPreviewNavigationBehavior = 'animated' | 'instant'
 
 export type BookPreviewEngineProps = {
@@ -141,6 +168,10 @@ export type BookPreviewEngineProps = {
   /** Mirror of the shell's persistPreferences prop, so engines can remember
       their own view settings (e.g. the PDF reader's zoom level). */
   persistPreferences?: boolean
+  /** Query key the engine may mirror its own layout into (the premier
+      reader's view), so shared links reopen the same layout. Undefined when
+      the host has not opted into URL state. */
+  viewParam?: string
   onPageChange: (
     pageIndex: number,
     behavior?: BookPreviewNavigationBehavior,
@@ -164,6 +195,10 @@ export type BookPreviewProps = {
   source: BookPreviewSource
   className?: string
   label?: string
+  /** `inline` sizes the stage to comfortable breakpoints inside a page;
+      `fill` stretches to the parent's height (give the parent one) — for
+      app shells, split views, and dedicated reader routes. */
+  layout?: BookPreviewLayout
   engines?: BookPreviewEngine[]
   enabledModes?: BookPreviewMode[]
   defaultMode?: BookPreviewMode
@@ -182,6 +217,10 @@ export type BookPreviewProps = {
       `pageParam="page"` produces `?page=12`. Applied once per source on open,
       then kept current with history.replaceState — no history spam. */
   pageParam?: string
+  /** Mirror reader state into the query string so links and refreshes keep
+      it: `true` syncs `?page=`, `?mode=`, `?theme=` and the premier `?view=`;
+      an object renames or picks individual keys. Uses replaceState only. */
+  urlState?: boolean | BookPreviewUrlKeys
   defaultAppearance?: BookPreviewAppearance
   appearance?: BookPreviewAppearance
   onAppearanceChange?: (appearance: BookPreviewAppearance) => void
@@ -189,6 +228,36 @@ export type BookPreviewProps = {
   sound?: boolean
   onSoundChange?: (sound: boolean) => void
   prefetchModes?: BookPreviewMode[]
+  /** Two-page views show the first page alone, the way a book's cover sits
+      on its own, then pair (2|3), (4|5)…. `'auto'` (default) does so when
+      the first page is marked `isCover`; PDFs and other documents pair
+      (1|2), (3|4)… from the first page. Readers can override it in "Aa". */
+  spreadCover?: boolean | 'auto'
+  /** Starting "Aa" settings (type size, face, spacing, measure). Remembered
+      across visits with `persistPreferences`. */
+  defaultTypography?: Partial<BookPreviewTypography>
+  onTypographyChange?: (typography: BookPreviewTypography) => void
+  /** Select text to highlight it, add notes, and bookmark pages. On by
+      default; set false for a read-only preview. */
+  annotate?: boolean
+  /** A Share button (system share sheet, or copy link) and "Share" on
+      highlights. Links carry page, mode, view and paper when `urlState` is
+      on; an uploaded PDF shares the file itself where the device can.
+      Default true. */
+  share?: boolean
+  /** Controlled notebook — pair with `onAnnotationsChange` to sync highlights,
+      notes and bookmarks to your own backend (they carry ids and timestamps
+      for last-write-wins merging). */
+  annotations?: BookPreviewAnnotation[]
+  defaultAnnotations?: BookPreviewAnnotation[]
+  onAnnotationsChange?: (annotations: BookPreviewAnnotation[]) => void
+  /** Remember the notebook per document in localStorage (uncontrolled only),
+      kept in step across open tabs. */
+  persistAnnotations?: boolean
+  /** Put a model next to the page: "Ask" on a selection or the current
+      page. See ai.ts for the on-device, OpenAI-compatible (Ollama), and
+      server-route adapters. */
+  ai?: BookPreviewAiAdapter
   /** Called when the requested mode cannot render this source and another
       compatible engine takes over (e.g. "webgl" requested for a PDF). */
   onModeFallback?: (requested: BookPreviewMode, actual: BookPreviewMode) => void

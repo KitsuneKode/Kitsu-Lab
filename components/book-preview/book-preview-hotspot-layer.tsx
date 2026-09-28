@@ -185,6 +185,8 @@ function HotspotCard({
             size="sm"
             nativeButton={false}
             className="mt-1.5 w-full"
+            // The link's text is the Button's children, rendered into it.
+            // oxlint-disable-next-line jsx-a11y/control-has-associated-label
             render={<a href={href} />}
             onClick={() =>
               emit({

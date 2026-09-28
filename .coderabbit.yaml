@@ -1,20 +1,84 @@
-# Work lands as stacked PRs (stack/* branches), so review every base, and
-# skip generated output: shadcn build writes public/r and registry-pro/r.
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# Work lands as stacked PRs (stack/* branches), so review every base.
+# Generated output is filtered: only `shadcn build` writes public/r and
+# registry-pro/r, and the screenshot baselines are made by
+# `npm run test:visual:update` inside the Playwright image — neither is
+# reviewable source.
+language: en
+
+chat:
+  auto_reply: true
+
 reviews:
+  profile: chill
   auto_review:
     enabled: true
+    drafts: false
+    ignore_title_keywords:
+      - WIP
     base_branches:
       - '.*'
+  high_level_summary: true
+  review_status: true
+  poem: false
+  request_changes_workflow: false
   path_filters:
     - '!public/r/**'
     - '!registry-pro/r/**'
-    - '!bun.lock'
+    - '!e2e/__screenshots__/**'
+    - '!public/specimens/**'
     - '!public/promo-clips/**'
+    - '!plans/**'
+    - '!bun.lock'
+    - '!*.tsbuildinfo'
   path_instructions:
-    - path: 'components/**'
+    - path: '**/*.{ts,tsx}'
       instructions: |
-        Registry components ship into other projects: flag imports of files not
-        listed in the item's registry.json entry, free code importing pro code,
-        and anything that assumes this app's globals.css.
-        Check reduced motion, RTL (logical properties), keyboard paths and
-        every UI state: loading, empty, error, refused autoplay.
+        - React Compiler is on (reactCompiler in next.config.ts): do not
+          suggest useMemo/useCallback for performance — flag only real
+          correctness issues.
+        - This is Next.js 16; its docs ship in node_modules/next/dist/docs/.
+          Don't flag APIs for differing from older Next.js conventions.
+        - Intentional oxlint warnings (worker-pump awaits and cleanup closures
+          in the book-preview engines, role="status", canvas role="img",
+          dropzone tabIndex) are documented in AGENTS.md — don't re-report.
+    - path: 'components/book-preview/**'
+      instructions: |
+        - The engines draw on canvas/rAF: flag synchronous work on the frame
+          path and listeners/workers without cleanup.
+        - Pure math lives in *-math.ts / *-geometry.ts and must stay free of
+          DOM and JSX imports so `bun test` can run it.
+    - path: 'components/promotions/**'
+      instructions: |
+        - Frequency caps, budgets and dismissal are enforced by
+          promotion-provider.tsx; flag surfaces that bypass it.
+        - No dark patterns: no fake scarcity, stories never self-open.
+        - Every visible feature needs a reduced-motion path and keyboard access.
+    - path: 'app/api/**'
+      instructions: |
+        - Payments and license checks: verify webhook signatures stay verified
+          before parsing, compares stay timing-safe, retries are idempotent,
+          and no key material reaches logs or response bodies.
+    - path: 'lib/*.ts'
+      instructions: |
+        - Same bar as app/api: secrets from env only, timeouts on outbound
+          calls, and pure functions where they can be unit-tested with bun.
+    - path: 'e2e/**'
+      instructions: |
+        - Playwright specs wait on rendered state and retrying assertions, not
+          fixed sleeps; flag new waitForTimeout calls and hardcoded delays.
+    - path: 'registry*.json'
+      instructions: |
+        - Registry items relying on Base UI `items`, `render` props or
+          alignItemWithTrigger must say so in their `docs` field (AGENTS.md).
+  pre_merge_checks:
+    docstrings:
+      mode: off
+  tools:
+    oxc:
+      enabled: true
+    actionlint:
+      enabled: true
+    yamllint:
+      enabled: true

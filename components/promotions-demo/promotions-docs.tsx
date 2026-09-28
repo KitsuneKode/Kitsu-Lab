@@ -522,6 +522,27 @@ const initial = readPromotionCookies(jar.toString())
     ],
   },
   {
+    item: 'campaign-results',
+    pro: true,
+    name: 'Results',
+    tier: 'Add-on',
+    summary:
+      'Rates per arm with 95% intervals, and a plain verdict against control and against the holdout.',
+    code: `const [events, setEvents] = useState<PromotionEvent[]>([])
+
+<PromotionProvider onEvent={(e) => setEvents((all) => [...all, e])} …>
+
+<CampaignResults events={events} promotions={records} />
+
+// or on the server, over events from your warehouse
+const stats = campaignStats(rows, { metric: 'convert' })`,
+    notes: [
+      'Never overstates: too little data says so, with roughly how many more exposures are needed.',
+      'A held-out visitor’s conversion is tagged holdout, so the lift of showing a campaign at all is measurable.',
+      'Numbers are always in text; bars share one scale and only help the eye.',
+    ],
+  },
+  {
     item: 'promotion-preview',
     pro: true,
     name: 'Signed previews',

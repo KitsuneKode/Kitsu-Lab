@@ -1092,9 +1092,14 @@ export function PromotionProvider({
     setForced((id) => (matches.some((m) => m.id === id) ? null : id))
     // Selection contains assigned copy; the source records do not. Resolve
     // from the stable seed even if the offer has expired or is off-route.
+    // A held-out visitor's conversion is tagged 'holdout', so the lift of
+    // showing the campaign can be measured against not showing it.
+    const assigned = seed === null ? null : assignVariant(first, seed)
     report(
       'convert',
-      seed === null ? first : assignVariant(first, seed).promotion,
+      assigned?.held
+        ? { ...first, variant: 'holdout' }
+        : (assigned?.promotion ?? first),
     )
     return true
   }

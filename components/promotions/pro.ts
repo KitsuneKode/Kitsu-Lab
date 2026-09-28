@@ -31,3 +31,14 @@ export {
   verifyPreviewToken,
   type PreviewClaim,
 } from './promotion-preview-token'
+export { CampaignResults } from './campaign-results'
+export {
+  campaignStats,
+  compare,
+  wilson,
+  type ArmStats,
+  type Comparison,
+  type Metric,
+  type RecordStats,
+  type Verdict,
+} from './campaign-stats'

@@ -259,3 +259,17 @@ test('a floating preview opens at once, without engagement or budget', async () 
   await renderProvider({ source: [], storage, preview: draft })
   expect(context.toast?.id).toBe('draft-toast')
 })
+
+test('a held-out visitor who converts is counted in the holdout arm', async () => {
+  const record = promotion({ holdout: 50, campaign: 'spring' })
+  const storage = memoryDismissalStore()
+  let seed = 1
+  while (!assignVariant(record, seed).held) seed += 1
+  storage.set('promo:visitor', seed, 'browser')
+  await renderProvider({ source: [record], storage })
+  await act(async () => {
+    context.convert('spring')
+  })
+  const conversion = events.find((event) => event.type === 'convert')
+  expect(conversion?.variant).toBe('holdout')
+})

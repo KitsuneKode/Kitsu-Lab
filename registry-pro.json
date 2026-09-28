@@ -244,6 +244,27 @@
       "docs": "Pass `timeZone` so ticks and schedules are labelled in the campaign's zone, not the reviewer's. Records competing for the one floating slot are flagged; a dialog wins over a spotlight, a spotlight over a toast."
     },
     {
+      "name": "campaign-results",
+      "type": "registry:component",
+      "title": "Campaign results",
+      "description": "Exposures, click and conversion rates per arm with 95% Wilson intervals, and a plain verdict for each arm against control and for showing a campaign at all against its holdout. Never overstates: not enough data says so, with what is still needed.",
+      "dependencies": ["@tabler/icons-react"],
+      "registryDependencies": [
+        "https://kitsulab.kitsunekode.in/r/promotion-provider.json"
+      ],
+      "files": [
+        {
+          "path": "components/promotions/campaign-stats.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "components/promotions/campaign-results.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "docs": "<CampaignResults events={events} promotions={records} />. Feed it the provider's events (collect onEvent, or read them back from your analytics). campaignStats(events) is the pure core, usable on a server over warehouse data."
+    },
+    {
       "type": "registry:component",
       "dependencies": ["@base-ui/react"],
       "registryDependencies": [
@@ -280,7 +301,7 @@
       "name": "promotions-pro",
       "type": "registry:block",
       "title": "Promotions Pro",
-      "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, showcase, inbox, spotlight, side card, story, campaign timeline, kits, editor, signed previews and the account store.",
+      "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, showcase, inbox, spotlight, side card, story, campaign timeline and results, kits, editor, signed previews and the account store.",
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/promotions.json",
         "@kitsu-pro/promo-pill",
@@ -297,7 +318,8 @@
         "@kitsu-pro/promotion-account-store",
         "@kitsu-pro/promo-showcase",
         "@kitsu-pro/campaign-timeline",
-        "@kitsu-pro/promotion-preview"
+        "@kitsu-pro/promotion-preview",
+        "@kitsu-pro/campaign-results"
       ],
       "files": [
         {

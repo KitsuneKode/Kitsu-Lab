@@ -60,6 +60,8 @@ import {
 } from '@/components/promotions/pro'
 import { PromotionEditor } from '@/components/promotions/promotion-editor'
 import { CampaignTimeline } from '@/components/promotions/campaign-timeline'
+import { CampaignResults } from '@/components/promotions/campaign-results'
+import { SIMULATED_TRUTH, simulateVisitors } from './simulate'
 import { PromotionsDocs } from './promotions-docs'
 import { SCENARIOS, type Scenario, type ScenarioId } from './scenarios'
 
@@ -600,7 +602,9 @@ export function PromotionsDemo() {
     (PromotionEvent & { seq: number })[]
   >([])
   const seq = React.useRef(0)
-  const [view, setView] = React.useState<'site' | 'editor' | 'docs'>('site')
+  const [view, setView] = React.useState<
+    'site' | 'editor' | 'results' | 'docs'
+  >('site')
   const [store, setStore] = React.useState(memoryDismissalStore)
   const [resetKey, setResetKey] = React.useState(0)
   const [frame, setFrame] = React.useState<HTMLDivElement | null>(null)
@@ -637,10 +641,15 @@ export function PromotionsDemo() {
     () => base + offsetHours * HOUR,
     [base, offsetHours],
   )
+  // Every event this session, for the Results tab (the log keeps 12).
+  const [sessionEvents, setSessionEvents] = React.useState<PromotionEvent[]>([])
+  const [simulated, setSimulated] = React.useState<PromotionEvent[]>([])
+  const [batches, setBatches] = React.useState(0)
   const onEvent = React.useCallback((event: PromotionEvent) => {
     setEvents((previous) =>
       [{ ...event, seq: ++seq.current }, ...previous].slice(0, 12),
     )
+    setSessionEvents((previous) => [...previous, event].slice(-5000))
     sendToAnalytics(event)
   }, [])
   const navigate = React.useCallback(
@@ -656,6 +665,7 @@ export function PromotionsDemo() {
     setAppliedCode(null)
     setStore(memoryDismissalStore())
     setEvents([])
+    setSessionEvents([])
     setResetKey((k) => k + 1)
   }
   const pickScenario = (id: ScenarioId) => {
@@ -837,13 +847,15 @@ export function PromotionsDemo() {
             aria-label="Demo view"
             value={[view]}
             onValueChange={(value) => {
-              if (value[0]) setView(value[0] as 'site' | 'editor' | 'docs')
+              if (value[0])
+                setView(value[0] as 'site' | 'editor' | 'results' | 'docs')
             }}
             variant="outline"
             size="sm"
           >
             <ToggleGroupItem value="site">Live site</ToggleGroupItem>
             <ToggleGroupItem value="editor">Editor</ToggleGroupItem>
+            <ToggleGroupItem value="results">Results</ToggleGroupItem>
             <ToggleGroupItem value="docs">Docs</ToggleGroupItem>
           </ToggleGroup>
           {view === 'site' ? (
@@ -1263,6 +1275,55 @@ export function PromotionsDemo() {
             </pre>
           </section>
         </PromotionProvider>
+      ) : view === 'results' ? (
+        <div className="grid gap-6">
+          <section className="border-border/60 flex flex-col gap-3 rounded-xl border p-4 text-sm">
+            <p className="text-pretty">
+              Your own clicks in the live site are counted here, but one visitor
+              proves nothing. Add simulated visitors with known true rates and
+              watch the intervals close in on the truth.
+            </p>
+            <ul className="text-muted-foreground flex flex-col gap-1">
+              {SIMULATED_TRUTH.map((truth) => (
+                <li key={truth.id}>{truth.note}</li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setSimulated((previous) => [
+                    ...previous,
+                    ...simulateVisitors(500, batches),
+                  ])
+                  setBatches((b) => b + 1)
+                }}
+              >
+                Add 500 simulated visitors
+              </Button>
+              {batches ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setSimulated([])
+                    setBatches(0)
+                  }}
+                >
+                  Clear simulation
+                </Button>
+              ) : null}
+              <span className="text-muted-foreground tabular-nums">
+                {batches * 500} simulated visitors
+              </span>
+            </div>
+          </section>
+          <CampaignResults
+            events={[...simulated, ...sessionEvents]}
+            promotions={records}
+            locale={lang}
+          />
+        </div>
       ) : view === 'docs' ? (
         <PromotionsDocs />
       ) : (

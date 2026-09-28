@@ -400,6 +400,7 @@ function MockSite({
         </button>
         {phone ? (
           <div className="ms-auto flex items-center gap-2">
+            <PromoChangelog container={frame} compact />
             <PromoInbox container={frame} />
             <IconMenu2 aria-hidden className="text-muted-foreground size-5" />
           </div>

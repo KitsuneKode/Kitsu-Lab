@@ -172,8 +172,10 @@ type PromotionContextValue = {
   /** The draft being previewed (the `preview` prop), for a reviewer notice. */
   previewing: Promotion | null
   /**
-   * A per-visitor mark in the dismissal store (browser scope), for surfaces
-   * that remember something, like when the changelog was last read.
+   * A per-visitor mark in the dismissal store (account scope, so an account
+   * store carries it across devices; browser storage without one), for
+   * surfaces that remember something, like when the changelog was last read.
+   * Both keep their identity across renders.
    */
   recall: (key: string) => number | null
   remember: (key: string, at?: number) => void
@@ -773,15 +775,34 @@ export function PromotionProvider({
   const write = React.useCallback(
     (key: string, scope: DismissScope, at = readNow()) => {
       storage.set(key, at, scope)
-      setWritten((previous) => ({
-        storage,
-        values: new Map(
-          previous.storage === storage ? previous.values : [],
-        ).set(`${scope}|${key}`, at),
-      }))
+      setWritten((previous) =>
+        // Writing what is already there changes nothing; keep the state so
+        // nothing downstream re-renders or re-runs.
+        previous.storage === storage &&
+        previous.values.get(`${scope}|${key}`) === at
+          ? previous
+          : {
+              storage,
+              values: new Map(
+                previous.storage === storage ? previous.values : [],
+              ).set(`${scope}|${key}`, at),
+            },
+      )
       return at
     },
     [readNow, storage],
+  )
+  // Marks for surfaces that remember something per visitor. Account scope:
+  // an account store carries them across devices; without one, the browser.
+  const recall = React.useCallback(
+    (key: string) => read(`promo:mark:${key}`, 'account'),
+    [read],
+  )
+  const remember = React.useCallback(
+    (key: string, at?: number) => {
+      write(`promo:mark:${key}`, 'account', at)
+    },
+    [write],
   )
 
   const onEventRef = React.useRef(onEvent)
@@ -1174,10 +1195,8 @@ export function PromotionProvider({
     toast,
     toastMinimized: Boolean(toast) && toastMinimized,
     dialog,
-    recall: (key) => read(`promo:mark:${key}`, 'browser'),
-    remember: (key, at) => {
-      write(`promo:mark:${key}`, 'browser', at)
-    },
+    recall,
+    remember,
     previewing: preview
       ? (records.find((record) => record.id === preview.id) ?? null)
       : null,

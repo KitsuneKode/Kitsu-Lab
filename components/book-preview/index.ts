@@ -57,3 +57,8 @@ export {
   type ReadingSummary,
   type ReadingTracker,
 } from './reading-analytics'
+export {
+  hotspotsByPage,
+  type BookPreviewHotspot,
+  type BookPreviewHotspotEvent,
+} from './hotspots'

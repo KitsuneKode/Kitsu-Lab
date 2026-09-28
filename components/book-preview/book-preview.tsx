@@ -27,6 +27,7 @@ import { BookPreviewCompanion } from './book-preview-companion'
 import { BookPreviewBookmarkRibbon } from './book-preview-bookmark-ribbon'
 import { BookPreviewAnnotationLayer } from './book-preview-annotation-layer'
 import { BookPreviewInkLayer } from './book-preview-ink-layer'
+import { BookPreviewHotspotLayer } from './book-preview-hotspot-layer'
 import { shareOrCopy } from './share'
 import { typographyVariables } from './typography'
 import { normalizeSource, pageSearchText, sourceIdentity } from './normalize'
@@ -126,6 +127,8 @@ export function BookPreview({
   onError,
   onStatusChange,
   onReadingEvent,
+  hotspots,
+  onHotspotEvent,
 }: BookPreviewProps) {
   const propSource = useMemo(() => normalizeSource(source), [source])
   const urlKeys = resolveUrlKeys(urlState, pageParamProp)
@@ -991,6 +994,10 @@ export function BookPreview({
           <BookPreviewNavigation />
           <BookPreviewAnnotationLayer />
           <BookPreviewInkLayer />
+          <BookPreviewHotspotLayer
+            hotspots={hotspots}
+            onHotspotEvent={onHotspotEvent}
+          />
           <BookPreviewCompanion />
           <BookPreviewChromeHandle />
           <p className="sr-only">

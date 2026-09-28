@@ -1,4 +1,5 @@
 import type { BookPreviewReadingEvent } from './reading-analytics'
+import type { BookPreviewHotspot, BookPreviewHotspotEvent } from './hotspots'
 import type { BookPreviewUrlKeys } from './url-state'
 import type { BookPreviewTypography } from './typography'
 import type { BookPreviewAiAdapter } from './ai'
@@ -271,4 +272,12 @@ export type BookPreviewProps = {
    * fold them with `summarizeReading` for a drop-off curve.
    */
   onReadingEvent?: (event: BookPreviewReadingEvent) => void
+  /**
+   * Shoppable hotspots: markers at page-relative points (0-1, like ink)
+   * that open a product card. Shown on the views that draw real page faces
+   * (Premier and the PDF reader); hidden while the reader draws.
+   */
+  hotspots?: BookPreviewHotspot[]
+  /** A marker was seen, its card opened, or its link followed. */
+  onHotspotEvent?: (event: BookPreviewHotspotEvent) => void
 }

@@ -495,6 +495,81 @@ const sale = storeSaleKit({
     ],
   },
   {
+    item: 'promotion-provider',
+    name: 'Server-rendered bar',
+    tier: 'Core',
+    summary:
+      'An inline bar in the first paint: rendered on the server, hydrated at the same instant, so nothing shifts.',
+    code: `// app/layout.tsx (a server component; cookies() makes it per request)
+import { cookies } from 'next/headers'
+
+const jar = await cookies()
+const initial = readPromotionCookies(jar.toString())
+
+<Promotions serverNow={Date.now()} initialCookies={initial}>{children}</Promotions>
+
+// components/promotions.tsx ('use client')
+<PromotionProvider
+  serverNow={serverNow}
+  storage={cookieDismissalStore({ initial: initialCookies })}
+  …
+>
+  <PromoBar />`,
+    notes: [
+      'Give the bar dismiss.scope "cookie" so the server knows it was dismissed and never renders it.',
+      'Inline cards render on the server too. Floating surfaces still wait for engagement in the browser.',
+      'Audiences that use new or returning are only known in the browser; keep those off a server-rendered bar.',
+    ],
+  },
+  {
+    item: 'campaign-results',
+    pro: true,
+    name: 'Results',
+    tier: 'Add-on',
+    summary:
+      'Rates per arm with 95% intervals, and a plain verdict against control and against the holdout.',
+    code: `const [events, setEvents] = useState<PromotionEvent[]>([])
+
+<PromotionProvider onEvent={(e) => setEvents((all) => [...all, e])} …>
+
+<CampaignResults events={events} promotions={records} />
+
+// or on the server, over events from your warehouse
+const stats = campaignStats(rows, { metric: 'convert' })`,
+    notes: [
+      'Never overstates: too little data says so, with roughly how many more exposures are needed.',
+      'A held-out visitor’s conversion is tagged holdout, so the lift of showing a campaign at all is measurable.',
+      'Numbers are always in text; bars share one scale and only help the eye.',
+    ],
+  },
+  {
+    item: 'promotion-preview',
+    pro: true,
+    name: 'Signed previews',
+    tier: 'Add-on',
+    summary:
+      'A link that shows one draft on the real site to whoever holds it, until it expires. Silent: no events, dismissals or budget.',
+    code: `// app/api/promotions/[id]/preview-link/route.ts (editors only)
+const token = await createPreviewToken(id, {
+  secret: process.env.PROMO_PREVIEW_SECRET!,
+})
+return Response.json({ url: \`/pricing?\${PREVIEW_PARAM}=\${token}\` })
+
+// the page with the provider (server)
+const claim = await verifyPreviewToken((await searchParams)[PREVIEW_PARAM], {
+  secret: process.env.PROMO_PREVIEW_SECRET!,
+})
+const preview = claim ? await loadDraft(claim.id) : null
+
+<PromotionProvider preview={preview} …>
+  <PromoPreviewNotice onExit={() => router.replace(pathname)} />`,
+    notes: [
+      'The draft shows whatever its schedule, audience, frequency or dismissals say, and opens at once if it floats.',
+      'Route suppression still applies, so a preview looks exactly like the real thing.',
+      'HMAC-SHA256 through Web Crypto: Node, the edge and serverless alike. Tokens last a day by default.',
+    ],
+  },
+  {
     item: 'promotion-analytics',
     name: 'Analytics sinks',
     tier: 'Add-on',

@@ -7,6 +7,9 @@ export * from './promotion'
 export * from './promotion-stores'
 export * from './promotion-plugins'
 export * from './promotion-labels'
+export * from './promotion-analytics'
+export * from './promotion-themes'
+export * from './promotion-schema'
 export {
   PROMOTION_CONVERT_EVENT,
   PROMOTION_TRIGGER_EVENT,

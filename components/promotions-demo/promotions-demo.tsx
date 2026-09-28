@@ -36,6 +36,9 @@ import {
   memoryDismissalStore,
   promotionLabels,
   usePromotions,
+  vercelSink,
+  promotionThemeStyle,
+  type PromotionThemeName,
   type Promotion,
   type PromotionEvent,
   type PromotionLabelLocale,
@@ -60,6 +63,8 @@ import { PromotionsDocs } from './promotions-docs'
 import { SCENARIOS, type Scenario, type ScenarioId } from './scenarios'
 
 const HOUR = 3_600_000
+/** The demo dogfoods the sinks it ships; names match the earlier `promo_*`. */
+const sendToAnalytics = vercelSink(track, { prefix: 'promo_' })
 
 const DEVICES = {
   wide: {
@@ -429,7 +434,7 @@ function MockSite({
       >
         <section className="grid items-center gap-8 @2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
           <div className="flex flex-col items-start gap-4">
-            <PromoPill slot="announcement" />
+            <PromoPill slot="announcement" expandable />
             <h2 className="text-3xl leading-[1.1] font-medium tracking-tight text-balance @2xl:text-4xl">
               {page.heading}
             </h2>
@@ -581,6 +586,9 @@ export function PromotionsDemo() {
   const [offsetHours, setOffsetHours] = React.useState(0)
   const [device, setDevice] = React.useState<Device>('wide')
   const [lang, setLang] = React.useState<PromotionLabelLocale>('en')
+  const [look, setLook] = React.useState<'default' | PromotionThemeName>(
+    'default',
+  )
   const [budget, setBudget] = React.useState(true)
   const [exit, setExit] = React.useState(false)
   const [member, setMember] = React.useState(false)
@@ -630,13 +638,7 @@ export function PromotionsDemo() {
     setEvents((previous) =>
       [{ ...event, seq: ++seq.current }, ...previous].slice(0, 12),
     )
-    track(`promo_${event.type}`, {
-      id: event.id,
-      placement: event.placement,
-      campaign: event.campaign ?? null,
-      variant: event.variant ?? null,
-      pathname: event.pathname,
-    })
+    sendToAnalytics(event)
   }, [])
   const navigate = React.useCallback(
     (href: string) => {
@@ -716,6 +718,23 @@ export function PromotionsDemo() {
           </ToggleGroupItem>
         )
       })}
+    </ToggleGroup>
+  )
+  const lookToggle = (
+    <ToggleGroup
+      aria-label="Look"
+      value={[look]}
+      onValueChange={(value) => {
+        if (value[0]) setLook(value[0] as typeof look)
+      }}
+      variant="outline"
+      size="sm"
+    >
+      {(['default', 'editorial', 'mono', 'bold'] as const).map((name) => (
+        <ToggleGroupItem key={name} value={name} className="capitalize">
+          {name}
+        </ToggleGroupItem>
+      ))}
     </ToggleGroup>
   )
   const languageToggle = (
@@ -879,6 +898,7 @@ export function PromotionsDemo() {
                 {deviceToggle}
                 {languageToggle}
               </div>
+              {lookToggle}
             </PanelGroup>
             <PanelGroup title="Visitor">
               <SwitchRow
@@ -1130,7 +1150,11 @@ export function PromotionsDemo() {
                 ref={setFrame}
                 dir={rtl ? 'rtl' : 'ltr'}
                 lang={lang}
-                style={size}
+                // Surfaces portal into the frame, so a preset here reaches them all.
+                style={{
+                  ...size,
+                  ...(look === 'default' ? {} : promotionThemeStyle(look)),
+                }}
                 className={cn(
                   'border-border bg-background relative max-w-full transform-gpu overflow-hidden shadow-sm transition-[width,height] duration-300 ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none',
                   theatre && device === 'wide'

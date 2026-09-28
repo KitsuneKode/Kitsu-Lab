@@ -17,6 +17,7 @@ is ticket KL-60.
 | KL-15                                    | Partly: counter removed; real product photos still needed   | #9                           |
 | KL-36, KL-37, KL-38, KL-40, KL-42, KL-43 | Done                                                        | #11                          |
 | KL-39                                    | Done for editorial, mono, bold; glass needs a surface token | #11                          |
+| KL-32, KL-33, KL-34                      | Done                                                        | #12                          |
 
 ## Operating rules
 

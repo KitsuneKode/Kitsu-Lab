@@ -204,3 +204,36 @@ export function curlResolveSpread(
   }
   return curlUseSpread(clientWidth, clientHeight, ratio, current)
 }
+
+/** The whole book block's thickness range, thin pamphlet to thick novel. */
+export const CURL_STACK_MIN_PX = 4
+export const CURL_STACK_MAX_PX = 14
+
+/**
+ * Fore-edge page stacks, sized so the book block itself shows progress: the
+ * block's thickness grows with the book's length, and it is shared between
+ * the sides by how many leaves lie on each. A side with any leaves keeps at
+ * least a hairline, so "there is more" never disappears.
+ */
+export function curlPageStacks(
+  before: number,
+  after: number,
+): { prev: number; next: number; total: number } {
+  const read = Math.max(0, before)
+  const left = Math.max(0, after)
+  const leaves = read + left
+  if (leaves === 0) return { prev: 0, next: 0, total: 0 }
+  // Half-pixel steps, matching the sides, so one full side equals the block.
+  const total =
+    Math.round(
+      Math.min(
+        CURL_STACK_MAX_PX,
+        Math.max(CURL_STACK_MIN_PX, 2 + leaves * 0.12),
+      ) * 2,
+    ) / 2
+  const side = (count: number) =>
+    count === 0
+      ? 0
+      : Math.max(1, Math.round(((total * count) / leaves) * 2) / 2)
+  return { prev: side(read), next: side(left), total }
+}

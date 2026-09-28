@@ -674,6 +674,18 @@ html[data-book-preview-immersive] body > [data-base-ui-portal] {
   left: 100%;
 }
 
+/* A turn moves leaves from one stack to the other: the clip slides on the
+   page-turn curve, so the book block visibly thins and thickens. */
+.book-preview [data-book-preview-curl-edge] {
+  transition: clip-path 480ms var(--book-preview-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview [data-book-preview-curl-edge] {
+    transition: none;
+  }
+}
+
 /* A rasterized PDF leaf fades up as its bitmap lands, instead of snapping
    from skeleton to page. */
 .book-preview [data-book-preview-sheet-img] {

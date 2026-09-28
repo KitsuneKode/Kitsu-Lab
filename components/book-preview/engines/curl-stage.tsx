@@ -17,6 +17,7 @@ import {
   CURL_PAGE_RATIO,
   CURL_TOUCH_SLOP_PX,
   curlClickIntent,
+  curlPageStacks,
   curlPageSizeForStage,
   curlReleaseVelocity,
   curlShouldCommit,
@@ -100,13 +101,6 @@ function isInteractiveTarget(target: EventTarget | null) {
       'a, button, input, textarea, select, [data-book-preview-press]',
     ),
   )
-}
-
-/** Fore-edge page-stack thickness: a few pixels, growing gently with the
-    number of leaves on that side — enough to read as a book block. */
-function curlEdgeWidth(pageCountOnSide: number): number {
-  if (pageCountOnSide <= 0) return 0
-  return Math.min(6, 2 + Math.floor(pageCountOnSide / 8))
 }
 
 /** The pages to keep mounted: the spread in view, the one on either side
@@ -847,6 +841,10 @@ export function CurlStage({
   const isInView = (index: number) =>
     spread ? index === base || index === base + 1 : index === shown
 
+  const stacks = curlPageStacks(
+    Math.max(0, base),
+    Math.max(0, pageCount - 1 - base - (spread ? 1 : 0)),
+  )
   return (
     <div
       ref={stageRef}
@@ -860,20 +858,24 @@ export function CurlStage({
       >
         {pageCount > 1 ? (
           <>
-            {/* The book block: thin stacked page edges flanking the book,
-                thickest where the most leaves sit. Purely decorative. */}
+            {/* The book block shows progress: its thickness is shared by the
+                leaves on each side. Each edge is drawn at the full block
+                and clipped to its share, so a turn slides the clip rather
+                than squashing the stripes. Purely decorative. */}
             <div
               aria-hidden
               data-book-preview-curl-edge="prev"
-              style={{ width: curlEdgeWidth(Math.max(0, base)) }}
+              style={{
+                width: stacks.total,
+                clipPath: `inset(0 0 0 ${stacks.total - stacks.prev}px)`,
+              }}
             />
             <div
               aria-hidden
               data-book-preview-curl-edge="next"
               style={{
-                width: curlEdgeWidth(
-                  Math.max(0, pageCount - 1 - base - (spread ? 1 : 0)),
-                ),
+                width: stacks.total,
+                clipPath: `inset(0 ${stacks.total - stacks.next}px 0 0)`,
               }}
             />
           </>

@@ -172,6 +172,12 @@ type PromotionContextValue = {
   /** The draft being previewed (the `preview` prop), for a reviewer notice. */
   previewing: Promotion | null
   /**
+   * A per-visitor mark in the dismissal store (browser scope), for surfaces
+   * that remember something, like when the changelog was last read.
+   */
+  recall: (key: string) => number | null
+  remember: (key: string, at?: number) => void
+  /**
    * Height of a bottom-docked bar (the sticky CTA) that floating surfaces
    * should sit above, so a phone never stacks two things in the thumb zone.
    */
@@ -1168,6 +1174,10 @@ export function PromotionProvider({
     toast,
     toastMinimized: Boolean(toast) && toastMinimized,
     dialog,
+    recall: (key) => read(`promo:mark:${key}`, 'browser'),
+    remember: (key, at) => {
+      write(`promo:mark:${key}`, 'browser', at)
+    },
     previewing: preview
       ? (records.find((record) => record.id === preview.id) ?? null)
       : null,

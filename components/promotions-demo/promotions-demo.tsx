@@ -47,6 +47,7 @@ import {
 } from '@/components/promotions'
 import {
   PromoCarousel,
+  PromoChangelog,
   PromoShowcase,
   PromoInbox,
   PromoPill,
@@ -422,6 +423,7 @@ function MockSite({
                 />
               </button>
             ))}
+            <PromoChangelog container={frame} />
             <PromoInbox container={frame} />
           </nav>
         )}

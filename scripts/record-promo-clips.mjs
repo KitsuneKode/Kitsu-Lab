@@ -246,7 +246,7 @@ const SCENES = {
       await page.getByRole('button', { name, exact: true }).click()
       await wait(page, 1300)
     }
-    return { start, end: await mark(page), crop: pageWindow(face, -4) }
+    return { start, end: await mark(page), crop: pageWindow(face, -20) }
   },
 }
 

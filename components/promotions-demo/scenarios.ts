@@ -339,6 +339,50 @@ export const SCENARIOS = {
         'Pen and marker in five inks, kept with the page on every device.',
         INK,
       ),
+      ...(
+        [
+          [
+            6,
+            'search',
+            'Search the whole library',
+            'Type a word and every book narrows to the pages that have it.',
+            SEARCH,
+          ],
+          [
+            3,
+            'paper',
+            'Paper modes for every book',
+            'Sepia by day, dusk and night after dark, remembered per reader.',
+            PAPER,
+          ],
+          [
+            0,
+            'ink',
+            'Ink on any page',
+            'Pen and marker in five inks, kept with the page on every device.',
+            INK,
+          ],
+        ] as const
+      ).map(([daysAgo, id, title, body, media]): Promotion => ({
+        id: `changelog-${id}`,
+        state: 'published',
+        placement: 'card',
+        slot: 'changelog',
+        title,
+        body,
+        media,
+        cta: { label: 'Read more', href: '/changelog' },
+        tone: 'neutral',
+        include: [],
+        exclude: [],
+        startsAt: base - daysAgo * 24 * HOUR - HOUR,
+        endsAt: base + 60 * 24 * HOUR,
+        priority: 30,
+        dismiss: { mode: 'session', scope: 'tab' },
+        campaign: 'changelog',
+        dismissalVersion: 1,
+        revision: 1,
+      })),
       // Opens only when the visitor clicks Upgrade: an offer for that moment.
       {
         id: 'launch-upgrade',

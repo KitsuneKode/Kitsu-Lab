@@ -2,7 +2,7 @@
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "promotions-pro",
   "title": "Promotions Pro",
-  "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, showcase, inbox, spotlight, side card, story, campaign timeline and results, kits, editor, signed previews and the account store.",
+  "description": "Every pro add-on: pill, offer sheet, progress, sticky CTA, carousel, showcase, inbox, changelog hub, spotlight, side card, story, campaign timeline and results, kits, editor, signed previews and the account store.",
   "registryDependencies": [
     "https://kitsulab.kitsunekode.in/r/promotions.json",
     "@kitsu-pro/promo-pill",
@@ -20,12 +20,13 @@
     "@kitsu-pro/promo-showcase",
     "@kitsu-pro/campaign-timeline",
     "@kitsu-pro/promotion-preview",
-    "@kitsu-pro/campaign-results"
+    "@kitsu-pro/campaign-results",
+    "@kitsu-pro/promo-changelog"
   ],
   "files": [
     {
       "path": "components/promotions/pro.ts",
-      "content": "/**\n * Pro add-ons (`@kitsu-pro/promotions-pro`). Each one builds on the free core\n * in `./index` and nothing else, so they can be installed one at a time.\n */\nexport { PromoPill } from './promo-pill'\nexport { PromoProgress } from './promo-progress'\nexport { PromoSheet } from './promo-sheet'\nexport { PromoStickyCta } from './promo-sticky-cta'\nexport { PromoCarousel } from './promo-carousel'\nexport { PromoShowcase, Showcase, type ShowcaseChapter } from './promo-showcase'\nexport { PromoInbox } from './promo-inbox'\nexport { PromoSideCard } from './promo-side-card'\nexport { PromoSpotlight } from './promo-spotlight'\nexport { PromoStory, type PromoStoryProps } from './promo-story'\nexport { CampaignTimeline } from './campaign-timeline'\nexport * from './promotion-kit'\nexport { courseEnrolmentKit } from './kit-course-enrolment'\nexport { productLaunchKit } from './kit-product-launch'\nexport { storeSaleKit } from './kit-store-sale'\nexport {\n  accountDismissalStore,\n  fetchAccountTransport,\n  type AccountStore,\n  type AccountTransport,\n} from './promotion-account-store'\nexport { PromoPreviewNotice } from './promo-preview-notice'\nexport {\n  PREVIEW_PARAM,\n  PREVIEW_TTL_MS,\n  createPreviewToken,\n  verifyPreviewToken,\n  type PreviewClaim,\n} from './promotion-preview-token'\nexport { CampaignResults } from './campaign-results'\nexport {\n  campaignStats,\n  compare,\n  wilson,\n  type ArmStats,\n  type Comparison,\n  type Metric,\n  type RecordStats,\n  type Verdict,\n} from './campaign-stats'\n",
+      "content": "/**\n * Pro add-ons (`@kitsu-pro/promotions-pro`). Each one builds on the free core\n * in `./index` and nothing else, so they can be installed one at a time.\n */\nexport { PromoPill } from './promo-pill'\nexport { PromoProgress } from './promo-progress'\nexport { PromoSheet } from './promo-sheet'\nexport { PromoStickyCta } from './promo-sticky-cta'\nexport { PromoCarousel } from './promo-carousel'\nexport { PromoShowcase, Showcase, type ShowcaseChapter } from './promo-showcase'\nexport { PromoInbox } from './promo-inbox'\nexport { PromoChangelog } from './promo-changelog'\nexport { PromoSideCard } from './promo-side-card'\nexport { PromoSpotlight } from './promo-spotlight'\nexport { PromoStory, type PromoStoryProps } from './promo-story'\nexport { CampaignTimeline } from './campaign-timeline'\nexport * from './promotion-kit'\nexport { courseEnrolmentKit } from './kit-course-enrolment'\nexport { productLaunchKit } from './kit-product-launch'\nexport { storeSaleKit } from './kit-store-sale'\nexport {\n  accountDismissalStore,\n  fetchAccountTransport,\n  type AccountStore,\n  type AccountTransport,\n} from './promotion-account-store'\nexport { PromoPreviewNotice } from './promo-preview-notice'\nexport {\n  PREVIEW_PARAM,\n  PREVIEW_TTL_MS,\n  createPreviewToken,\n  verifyPreviewToken,\n  type PreviewClaim,\n} from './promotion-preview-token'\nexport { CampaignResults } from './campaign-results'\nexport {\n  campaignStats,\n  compare,\n  wilson,\n  type ArmStats,\n  type Comparison,\n  type Metric,\n  type RecordStats,\n  type Verdict,\n} from './campaign-stats'\n",
       "type": "registry:component"
     }
   ],

@@ -522,6 +522,25 @@ const initial = readPromotionCookies(jar.toString())
     ],
   },
   {
+    item: 'promo-changelog',
+    pro: true,
+    name: 'Changelog hub',
+    tier: 'Surface',
+    summary:
+      'A What’s new button with an unread count and a panel of every entry, newest first, with clips.',
+    code: `<header>
+  <Nav />
+  <PromoChangelog slot="changelog" />
+</header>
+
+// entries are card records
+{ placement: 'card', slot: 'changelog', eyebrow: '28 Sept', title: 'Ink on any page', media: clip, … }`,
+    notes: [
+      'Unread is per visitor and goes through your store, so account stores carry it across devices.',
+      'New labels stay while the visitor reads and clear when they close the panel.',
+    ],
+  },
+  {
     item: 'campaign-results',
     pro: true,
     name: 'Results',

@@ -552,7 +552,11 @@ export function PremierSingleView({
           allows, unless the stage is too narrow for that page's aspect. */}
       <div
         ref={scrollerRef}
-        className="[container-type:size] flex h-full overflow-auto p-4"
+        // Scrolls once zoomed in; keyboard users need a stop to pan it.
+        tabIndex={0}
+        role="region"
+        aria-label="Page"
+        className="focus-visible:ring-ring/50 [container-type:size] flex h-full overflow-auto p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset"
       >
         <div
           ref={faceRef}
@@ -660,7 +664,11 @@ export function PremierSpreadView({
     >
       <div
         ref={scrollerRef}
-        className="[container-type:size] flex h-full overflow-auto p-4"
+        // Scrolls once zoomed in; keyboard users need a stop to pan it.
+        tabIndex={0}
+        role="region"
+        aria-label="Page"
+        className="focus-visible:ring-ring/50 [container-type:size] flex h-full overflow-auto p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset"
       >
         <div
           ref={faceRef}
@@ -853,7 +861,10 @@ export function PremierScrollView({
   return (
     <div
       ref={scrollerRef}
-      className="h-full w-full overflow-auto overscroll-contain"
+      tabIndex={0}
+      role="region"
+      aria-label="Pages"
+      className="focus-visible:ring-ring/50 h-full w-full overflow-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-inset"
     >
       <div
         ref={columnRef}
@@ -936,7 +947,10 @@ export function PremierTextView({
     <div
       ref={scrollerRef}
       data-bp-paper={appearance}
-      className="h-full w-full overflow-auto overscroll-contain"
+      tabIndex={0}
+      role="region"
+      aria-label="Text"
+      className="focus-visible:ring-ring/50 h-full w-full overflow-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-inset"
     >
       <div
         ref={columnRef}

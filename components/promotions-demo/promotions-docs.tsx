@@ -757,7 +757,13 @@ export function PromotionsDocs() {
                 <CopyButton text={install} />
               </div>
               <div className="bg-muted/50 relative rounded-lg">
-                <pre className="overflow-x-auto p-3 pe-10 font-mono text-xs leading-relaxed">
+                <pre
+                  // Wide examples scroll sideways; keyboard users need a stop.
+                  tabIndex={0}
+                  role="region"
+                  aria-label={`${doc.name} example`}
+                  className="focus-visible:ring-ring/50 overflow-x-auto rounded-lg p-3 pe-10 font-mono text-xs leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                >
                   {doc.code}
                 </pre>
                 <div className="absolute end-1 top-1">

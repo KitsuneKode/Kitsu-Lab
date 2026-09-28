@@ -10,6 +10,7 @@ reviews:
     - '!registry-pro/r/**'
     - '!bun.lock'
     - '!public/promo-clips/**'
+    - '!e2e/__screenshots__/**'
   path_instructions:
     - path: 'components/**'
       instructions: |

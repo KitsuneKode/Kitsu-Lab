@@ -43,6 +43,50 @@ const PAPER = clip(
   'Paper that suits the light.',
 )
 
+const SEARCH = clip(
+  'search',
+  'A search for “owl” narrowing a book to two pages, then opening one',
+  'Type a word; the book narrows to its pages.',
+)
+
+/** The still alone, for places where a clip would compete with the page. */
+const still = ({ video: _video, ...media }: PromotionMedia): PromotionMedia =>
+  media
+
+/** A chapter of the launch's showcase, in the `showcase` card slot. */
+function chapter(
+  base: number,
+  /** Chapters show highest priority first. */
+  priority: number,
+  id: string,
+  label: string,
+  title: string,
+  body: string,
+  media: PromotionMedia,
+): Promotion {
+  return {
+    id: `showcase-${id}`,
+    state: 'published',
+    placement: 'card',
+    slot: 'showcase',
+    eyebrow: label,
+    title,
+    body,
+    media,
+    cta: { label: 'Read the changelog', href: '/changelog' },
+    tone: 'neutral',
+    include: ['/', '/pricing', '/changelog'],
+    exclude: [],
+    startsAt: base - 24 * HOUR,
+    endsAt: base + 30 * 24 * HOUR,
+    priority,
+    dismiss: { mode: 'session', scope: 'tab' },
+    campaign: 'launch-week',
+    dismissalVersion: 1,
+    revision: 1,
+  }
+}
+
 /** Product shots for the store; the kit itself ships no images. */
 const SWATCHES: PromotionMedia[] = (
   [
@@ -80,7 +124,10 @@ export type Scenario = {
   startPath: string
   nav: { label: string; href: string; dot?: boolean }[]
   pages: ScenarioPage[]
-  tiles: { title: string; body: string }[]
+  /** The page's own product visual, beside the hero copy. */
+  hero: PromotionMedia
+  /** Features; the first leads with its picture. */
+  tiles: { title: string; body: string; media?: PromotionMedia }[]
   targets: { value: string; label: string }[]
   cartStart?: number
   seed: (base: number) => Promotion[]
@@ -129,10 +176,16 @@ export const SCENARIOS = {
       },
     ],
     tiles: [
-      { title: 'Shelves', body: 'Books and PDFs, one shelf per team.' },
+      {
+        title: 'Shelves',
+        body: 'Books and PDFs, one shelf per team, in the reading mode each person likes.',
+        media: still(PAPER),
+      },
       { title: 'Notes', body: 'Highlights and ink everyone can see.' },
       { title: 'Reading modes', body: 'Curl, spread or scroll, as you like.' },
     ],
+    // A still: the showcase below carries the motion, one focal point at a time.
+    hero: still(TURN),
     targets: [
       { value: '/pricing', label: 'Pricing' },
       { value: '/changelog', label: 'Changelog' },
@@ -257,6 +310,33 @@ export const SCENARIOS = {
           },
         },
       }).promotions,
+      chapter(
+        base,
+        42,
+        'search',
+        'Search',
+        'Find any word, in any book',
+        'Type a word and the book narrows to the pages that have it, one tap away.',
+        SEARCH,
+      ),
+      chapter(
+        base,
+        41,
+        'paper',
+        'Paper',
+        'Paper that suits the light',
+        'Sepia by day, dusk and night after dark, for every book.',
+        PAPER,
+      ),
+      chapter(
+        base,
+        40,
+        'ink',
+        'Ink',
+        'Write on any page',
+        'Pen and marker in five inks, kept with the page on every device.',
+        INK,
+      ),
       // Opens only when the visitor clicks Upgrade: an offer for that moment.
       {
         id: 'launch-upgrade',
@@ -327,10 +407,15 @@ export const SCENARIOS = {
       },
     ],
     tiles: [
-      { title: 'Linen', body: 'Cool in summer, soft by autumn.' },
+      {
+        title: 'Linen',
+        body: 'Cool in summer, soft by autumn, and better with every wash.',
+        media: SWATCHES[1],
+      },
       { title: 'Repairs', body: 'Free for as long as you own it.' },
       { title: 'Returns', body: '60 days, no questions.' },
     ],
+    hero: SWATCHES[0]!,
     targets: [
       { value: '/shop', label: 'Shop' },
       { value: '/shop/linen', label: 'Linen overshirt' },
@@ -390,10 +475,15 @@ export const SCENARIOS = {
       },
     ],
     tiles: [
+      {
+        title: 'Reviews',
+        body: 'Mentors mark up every submission, line by line, within two days.',
+        media: still(INK),
+      },
       { title: 'Live classes', body: 'Two evenings a week.' },
-      { title: 'Reviews', body: 'Mentors read every submission.' },
       { title: 'Community', body: 'Alumni channel for life.' },
     ],
+    hero: { ...INK, caption: undefined },
     targets: [
       { value: '/courses/design-systems', label: 'Design systems course' },
       { value: '/scholarships', label: 'Scholarships' },

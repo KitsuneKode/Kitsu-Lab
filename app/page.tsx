@@ -3,6 +3,7 @@ import ShowcaseList from '@/components/showcase-list'
 import { NavTransition } from '@/components/nav-transition'
 import { registry } from '@/app/utils/registry'
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/site'
+import { SitePromotions } from '@/components/site-promotions'
 
 const LINK =
   'text-foreground decoration-foreground/30 hover:decoration-foreground underline underline-offset-4 transition-colors'
@@ -41,7 +42,7 @@ export default function Home() {
           __html: JSON.stringify(structured).replace(/</g, '\\u003c'),
         }}
       />
-      <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-6 sm:px-8">
+      <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-6 pb-[var(--promo-bottom-inset,0px)] sm:px-8">
         <header className="border-border flex items-baseline justify-between border-b py-6">
           <span className="font-display text-sm font-bold tracking-[0.3em] uppercase">
             Kitsu Lab
@@ -104,6 +105,7 @@ export default function Home() {
           </span>
         </footer>
       </div>
+      <SitePromotions />
     </NavTransition>
   )
 }

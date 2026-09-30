@@ -35,7 +35,8 @@ export function PromoBar({
   dismissible?: boolean
   variant?: PromoBarVariant
 }) {
-  const { bar, now, pathname, dismiss, report, Link } = usePromotions()
+  const { bar, now, pathname, dismiss, report, Link, setBottomInset } =
+    usePromotions()
   const reduce = useReducedMotion()
   const [shown, setShown] = React.useState<Promotion | null>(null)
 
@@ -49,6 +50,24 @@ export function PromoBar({
   )
   const ref = useImpression(bar, onImpression, pathname)
   const open = Boolean(bar)
+
+  // A floating bar claims the bottom edge: toasts and side cards stack above
+  // it, and the page can pad its end with var(--promo-bottom-inset).
+  const floating = React.useRef<HTMLDivElement>(null)
+  const floats = variant === 'floating' && open
+  React.useEffect(() => {
+    const element = floating.current
+    if (!floats || !element) return
+    const measure = () => setBottomInset(element.getBoundingClientRect().height)
+    measure()
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    observer?.observe(element)
+    return () => {
+      observer?.disconnect()
+      setBottomInset(0)
+    }
+  }, [floats, setBottomInset])
 
   const handlers = (promotion: Promotion) => ({
     onClick: () => report('click', promotion),
@@ -64,6 +83,7 @@ export function PromoBar({
   if (variant === 'floating') {
     return (
       <div
+        ref={floating}
         className={cn(
           'pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] print:hidden',
           className,

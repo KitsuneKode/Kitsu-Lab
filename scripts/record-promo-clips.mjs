@@ -93,7 +93,13 @@ const SCENES = {
       )
       await wait(page, 1100)
     }
-    return { start, end: await mark(page), crop: frameAround(book, 24) }
+    // Mid-curl says "page turn" better than the settled last page.
+    return {
+      start,
+      end: await mark(page),
+      crop: frameAround(book, 24),
+      still: 1.3,
+    }
   },
 
   /** Ink: a marker across a line, a pen underline, a loop round the title. */
@@ -140,6 +146,95 @@ const SCENES = {
     return { start, end: await mark(page), crop: pageWindow(face) }
   },
 
+  /** Search: type a word, the book narrows to its pages, open one. */
+  async search(page) {
+    await openReader(
+      page,
+      'doc=bird&mode=premier&view=single&page=2&theme=light',
+    )
+    const reader = page.locator('section.book-preview').first()
+    await reader.evaluate((el) => el.scrollIntoView({ block: 'start' }))
+    await wait(page, 500)
+    const box = await reader.boundingBox()
+    await page.getByRole('button', { name: 'Search pages' }).click()
+    await page.getByRole('textbox', { name: 'Search pages' }).click()
+    const start = await mark(page)
+    await wait(page, 500)
+    await page.keyboard.type('owl', { delay: 240 })
+    await wait(page, 1300)
+    await page.getByRole('button', { name: /Arctic Nomad/ }).click()
+    await wait(page, 2000)
+    // The reader itself, clear of the lab's floating chrome at the edges.
+    const height = box.width / 1.6
+    return {
+      start,
+      end: await mark(page),
+      crop: { x: box.x, y: Math.max(0, box.y), width: box.width, height },
+    }
+  },
+
+  /** Promotions: the bar, a toast arriving, the side card playing. */
+  async surfaces(page) {
+    await page.goto(`${BASE}/exhibition/promotions#preview`, {
+      waitUntil: 'domcontentloaded',
+    })
+    await page.waitForSelector('[data-promo-theatre]')
+    const start = await mark(page)
+    await page.waitForSelector('[data-slot=promo-side-card][data-state=docked]')
+    await wait(page, 5200)
+    return { start, end: await mark(page), crop: belowDock(), still: 4.5 }
+  },
+
+  /** Promotions: a story, opened on request, clips as slides. */
+  async story(page) {
+    await page.goto(`${BASE}/exhibition/promotions#preview`, {
+      waitUntil: 'networkidle',
+    })
+    await wait(page, 1500)
+    const start = await mark(page)
+    await page.getByRole('button', { name: 'See what’s new' }).click()
+    await wait(page, 6500)
+    return { start, end: await mark(page), crop: belowDock(), still: 3 }
+  },
+
+  /** Promotions: the editor's live preview following the form. */
+  async editor(page) {
+    await page.goto(`${BASE}/exhibition/promotions`, {
+      waitUntil: 'networkidle',
+    })
+    await page.getByRole('button', { name: 'Editor', exact: true }).click()
+    const placement = page.getByText('Placement', { exact: true })
+    await placement.evaluate((el) => el.scrollIntoView({ block: 'start' }))
+    await page.mouse.wheel(0, -24)
+    await wait(page, 600)
+    const form = await placement.boundingBox()
+    const start = await mark(page)
+    await page.getByRole('button', { name: 'Inline card', exact: true }).click()
+    await wait(page, 350)
+    await page.getByLabel('Title', { exact: true }).click()
+    await page.keyboard.type('Write on any page', { delay: 55 })
+    await page.getByLabel('Message (optional)', { exact: true }).click()
+    await page.keyboard.type('Pen and marker, kept with the page.', {
+      delay: 35,
+    })
+    await page
+      .getByLabel('Image URL (optional)', { exact: true })
+      .fill('/promo-clips/ink.webp')
+    await page
+      .getByLabel('Image description', { exact: true })
+      .fill('Ink drawn on a page')
+    await page
+      .getByLabel('Clip (optional)', { exact: true })
+      .fill('/promo-clips/ink.webm, /promo-clips/ink.mp4')
+    await wait(page, 2600)
+    const width = 1040
+    return {
+      start,
+      end: await mark(page),
+      crop: { x: form.x - 16, y: form.y - 16, width, height: width / 1.6 },
+    }
+  },
+
   /** Paper that suits the light: paper, sepia, dusk, night. */
   async paper(page) {
     const face = await openPage(page)
@@ -153,6 +248,12 @@ const SCENES = {
     }
     return { start, end: await mark(page), crop: pageWindow(face, -4) }
   },
+}
+
+/** The promotions preview, below its 48px dock, at 16:10. */
+function belowDock() {
+  const width = VIEWPORT.width
+  return { x: 0, y: 48, width, height: width / 1.6 }
 }
 
 /** The Bird book's preface, single page, on white paper. */
@@ -195,7 +296,7 @@ const mark = async () => Date.now() / 1000 - t0
  * A concat list holds each frame for as long as it was on screen, which
  * ffmpeg then resamples to a steady 30 fps.
  */
-function encode(frames, dir, name, { start, end, crop }) {
+function encode(frames, dir, name, { start, end, crop, still }) {
   const shown = frames.filter((f) => f.t >= start - 0.05 && f.t <= end)
   if (shown.length < 2) throw new Error(`${name}: no frames captured`)
   const lines = []
@@ -250,10 +351,10 @@ function encode(frames, dir, name, { start, end, crop }) {
     '+faststart',
     join(OUT, `${name}.mp4`),
   )
-  // The still is the clip's last frame: the turned page, the finished ink.
+  // The still is also the poster: the last frame (the finished ink), or the
+  // moment a scene names with `still`, in seconds into the clip.
   run(
-    '-sseof',
-    '-0.1',
+    ...(still === undefined ? ['-sseof', '-0.1'] : ['-ss', String(still)]),
     '-i',
     join(OUT, `${name}.mp4`),
     '-frames:v',

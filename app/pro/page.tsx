@@ -6,6 +6,12 @@ import { SITE_NAME, SITE_URL } from '@/lib/site'
 import { PRO_PLANS } from '@/lib/pro-plans'
 import { CheckoutNotice } from '@/components/pro/checkout-notice'
 import { CheckoutForm } from '@/components/pro/checkout-form'
+import { IconCheck } from '@tabler/icons-react'
+import type { PromotionMedia } from '@/components/promotions'
+import {
+  Showcase,
+  type ShowcaseChapter,
+} from '@/components/promotions/promo-showcase'
 
 export const metadata: Metadata = {
   title: 'Kitsu Pro',
@@ -14,10 +20,63 @@ export const metadata: Metadata = {
   alternates: { canonical: '/pro' },
 }
 
+/** Footage recorded from the promotions exhibit (scripts/record-promo-clips.mjs). */
+function clip(name: string, alt: string): PromotionMedia {
+  return {
+    src: `/promo-clips/${name}.webp`,
+    alt,
+    width: 960,
+    height: 600,
+    video: {
+      sources: [
+        { src: `/promo-clips/${name}.webm`, type: 'video/webm' },
+        { src: `/promo-clips/${name}.mp4`, type: 'video/mp4' },
+      ],
+    },
+  }
+}
+
+const CHAPTERS: ShowcaseChapter[] = [
+  {
+    id: 'surfaces',
+    label: 'Surfaces',
+    title: 'Surfaces that wait their turn',
+    body: 'A bar, a toast with its code, a side card playing a clip: arbitrated so one thing speaks at a time.',
+    media: clip(
+      'surfaces',
+      'A site with a launch bar, a toast arriving with a code, and a side card playing a clip',
+    ),
+  },
+  {
+    id: 'story',
+    label: 'Stories',
+    title: 'Stories, only on request',
+    body: 'Full-screen slides with clips. A story never opens by itself, so it earns the whole screen.',
+    media: clip(
+      'story',
+      'A full-screen story playing clips of a book, opened from a What’s new button',
+    ),
+  },
+  {
+    id: 'editor',
+    label: 'Editor',
+    title: 'An editor your team can use',
+    body: 'Write, schedule and target a campaign, clip included, and watch it render as you type.',
+    media: clip(
+      'editor',
+      'The promotion editor: a title typed, then a clip added, with the live preview following',
+    ),
+  },
+]
+
 const INCLUDED = [
   [
     'Surfaces',
-    'Pill, offer sheet, progress, sticky CTA, carousel, inbox, spotlight, side card, full-screen story',
+    'Pill, offer sheet, progress, sticky CTA, carousel, showcase, inbox, spotlight, side card, full-screen story',
+  ],
+  [
+    'Media',
+    'Silent clips on any surface, paused off screen and for reduced motion',
   ],
   ['Kits', 'Store sale, product launch and course enrolment, ready to fill in'],
   ['Tools', 'The promotion editor and the account dismissal store'],
@@ -107,6 +166,8 @@ export default function ProPage() {
           </Suspense>
         </section>
 
+        <Showcase chapters={CHAPTERS} label="What Kitsu Pro does" />
+
         <section aria-label="Plans" className="grid gap-4 md:grid-cols-3">
           {plans.map((plan) => (
             <article
@@ -133,9 +194,10 @@ export default function ProPage() {
               <ul className="flex flex-1 flex-col gap-2 text-sm">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex gap-2">
-                    <span aria-hidden className="text-muted-foreground">
-                      —
-                    </span>
+                    <IconCheck
+                      aria-hidden
+                      className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                    />
                     {feature}
                   </li>
                 ))}
@@ -152,14 +214,11 @@ export default function ProPage() {
 
         <section className="flex flex-col gap-4">
           <h2 className="font-medium">What is included</h2>
-          <dl className="border-border divide-border divide-y border-y text-sm">
+          <dl className="grid gap-x-10 gap-y-5 text-sm sm:grid-cols-2">
             {INCLUDED.map(([term, detail]) => (
-              <div
-                key={term}
-                className="grid gap-1 py-3 sm:grid-cols-[10rem_1fr]"
-              >
+              <div key={term} className="flex flex-col gap-1">
                 <dt className="font-medium">{term}</dt>
-                <dd className="text-muted-foreground">{detail}</dd>
+                <dd className="text-muted-foreground text-pretty">{detail}</dd>
               </div>
             ))}
           </dl>

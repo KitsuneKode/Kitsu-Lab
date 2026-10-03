@@ -837,6 +837,7 @@ export function PromotionEditor({
           >
             <Slider
               id={id('priority')}
+              aria-labelledby={`${id('priority')}-label`}
               className="w-full"
               min={0}
               max={100}
@@ -1221,6 +1222,7 @@ export function PromotionEditor({
             >
               <Slider
                 id={id('holdout')}
+                aria-labelledby={`${id('holdout')}-label`}
                 className="w-full"
                 min={0}
                 max={HOLDOUT_MAX}

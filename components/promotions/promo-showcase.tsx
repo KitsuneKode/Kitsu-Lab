@@ -291,8 +291,10 @@ export function Showcase({
                       <span className="[font-family:var(--promo-display,inherit)] text-base leading-snug font-medium text-balance">
                         {chapter.title}
                       </span>
+                      {/* On the muted chip, muted-foreground falls under 4.5:1
+                          in light themes; a softened foreground does not. */}
                       {chapter.body ? (
-                        <span className="text-muted-foreground text-sm text-pretty">
+                        <span className="text-foreground/70 text-sm text-pretty">
                           {chapter.body}
                         </span>
                       ) : null}

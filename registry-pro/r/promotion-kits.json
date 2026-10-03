@@ -28,6 +28,6 @@
       "type": "registry:lib"
     }
   ],
-  "docs": "Kits reference sample images under /promo-samples and /sample-pages; pass `images` with your own.",
+  "docs": "Kits reference sample images under /promo-samples and /sample-pages; pass `images` with your own. Size: about 7 kB gzipped of its own, 7 kB with its dependencies (React and Next not counted).",
   "type": "registry:lib"
 }

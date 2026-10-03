@@ -17,6 +17,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "Requires Base UI 1.8+ for the anchored Popover. Give the promotion `slot` the same value as the component's `name`.",
+  "docs": "Requires Base UI 1.8+ for the anchored Popover. Give the promotion `slot` the same value as the component's `name`. Size: about 2 kB gzipped of its own, 52 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

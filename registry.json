@@ -25,7 +25,7 @@
         "tabs"
       ],
       "dependencies": ["@tabler/icons-react"],
-      "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, array-valued Slider and ToggleGroup state. Orientation styling keys off Base UI's data-orientation attribute. Do not treat qualitative capability labels as measured performance guarantees. The core also ships highlights, notes, bookmarks and freehand ink (pen, marker, eraser; page-relative strokes) (CSS Custom Highlight API; controlled via annotations/onAnnotationsChange or persisted with persistAnnotations), the Aa reading settings, shareable URL state (urlState), auto-hiding fullscreen chrome, and a provider-agnostic Ask panel (pass an `ai` adapter from ai.ts: on-device, OpenAI-compatible/Ollama, or your own route). Shoppable hotspots (`hotspots` + `onHotspotEvent`) place page-relative markers that open a product card; the card action uses the Button `render` prop with nativeButton={false}. Tabs and Popover rely on Base UI.",
+      "docs": "The default installation includes the lightweight page engine only. Optional engines (premier, scroll, curl, spread, archival-curl, webgl, pdf) live in the book-preview-engines item and require pdfjs-dist, three, @react-three/fiber, @react-three/drei, and maath when those modes are enabled. Requires Base UI primitives (a base-* shadcn project): usage relies on render props, array-valued Slider and ToggleGroup state. Orientation styling keys off Base UI's data-orientation attribute. Do not treat qualitative capability labels as measured performance guarantees. The core also ships highlights, notes, bookmarks and freehand ink (pen, marker, eraser; page-relative strokes) (CSS Custom Highlight API; controlled via annotations/onAnnotationsChange or persisted with persistAnnotations), the Aa reading settings, shareable URL state (urlState), auto-hiding fullscreen chrome, and a provider-agnostic Ask panel (pass an `ai` adapter from ai.ts: on-device, OpenAI-compatible/Ollama, or your own route). Shoppable hotspots (`hotspots` + `onHotspotEvent`) place page-relative markers that open a product card; the card action uses the Button `render` prop with nativeButton={false}. Tabs and Popover rely on Base UI. Size: about 48 kB gzipped of its own, 143 kB with its dependencies (React and Next not counted).",
       "files": [
         {
           "path": "components/book-preview/index.ts",
@@ -320,7 +320,8 @@
         "button",
         "input",
         "sheet"
-      ]
+      ],
+      "docs": "Size: about 13 kB gzipped of its own, 61 kB with its dependencies, plus 274 kB loaded on demand (React and Next not counted)."
     },
     {
       "name": "book-preview-curl",
@@ -359,7 +360,8 @@
       ],
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/book-preview-pdf.json"
-      ]
+      ],
+      "docs": "Size: about 9 kB gzipped of its own, 42 kB with its dependencies, plus 274 kB loaded on demand (React and Next not counted)."
     },
     {
       "name": "book-preview-archival-curl",
@@ -379,7 +381,8 @@
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/book-preview-curl.json",
         "input"
-      ]
+      ],
+      "docs": "Size: about 3 kB gzipped of its own, 41 kB with its dependencies, plus 274 kB loaded on demand (React and Next not counted)."
     },
     {
       "name": "book-preview-premier",
@@ -415,7 +418,8 @@
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/book-preview-curl.json",
         "input"
-      ]
+      ],
+      "docs": "Size: about 10 kB gzipped of its own, 77 kB with its dependencies, plus 274 kB loaded on demand (React and Next not counted)."
     },
     {
       "name": "book-preview-scroll",
@@ -434,7 +438,8 @@
       ],
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/book-preview-pdf.json"
-      ]
+      ],
+      "docs": "Size: about 3 kB gzipped of its own, 33 kB with its dependencies, plus 274 kB loaded on demand (React and Next not counted)."
     },
     {
       "name": "book-preview-spread",
@@ -455,7 +460,8 @@
         "https://kitsulab.kitsunekode.in/r/book-preview.json",
         "input",
         "toggle-group"
-      ]
+      ],
+      "docs": "Size: about 4 kB gzipped of its own, 37 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "book-preview-webgl",
@@ -484,7 +490,8 @@
       ],
       "registryDependencies": [
         "https://kitsulab.kitsunekode.in/r/book-preview.json"
-      ]
+      ],
+      "docs": "Size: about 4 kB gzipped of its own, 250 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "book-preview-engines",
@@ -505,7 +512,8 @@
         "https://kitsulab.kitsunekode.in/r/book-preview-scroll.json",
         "https://kitsulab.kitsunekode.in/r/book-preview-spread.json",
         "https://kitsulab.kitsunekode.in/r/book-preview-webgl.json"
-      ]
+      ],
+      "docs": "Size: about <1 kB gzipped of its own, 2 kB with its dependencies, plus 618 kB loaded on demand (React and Next not counted)."
     },
     {
       "name": "keyboard-button",
@@ -538,7 +546,8 @@
           "type": "registry:file",
           "target": "public/key_press/click.mp3"
         }
-      ]
+      ],
+      "docs": "Size: about 1 kB gzipped of its own, 43 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "email-domain-input",
@@ -546,7 +555,7 @@
       "title": "Email Domain Input",
       "description": "Email input restricted to approved domains — an inline domain picker keeps the local part and suffix in one field.",
       "registryDependencies": ["input", "select"],
-      "docs": "Requires Base UI primitives (a base-* shadcn project): the Select API relies on `items` and `alignItemWithTrigger`.",
+      "docs": "Requires Base UI primitives (a base-* shadcn project): the Select API relies on `items` and `alignItemWithTrigger`. Size: about 2 kB gzipped of its own, 67 kB with its dependencies (React and Next not counted).",
       "files": [
         {
           "path": "components/email-domain-input.tsx",
@@ -564,7 +573,8 @@
           "path": "components/promotions/promotion.ts",
           "type": "registry:lib"
         }
-      ]
+      ],
+      "docs": "Size: about 7 kB gzipped of its own, 7 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promotion-provider",
@@ -602,7 +612,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Pass your router's pathname and, for client-side navigation, your Link as `linkComponent`. A `{ load }` source runs once per mount; change `sourceKey` to reload. Add behaviour with `plugins={[exitIntent()]}` (keep the array stable). Route dismissals with `storage={composeStores({ cookie: cookieDismissalStore(), account })}`. Set `locale` to pick record translations and pass a `labels` pack. Theme the highlight tone with `--promo-highlight` and `--promo-highlight-foreground`. Media may carry a silent clip (`media.video.sources`, WebM then MP4): `src` stays the still and poster, the clip plays only on screen in a visible tab, and reduced motion or Save-Data keep the still. Next.js with Cache Components: the provider reads the clock while rendering, so on a prerendered route render it inside <Suspense> after `use(io())` from next/cache (surfaces then stay out of the static shell). A modal that hosts your site (a preview, an app shell) should carry `data-promo-host`, or the provider treats the visitor as busy and holds floating surfaces. For an inline bar with no layout shift, pass serverNow (the request time) and a cookieDismissalStore seeded with readPromotionCookies: the bar is then in the server HTML and hydrates at the same instant."
+      "docs": "Pass your router's pathname and, for client-side navigation, your Link as `linkComponent`. A `{ load }` source runs once per mount; change `sourceKey` to reload. Add behaviour with `plugins={[exitIntent()]}` (keep the array stable). Route dismissals with `storage={composeStores({ cookie: cookieDismissalStore(), account })}`. Set `locale` to pick record translations and pass a `labels` pack. Theme the highlight tone with `--promo-highlight` and `--promo-highlight-foreground`. Media may carry a silent clip (`media.video.sources`, WebM then MP4): `src` stays the still and poster, the clip plays only on screen in a visible tab, and reduced motion or Save-Data keep the still. Next.js with Cache Components: the provider reads the clock while rendering, so on a prerendered route render it inside <Suspense> after `use(io())` from next/cache (surfaces then stay out of the static shell). A modal that hosts your site (a preview, an app shell) should carry `data-promo-host`, or the provider treats the visitor as busy and holds floating surfaces. For an inline bar with no layout shift, pass serverNow (the request time) and a cookieDismissalStore seeded with readPromotionCookies: the bar is then in the server HTML and hydrates at the same instant. Size: about 12 kB gzipped of its own, 78 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-bar",
@@ -618,7 +628,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "The floating variant claims the bottom edge: toasts and side cards stack above it, and the provider exposes its height as `--promo-bottom-inset` so the page can pad its end (`padding-bottom: var(--promo-bottom-inset, 0px)`)."
+      "docs": "The floating variant claims the bottom edge: toasts and side cards stack above it, and the provider exposes its height as `--promo-bottom-inset` so the page can pad its end (`padding-bottom: var(--promo-bottom-inset, 0px)`). Size: about 1 kB gzipped of its own, 68 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-card",
@@ -633,7 +643,8 @@
           "path": "components/promotions/promo-card.tsx",
           "type": "registry:component"
         }
-      ]
+      ],
+      "docs": "Size: about <1 kB gzipped of its own, 69 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-badge",
@@ -648,7 +659,8 @@
           "path": "components/promotions/promo-badge.tsx",
           "type": "registry:component"
         }
-      ]
+      ],
+      "docs": "Size: about <1 kB gzipped of its own, 8 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-toast",
@@ -664,7 +676,8 @@
           "path": "components/promotions/promo-toast.tsx",
           "type": "registry:component"
         }
-      ]
+      ],
+      "docs": "Size: about 2 kB gzipped of its own, 68 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promo-dialog",
@@ -681,7 +694,7 @@
           "type": "registry:component"
         }
       ],
-      "docs": "Requires Base UI 1.8+ (a base-* shadcn project): the phone layout uses the Base UI Drawer for swipe dismissal.",
+      "docs": "Requires Base UI 1.8+ (a base-* shadcn project): the phone layout uses the Base UI Drawer for swipe dismissal. Size: about 2 kB gzipped of its own, 101 kB with its dependencies (React and Next not counted).",
       "dependencies": ["@base-ui/react", "@tabler/icons-react", "motion"]
     },
     {
@@ -697,7 +710,8 @@
           "path": "components/promotions/promotion-labels.ts",
           "type": "registry:lib"
         }
-      ]
+      ],
+      "docs": "Size: about 2 kB gzipped of its own, 2 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promotion-analytics",
@@ -713,7 +727,7 @@
           "type": "registry:lib"
         }
       ],
-      "docs": "<PromotionProvider onEvent={combineSinks(posthogSink(posthog), ga4Sink(gtag))}>. Pass a sink only after consent. Use { include: ['click', 'convert'] } to skip high-volume impressions."
+      "docs": "<PromotionProvider onEvent={combineSinks(posthogSink(posthog), ga4Sink(gtag))}>. Pass a sink only after consent. Use { include: ['click', 'convert'] } to skip high-volume impressions. Size: about <1 kB gzipped of its own, <1 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promotion-themes",
@@ -726,7 +740,7 @@
           "type": "registry:lib"
         }
       ],
-      "docs": "Surfaces portal into <body>, so set a preset there: <body style={promotionThemeStyle('editorial')}>. Spread one to override a single token."
+      "docs": "Surfaces portal into <body>, so set a preset there: <body style={promotionThemeStyle('editorial')}>. Spread one to override a single token. Size: about <1 kB gzipped of its own, <1 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promotion-schema",
@@ -742,7 +756,7 @@
           "type": "registry:lib"
         }
       ],
-      "docs": "Paste JSON.stringify(promotionJsonSchema) into a prompt, or serve it for your CMS. parsePromotion stays the judge for what a schema cannot say (allowed links, route patterns, a window that ends after it starts). Published at https://kitsulab.kitsunekode.in/schema/promotion.json."
+      "docs": "Paste JSON.stringify(promotionJsonSchema) into a prompt, or serve it for your CMS. parsePromotion stays the judge for what a schema cannot say (allowed links, route patterns, a window that ends after it starts). Published at https://kitsulab.kitsunekode.in/schema/promotion.json. Size: about 2 kB gzipped of its own, 2 kB with its dependencies (React and Next not counted)."
     },
     {
       "name": "promotions",
@@ -767,7 +781,8 @@
           "path": "components/promotions/index.ts",
           "type": "registry:component"
         }
-      ]
+      ],
+      "docs": "Size: about <1 kB gzipped of its own, 120 kB with its dependencies (React and Next not counted)."
     }
   ]
 }

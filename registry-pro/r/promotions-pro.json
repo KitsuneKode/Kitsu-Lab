@@ -31,6 +31,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "Pro items install from the authenticated @kitsu-pro registry. Add it to components.json with your key in KITSU_PRO_KEY; see the Docs tab on the promotions exhibit.",
+  "docs": "Pro items install from the authenticated @kitsu-pro registry. Add it to components.json with your key in KITSU_PRO_KEY; see the Docs tab on the promotions exhibit. Size: about 1 kB gzipped of its own, 147 kB with its dependencies (React and Next not counted).",
   "type": "registry:block"
 }

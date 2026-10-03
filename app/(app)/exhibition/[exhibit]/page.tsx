@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { notFound } from 'next/navigation'
 import Intro from '@/components/intro'
 import { registry } from '@/app/utils/registry'
 import { ExhibitStage } from '@/components/exhibit-stage'
@@ -13,6 +14,11 @@ export function generateStaticParams() {
   return registry.list.map((component) => ({ exhibit: component.path }))
 }
 
+/**
+ * Renders the requested exhibit, omitting the intro for the book reader.
+ * Rejects with Next.js's not-found signal for an unknown exhibit; rejected
+ * route params propagate to the caller.
+ */
 async function ExhibitionBody({ params }: Props) {
   const { exhibit } = await params
 
@@ -20,14 +26,9 @@ async function ExhibitionBody({ params }: Props) {
     (component) => component.path === exhibit,
   )
 
-  if (!componentExists) {
-    return (
-      <div className="relative flex min-h-dvh w-full flex-col items-center">
-        <BackToLab />
-        <div>Not Found</div>
-      </div>
-    )
-  }
+  // The site's 404 page, marked noindex. The status stays 200: the shell
+  // has already streamed by the time params resolve.
+  if (!componentExists) notFound()
 
   const Exhibit = componentExists.component
 

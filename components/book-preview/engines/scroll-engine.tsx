@@ -15,6 +15,12 @@ const SCROLL_RASTER_WIDTH = 840
 // PDF must not hold 200 decoded bitmaps on a phone.
 const SCROLL_WINDOW_RADIUS = 4
 
+/**
+ * Renders a keyboard-focusable page column, using a PDF when page data is
+ * empty. Keeps scrolling and the zero-based pageIndex in sync, reports page
+ * counts and capabilities through onReady, and reports empty sources or PDF
+ * opening failures through onError. Password-protected PDFs show a prompt.
+ */
 export default function ScrollEngine({
   source,
   pageIndex,
@@ -201,7 +207,11 @@ export default function ScrollEngine({
     <div className="relative h-full w-full min-w-0">
       <div
         ref={scrollerRef}
-        className="h-full overflow-y-auto overscroll-contain px-3 py-4 sm:px-6"
+        // A scroller keyboard users can land on and scroll with the arrows.
+        tabIndex={0}
+        role="region"
+        aria-label="Pages"
+        className="focus-visible:ring-ring/50 h-full overflow-y-auto overscroll-contain px-3 py-4 outline-none focus-visible:ring-2 focus-visible:ring-inset sm:px-6"
         data-book-preview-scroll
       >
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">

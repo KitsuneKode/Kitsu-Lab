@@ -21,11 +21,26 @@ export default defineConfig({
     channel: 'chrome',
     trace: 'retain-on-failure',
   },
+  // Baselines live next to the specs, one set, made in the Playwright image.
+  snapshotPathTemplate: '{testDir}/__screenshots__/{testFileName}/{arg}{ext}',
+  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.002 } },
   projects: [
-    { name: 'desktop', use: { viewport: { width: 1440, height: 900 } } },
+    {
+      name: 'desktop',
+      testIgnore: '**/visual.e2e.ts',
+      use: { viewport: { width: 1440, height: 900 } },
+    },
     {
       name: 'phone',
+      testIgnore: '**/visual.e2e.ts',
       use: { ...devices['iPhone 13'], defaultBrowserType: 'chromium' },
+    },
+    {
+      // Only inside mcr.microsoft.com/playwright (see package.json), with
+      // its bundled Chromium, so pixels match between laptops and CI.
+      name: 'visual',
+      testMatch: '**/visual.e2e.ts',
+      use: { channel: 'chromium' },
     },
   ],
   webServer: process.env.E2E_BASE_URL

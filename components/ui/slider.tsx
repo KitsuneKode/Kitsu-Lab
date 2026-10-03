@@ -1,14 +1,24 @@
 import { Slider as SliderPrimitive } from '@base-ui/react/slider'
 import { cn } from 'cn'
 
+/**
+ * Renders a slider with one thumb per value or defaultValue array entry,
+ * or two thumbs when neither is an array. Accessible labels and value text
+ * (including getAriaValueText) are passed to every thumb.
+ */
 function Slider({
   className,
   defaultValue,
   value,
   min = 0,
   max = 100,
+  'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
+  'aria-valuetext': ariaValueText,
+  getAriaValueText,
   ...props
-}: SliderPrimitive.Root.Props) {
+}: SliderPrimitive.Root.Props &
+  Pick<SliderPrimitive.Thumb.Props, 'aria-valuetext' | 'getAriaValueText'>) {
   const _values = Array.isArray(value)
     ? value
     : Array.isArray(defaultValue)
@@ -43,6 +53,12 @@ function Slider({
           <SliderPrimitive.Thumb
             data-slot="slider-thumb"
             key={index}
+            // The input is what assistive tech focuses, so its name and value
+            // text go there, not on the root group.
+            aria-label={ariaLabel}
+            aria-labelledby={ariaLabelledBy}
+            aria-valuetext={ariaValueText}
+            getAriaValueText={getAriaValueText}
             className="border-ring ring-ring/50 relative block size-3 shrink-0 rounded-full border bg-white transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50"
           />
         ))}

@@ -38,5 +38,6 @@
       "target": "public/key_press/click.mp3"
     }
   ],
+  "docs": "Size: about 1 kB gzipped of its own, 43 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

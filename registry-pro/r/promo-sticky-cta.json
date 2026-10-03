@@ -14,5 +14,6 @@
       "type": "registry:component"
     }
   ],
+  "docs": "Size: about 1 kB gzipped of its own, 23 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

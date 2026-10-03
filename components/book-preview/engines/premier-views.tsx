@@ -552,7 +552,11 @@ export function PremierSingleView({
           allows, unless the stage is too narrow for that page's aspect. */}
       <div
         ref={scrollerRef}
-        className="[container-type:size] flex h-full overflow-auto p-4"
+        // Scrolls once zoomed in; keyboard users need a stop to pan it.
+        tabIndex={0}
+        role="region"
+        aria-label="Page"
+        className="focus-visible:ring-ring/50 [container-type:size] flex h-full overflow-auto p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset"
       >
         <div
           ref={faceRef}
@@ -588,7 +592,7 @@ export function PremierSingleView({
 }
 
 /** Two faces side by side — the magazine/atlas view. Advances a pair at a
-    time; the cover stands alone. */
+    time; the first face stands alone when pageLayout.cover is enabled. */
 export function PremierSpreadView({
   faces,
   pageIndex,
@@ -660,7 +664,11 @@ export function PremierSpreadView({
     >
       <div
         ref={scrollerRef}
-        className="[container-type:size] flex h-full overflow-auto p-4"
+        // Scrolls once zoomed in; keyboard users need a stop to pan it.
+        tabIndex={0}
+        role="region"
+        aria-label="Page"
+        className="focus-visible:ring-ring/50 [container-type:size] flex h-full overflow-auto p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset"
       >
         <div
           ref={faceRef}
@@ -853,7 +861,10 @@ export function PremierScrollView({
   return (
     <div
       ref={scrollerRef}
-      className="h-full w-full overflow-auto overscroll-contain"
+      tabIndex={0}
+      role="region"
+      aria-label="Pages"
+      className="focus-visible:ring-ring/50 h-full w-full overflow-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-inset"
     >
       <div
         ref={columnRef}
@@ -890,7 +901,7 @@ export function PremierScrollView({
 }
 
 /** Just the words — no bitmaps at all. This is the lightest way to read a
-    document: it costs nothing to paint, reflows to any screen, and gives
+    document: it reflows to the screen and gives
     assistive tech clean prose. Page markers keep place with the reader's
     pager and the other views. */
 export function PremierTextView({
@@ -936,7 +947,10 @@ export function PremierTextView({
     <div
       ref={scrollerRef}
       data-bp-paper={appearance}
-      className="h-full w-full overflow-auto overscroll-contain"
+      tabIndex={0}
+      role="region"
+      aria-label="Text"
+      className="focus-visible:ring-ring/50 h-full w-full overflow-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-inset"
     >
       <div
         ref={columnRef}

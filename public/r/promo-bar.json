@@ -13,6 +13,6 @@
       "type": "registry:component"
     }
   ],
-  "docs": "The floating variant claims the bottom edge: toasts and side cards stack above it, and the provider exposes its height as `--promo-bottom-inset` so the page can pad its end (`padding-bottom: var(--promo-bottom-inset, 0px)`).",
+  "docs": "The floating variant claims the bottom edge: toasts and side cards stack above it, and the provider exposes its height as `--promo-bottom-inset` so the page can pad its end (`padding-bottom: var(--promo-bottom-inset, 0px)`). Size: about 1 kB gzipped of its own, 68 kB with its dependencies (React and Next not counted).",
   "type": "registry:component"
 }

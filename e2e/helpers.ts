@@ -2,6 +2,19 @@ import type { Page } from '@playwright/test'
 
 export const READER = '/exhibition/book-reader'
 
+/**
+ * The site's theme (next-themes, dark by default) and the matching media
+ * query. Call before the first navigation.
+ */
+export async function useSiteTheme(page: Page, scheme: 'light' | 'dark') {
+  await page.emulateMedia({ colorScheme: scheme })
+  await page.addInitScript((theme) => {
+    try {
+      localStorage.setItem('theme', theme)
+    } catch {}
+  }, scheme)
+}
+
 /** Opens the demo reader and waits for the engine to settle. */
 export async function openReader(page: Page, query: string) {
   await page.goto(`${READER}?${query}`, { waitUntil: 'networkidle' })

@@ -35,8 +35,19 @@ const items: Item[] = REGISTRIES.flatMap(
   (file) => JSON.parse(readFileSync(join(ROOT, file), 'utf8')).items,
 )
 
+/** Returns the compressed byte count using gzip level 9. */
 const gz = (text: string | Uint8Array) => gzipSync(text, { level: 9 }).length
 
+/**
+ * Measures an item's TS, TSX and CSS bundle as summed gzip bytes per output.
+ * With own=true, dependencies outside the item's files are external; React,
+ * React DOM and Next are always external. Initial size includes statically
+ * reached JS chunks and all CSS; lazy is the remaining output, total their sum.
+ * Creates temporary build files and removes them after the build attempt.
+ *
+ * @throws {AggregateError} If the build returns an unsuccessful result.
+ * Other build, file I/O and compression errors propagate to the caller.
+ */
 async function measure(
   item: Item,
   own: boolean,
@@ -69,6 +80,7 @@ async function measure(
       plugins: [
         {
           name: 'boundary',
+          /** Excludes host packages and, for own size, other dependencies. */
           setup(build) {
             build.onResolve({ filter: /.*/ }, (args) => {
               if (HOST.test(args.path))
@@ -95,6 +107,7 @@ async function measure(
       (output) => output.kind === 'entry-point',
     )!.path
     const initial = new Set<string>()
+    /** Collects reachable static JS imports in initial, skipping revisits. */
     const visit = (path: string) => {
       if (initial.has(path)) return
       initial.add(path)
@@ -115,6 +128,7 @@ async function measure(
   }
 }
 
+/** Converts bytes to 1024-byte units, rounded to one decimal place. */
 const kb = (bytes: number) => Math.round((bytes / 1024) * 10) / 10
 
 const rows: (Sizes & { name: string })[] = []
@@ -150,7 +164,11 @@ if (mode === '--update') {
   publishSizes(rows)
 }
 
-/** One sentence per item's docs, so `shadcn add` tells buyers the cost. */
+/**
+ * Writes measured sizes (1024-byte units) into both registry manifests' docs
+ * so `shadcn add` tells buyers the cost, replacing the first size sentence
+ * for each matching item. File I/O and JSON parsing errors propagate.
+ */
 function publishSizes(measured: typeof rows) {
   const bySize = new Map(measured.map((row) => [row.name, row]))
   const SENTENCE = / ?Size: [^.]*\./

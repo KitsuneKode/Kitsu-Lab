@@ -1,6 +1,11 @@
 import { Slider as SliderPrimitive } from '@base-ui/react/slider'
 import { cn } from 'cn'
 
+/**
+ * Renders a slider with one thumb per value or defaultValue array entry,
+ * or two thumbs when neither is an array. Accessible labels and value text
+ * (including getAriaValueText) are passed to every thumb.
+ */
 function Slider({
   className,
   defaultValue,

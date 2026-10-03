@@ -592,7 +592,7 @@ export function PremierSingleView({
 }
 
 /** Two faces side by side — the magazine/atlas view. Advances a pair at a
-    time; the cover stands alone. */
+    time; the first face stands alone when pageLayout.cover is enabled. */
 export function PremierSpreadView({
   faces,
   pageIndex,
@@ -901,7 +901,7 @@ export function PremierScrollView({
 }
 
 /** Just the words — no bitmaps at all. This is the lightest way to read a
-    document: it costs nothing to paint, reflows to any screen, and gives
+    document: it reflows to the screen and gives
     assistive tech clean prose. Page markers keep place with the reader's
     pager and the other views. */
 export function PremierTextView({

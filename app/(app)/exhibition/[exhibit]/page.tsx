@@ -14,6 +14,11 @@ export function generateStaticParams() {
   return registry.list.map((component) => ({ exhibit: component.path }))
 }
 
+/**
+ * Renders the requested exhibit, omitting the intro for the book reader.
+ * Rejects with Next.js's not-found signal for an unknown exhibit; rejected
+ * route params propagate to the caller.
+ */
 async function ExhibitionBody({ params }: Props) {
   const { exhibit } = await params
 
